@@ -7,3 +7,6 @@ out
 data/store.json
 .vercel
 *.log
+scripts/deploy-files.json
+scripts/parts/
+scripts/chunks/
