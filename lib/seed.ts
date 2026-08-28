@@ -1,4 +1,4 @@
-import type { Product, ShopStore, SiteCopy } from "./types";
+import type { Product, ShopCategory, ShopStore, SiteCopy } from "./types";
 
 export function defaultSite(): SiteCopy {
   return {
@@ -25,6 +25,7 @@ export function defaultSite(): SiteCopy {
     repairStatusUrl: "https://repairstatus.site",
     logoUrl: "https://bighorncustomworks.com/cdn/shop/files/Photo_Jul_20_2026_5_31_04_PM.png",
     heroUrl: "https://bighorncustomworks.com/cdn/shop/files/web_logo_hero_graphic.jpg",
+    heroVideoUrl: "/uploads/1787947574036-grok-video-8029923e-838e-4b53-b649-9b1858fe608d.mp4",
     footerNote: "Big Horn Custom Works LLC · Sheridan, Wyoming",
     footerLinks: [
       { id: "privacy", label: "Privacy", url: "/privacy" },
@@ -32,8 +33,12 @@ export function defaultSite(): SiteCopy {
       { id: "repair", label: "Repair Status", url: "https://repairstatus.site" },
     ],
     shopFloorNotes:
-      "Shop-floor calls (edit these):\n• Shipping starts as a note, not a made-up rate. Set a flat amount in cents only if you want it added at Stripe Checkout.\n• Repair Status is a text link, never a catalog item and never $0.\n• Stripe is in test mode until you put live keys in Vercel env or the Stripe key field below.\n• Public pages ignore messy HTML/JS in these fields so a stray edit cannot crash the site.",
+      "Shop-floor calls (edit these):\n• Shipping starts as a note, not a made-up rate. Set a flat amount in cents only if you want it added at Stripe Checkout.\n• Repair Status is a text link, never a catalog item and never $0.\n• Stripe is in test mode until you put live keys in Vercel env or the Stripe key field below.\n• Public pages ignore messy HTML/JS in these fields so a stray edit cannot crash the site.\n• Categories are a label on each product (Mill accessories, Digital downloads, or a new line you type). Shop filters by that label.\n• Digital products skip shipping at checkout. Delivery note is emailed / Master Control until a download locker is built.\n• Demo videos: paste YouTube, Vimeo, or a direct .mp4/.webm URL on the product.",
   };
+}
+
+export function defaultCategories(): ShopCategory[] {
+  return [{ id: "cat_mill", name: "Mill accessories", sortOrder: 1 }];
 }
 
 export function defaultProducts(): Product[] {
@@ -49,6 +54,10 @@ export function defaultProducts(): Product[] {
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoMay162026_125741PM.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Photo_May_16_2026_12_57_07_PM.jpg",
       ],
+      videos: [],
+      category: "Mill accessories",
+      kind: "physical",
+      digitalNote: "",
       variants: [],
       variantNote: "",
       visible: true,
@@ -65,6 +74,10 @@ export function defaultProducts(): Product[] {
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/T-Slotcovers.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_15.png",
       ],
+      videos: [],
+      category: "Mill accessories",
+      kind: "physical",
+      digitalNote: "",
       variants: [
         { id: "black", name: "Black" },
         { id: "blue", name: "Blue" },
@@ -88,6 +101,10 @@ export function defaultProducts(): Product[] {
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_14.png",
       ],
+      videos: [],
+      category: "Mill accessories",
+      kind: "physical",
+      digitalNote: "",
       variants: [],
       variantNote: "",
       visible: true,
@@ -99,12 +116,14 @@ export function defaultProducts(): Product[] {
 export function seedStore(): ShopStore {
   return {
     products: defaultProducts(),
+    categories: defaultCategories(),
     quotes: [],
     site: defaultSite(),
     settings: {
       stripeSecretKey: "",
       stripeMode: "test",
     },
+    stats: { pageViews: 0, uniqueVisitors: 0 },
     updatedAt: "",
   };
 }

@@ -13,7 +13,7 @@ function sign(payload: string): string {
 }
 
 export function masterPassword(): string {
-  return process.env.MASTER_CONTROL_PASSWORD || "";
+  return (process.env.MASTER_CONTROL_PASSWORD || "").trim();
 }
 
 export function passwordConfigured(): boolean {
@@ -22,8 +22,9 @@ export function passwordConfigured(): boolean {
 
 export function checkPassword(input: string): boolean {
   const expected = masterPassword();
-  if (!expected || !input) return false;
-  const a = Buffer.from(input);
+  const given = input.trim();
+  if (!expected || !given) return false;
+  const a = Buffer.from(given);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);

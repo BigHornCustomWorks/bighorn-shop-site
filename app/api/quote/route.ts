@@ -50,10 +50,10 @@ export async function POST(req: Request) {
       emailed: false,
     };
 
-    const emailed = await sendQuoteEmail(quote);
+    const store = await readStore();
+    const emailed = await sendQuoteEmail(quote, store.site.contactEmail);
     quote.emailed = emailed;
 
-    const store = await readStore();
     store.quotes = [quote, ...store.quotes].slice(0, 400);
     await writeStore(store);
 

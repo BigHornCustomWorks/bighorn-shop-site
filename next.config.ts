@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "bighorncustomworks.com" },
     ],
   },
+  experimental: {
+    middlewareClientMaxBodySize: "50mb",
+    serverActions: { bodySizeLimit: "50mb" },
+  },
 };
 
 export default nextConfig;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroMedia } from "@/components/HeroMedia";
 import { ProductCard } from "@/components/ProductCard";
 import { QuoteForm } from "@/components/QuoteForm";
 import { readStore, visibleProducts } from "@/lib/store";
@@ -12,30 +13,22 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="hero">
-        <img className="hero-photo" src={site.heroUrl || "/hero.jpg"} alt="" />
-        <div className="hero-veil" />
-        <div className="hero-copy">
-          <div className="hero-copy-inner">
-            <div className="eyebrow">{site.location} · custom fab</div>
-            <p className="tagline">
-              {site.taglineLine1}
-              <br />
-              {site.taglineLine2}
-              <br />
-              {site.taglineLine3}
-            </p>
-            <div className="hero-actions">
-              <Link className="btn btn-bronze" href="/shop">
-                Shop parts
-              </Link>
-              <Link className="btn btn-ghost" href="/custom">
-                Request a quote
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <HeroMedia photo={site.heroUrl || "/hero.jpg"} video={site.heroVideoUrl || ""} />
+      <div className="tagline-bar">
+        <p className="tagline-line">
+          <span>{site.taglineLine1}</span>
+          <span>{site.taglineLine2}</span>
+          <span>{site.taglineLine3}</span>
+        </p>
+      </div>
+      <div className="hero-actions wrap" style={{ paddingTop: 16, paddingBottom: 0 }}>
+        <Link className="btn btn-bronze" href="/shop">
+          Shop parts
+        </Link>
+        <Link className="btn" href="/custom">
+          Request a quote
+        </Link>
+      </div>
 
       <div className="wrap">
         <p className="section-kicker">Who we are</p>
@@ -48,7 +41,7 @@ export default async function HomePage() {
         <hr className="rule" />
         <p className="section-kicker">Catalog</p>
         <h2>On the shelf</h2>
-        <div className="grid-3">
+        <div className="grid-catalog">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

@@ -53,7 +53,9 @@ export async function createCheckoutSession(
     };
   });
 
-  if (store.site.shippingCents > 0) {
+  const needsShipping = items.some((i) => i.product.kind !== "digital");
+
+  if (needsShipping && store.site.shippingCents > 0) {
     line_items.push({
       quantity: 1,
       price_data: {
@@ -69,12 +71,15 @@ export async function createCheckoutSession(
     line_items,
     success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/checkout/cancel`,
-    shipping_address_collection: { allowed_countries: ["US"] },
     metadata: {
       shop: "big-horn-custom-works",
       items: items.map((i) => `${i.product.slug}:${i.variant || "default"}x${i.quantity}`).join(","),
     },
   };
+
+  if (needsShipping) {
+    params.shipping_address_collection = { allowed_countries: ["US"] };
+  }
 
   if (customerEmail) params.customer_email = customerEmail;
 

@@ -3,6 +3,14 @@ export type ProductVariant = {
   name: string;
 };
 
+export type ProductKind = "physical" | "digital";
+
+export type ShopCategory = {
+  id: string;
+  name: string;
+  sortOrder: number;
+};
+
 export type Product = {
   id: string;
   slug: string;
@@ -10,6 +18,10 @@ export type Product = {
   priceCents: number;
   description: string;
   photos: string[];
+  videos: string[];
+  category: string;
+  kind: ProductKind;
+  digitalNote: string;
   variants: ProductVariant[];
   variantNote: string;
   visible: boolean;
@@ -53,6 +65,7 @@ export type SiteCopy = {
   repairStatusUrl: string;
   logoUrl: string;
   heroUrl: string;
+  heroVideoUrl: string;
   footerNote: string;
   footerLinks: FooterLink[];
   shopFloorNotes: string;
@@ -63,10 +76,17 @@ export type ShopSettings = {
   stripeMode: "test" | "live";
 };
 
+export type ShopStats = {
+  pageViews: number;
+  uniqueVisitors: number;
+};
+
 export type ShopStore = {
   products: Product[];
+  categories: ShopCategory[];
   quotes: Quote[];
   site: SiteCopy;
   settings: ShopSettings;
+  stats: ShopStats;
   updatedAt: string;
 };

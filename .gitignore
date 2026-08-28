@@ -10,3 +10,5 @@ data/store.json
 scripts/deploy-files.json
 scripts/parts/
 scripts/chunks/
+public/uploads/*
+!public/uploads/.gitkeep

@@ -19,6 +19,7 @@ export async function GET() {
     persistence: persistenceLabel(),
     envStripe: Boolean(process.env.STRIPE_SECRET_KEY),
     envResend: Boolean(process.env.RESEND_API_KEY),
+    envSmtp: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
   });
 }
 
@@ -45,6 +46,8 @@ export async function PUT(req: Request) {
     },
     quotes: Array.isArray(incoming.quotes) ? incoming.quotes : current.quotes,
     products: Array.isArray(incoming.products) ? incoming.products : current.products,
+    categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
+    stats: current.stats,
   };
   const result = await writeStore(merged);
   return NextResponse.json({ ok: result.ok, persisted: result.persisted, persistence: persistenceLabel() });

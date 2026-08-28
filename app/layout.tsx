@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CartProvider } from "@/components/CartProvider";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { VisitBeacon } from "@/components/VisitBeacon";
 import { readStore } from "@/lib/store";
 import "./globals.css";
 
@@ -24,8 +25,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let site;
+  let uniqueVisitors = 0;
   try {
-    site = (await readStore()).site;
+    const store = await readStore();
+    site = store.site;
+    uniqueVisitors = store.stats?.uniqueVisitors || 0;
   } catch {
     site = (await import("@/lib/seed")).defaultSite();
   }
@@ -45,9 +49,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to content
         </a>
         <CartProvider>
+          <VisitBeacon />
           <Header site={site} />
           <main id="main">{children}</main>
-          <Footer site={site} />
+          <Footer site={site} uniqueVisitors={uniqueVisitors} />
         </CartProvider>
       </body>
     </html>

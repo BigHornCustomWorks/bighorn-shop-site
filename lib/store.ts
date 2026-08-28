@@ -14,9 +14,12 @@ import {
 import type {
   FooterLink,
   Product,
+  ProductKind,
   ProductVariant,
   Quote,
+  ShopCategory,
   ShopSettings,
+  ShopStats,
   ShopStore,
   SiteCopy,
 } from "./types";
@@ -47,6 +50,11 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     .map((p) => safeUrl(p))
     .filter(Boolean)
     .slice(0, 12);
+  const videos = asArray<unknown>(src.videos)
+    .map((v) => safeUrl(v))
+    .filter(Boolean)
+    .slice(0, 8);
+  const kind: ProductKind = src.kind === "digital" ? "digital" : "physical";
   return {
     id: cleanStr(src.id, newId("prod")),
     slug: safeSlug(src.slug, safeSlug(name, `part-${i + 1}`)),
@@ -54,6 +62,15 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     priceCents: asCents(src.priceCents, 0),
     description: cleanMultiline(src.description),
     photos,
+    videos,
+    category: cleanStr(src.category, "Mill accessories"),
+    kind,
+    digitalNote: cleanMultiline(
+      src.digitalNote,
+      kind === "digital"
+        ? "Digital item. After Stripe payment, Clint emails the file or download link. No shipping."
+        : "",
+    ),
     variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 24),
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
@@ -111,9 +128,18 @@ function normalizeSite(raw: unknown): SiteCopy {
     repairStatusUrl: safeUrl(src.repairStatusUrl) || base.repairStatusUrl,
     logoUrl: safeUrl(src.logoUrl) || base.logoUrl,
     heroUrl: safeUrl(src.heroUrl) || base.heroUrl,
+    heroVideoUrl: safeUrl(src.heroVideoUrl),
     footerNote: cleanStr(src.footerNote, base.footerNote),
     footerLinks: links.length ? links : base.footerLinks,
     shopFloorNotes: cleanMultiline(src.shopFloorNotes, base.shopFloorNotes),
+  };
+}
+
+function normalizeStats(raw: unknown): ShopStats {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStats>;
+  return {
+    pageViews: Math.max(0, asInt(src.pageViews, 0)),
+    uniqueVisitors: Math.max(0, asInt(src.uniqueVisitors, 0)),
   };
 }
 
@@ -127,6 +153,37 @@ function normalizeSettings(raw: unknown): ShopSettings {
   };
 }
 
+function normalizeCategory(raw: unknown, i: number): ShopCategory | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopCategory>;
+  const name = cleanStr(src.name);
+  if (!name) return null;
+  return {
+    id: cleanStr(src.id, newId("cat")),
+    name,
+    sortOrder: asInt(src.sortOrder, i + 1),
+  };
+}
+
+function mergeCategories(raw: unknown, products: Product[]): ShopCategory[] {
+  const listed = asArray<unknown>(raw)
+    .map(normalizeCategory)
+    .filter((c): c is ShopCategory => Boolean(c));
+  const byName = new Map(listed.map((c) => [c.name.toLowerCase(), c]));
+  for (const p of products) {
+    const label = p.category || "Mill accessories";
+    if (!byName.has(label.toLowerCase())) {
+      const extra: ShopCategory = {
+        id: newId("cat"),
+        name: label,
+        sortOrder: byName.size + 1,
+      };
+      byName.set(label.toLowerCase(), extra);
+    }
+  }
+  const merged = [...byName.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  return merged.length ? merged.map((c, i) => ({ ...c, sortOrder: i + 1 })) : seedStore().categories;
+}
+
 export function normalizeStore(raw: unknown): ShopStore {
   const base = seedStore();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStore>;
@@ -134,14 +191,17 @@ export function normalizeStore(raw: unknown): ShopStore {
     .map(normalizeProduct)
     .filter((p): p is Product => Boolean(p))
     .sort((a, b) => a.sortOrder - b.sortOrder);
+  const finalProducts = products.length ? products : base.products;
   return {
-    products: products.length ? products : base.products,
+    products: finalProducts,
+    categories: mergeCategories(src.categories, finalProducts),
     quotes: asArray<unknown>(src.quotes)
       .map(normalizeQuote)
       .filter((q): q is Quote => Boolean(q))
       .slice(0, 400),
     site: normalizeSite(src.site),
     settings: normalizeSettings(src.settings),
+    stats: normalizeStats(src.stats),
     updatedAt: cleanStr(src.updatedAt),
   };
 }
@@ -227,6 +287,27 @@ export function visibleProducts(store: ShopStore): Product[] {
   return store.products.filter((p) => p.visible);
 }
 
+export function categorySlug(name: string): string {
+  return safeSlug(name, "all");
+}
+
+export function productCategories(products: Product[]): string[] {
+  const seen = new Map<string, string>();
+  for (const p of products) {
+    const label = p.category || "Other";
+    const key = categorySlug(label);
+    if (!seen.has(key)) seen.set(key, label);
+  }
+  return [...seen.values()];
+}
+
+export function shopFilterCategories(store: ShopStore): ShopCategory[] {
+  const visible = visibleProducts(store);
+  return (store.categories || []).filter((c) =>
+    visible.some((p) => p.category.toLowerCase() === c.name.toLowerCase()),
+  );
+}
+
 export function productBySlug(store: ShopStore, slug: string): Product | undefined {
   const want = safeSlug(slug);
   return visibleProducts(store).find((p) => p.slug === want);
@@ -238,7 +319,9 @@ export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quo
 } {
   return {
     products: store.products,
+    categories: store.categories,
     site: store.site,
+    stats: store.stats,
     updatedAt: store.updatedAt,
     quoteCount: store.quotes.length,
     settings: {

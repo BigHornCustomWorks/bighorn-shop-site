@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { dollarsToCents, formatUsd } from "@/lib/money";
 import { newId, safeSlug } from "@/lib/sanitize";
-import type { Product, Quote, ShopStore } from "@/lib/types";
+import type { Product, Quote, ShopCategory, ShopStore } from "@/lib/types";
 
 type Tab = "products" | "copy" | "quotes" | "settings";
 
@@ -14,6 +14,10 @@ const emptyProduct = (): Product => ({
   priceCents: 0,
   description: "",
   photos: [],
+  videos: [],
+  category: "Mill accessories",
+  kind: "physical",
+  digitalNote: "",
   variants: [],
   variantNote: "",
   visible: true,
@@ -29,6 +33,15 @@ export function MasterClient() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [stripeKeyDraft, setStripeKeyDraft] = useState("");
+  const [envSmtp, setEnvSmtp] = useState(false);
+  const [query, setQuery] = useState("");
+  const [filterCat, setFilterCat] = useState("all");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [newCat, setNewCat] = useState("");
+  const [dragCat, setDragCat] = useState<number | null>(null);
+  const [dragProd, setDragProd] = useState<string | null>(null);
+  const [heroVideoFile, setHeroVideoFile] = useState<File | null>(null);
+  const [heroUploading, setHeroUploading] = useState(false);
 
   useEffect(() => {
     fetch("/api/master/store")
@@ -42,6 +55,7 @@ export function MasterClient() {
         setPersistence(json.persistence || "");
         setEnvStripe(Boolean(json.envStripe));
         setEnvResend(Boolean(json.envResend));
+        setEnvSmtp(Boolean(json.envSmtp));
       })
       .catch(() => setError("Could not load Master Control."));
   }, []);
@@ -68,19 +82,44 @@ export function MasterClient() {
     setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.`);
   }
 
-  async function uploadTo(productId: string, file: File) {
+  async function uploadTo(productId: string, file: File, kind: "photo" | "video" = "photo") {
     const data = new FormData();
     data.set("file", file);
+    data.set("kind", kind);
     const res = await fetch("/api/master/upload", { method: "POST", body: data });
     const json = await res.json();
     if (!res.ok || !json.url || !store) {
       setError(json.error || "Upload failed. Paste a URL instead.");
       return;
     }
-    const products = store.products.map((p) =>
-      p.id === productId ? { ...p, photos: [...p.photos, json.url] } : p,
-    );
+    const products = store.products.map((p) => {
+      if (p.id !== productId) return p;
+      if (kind === "video") return { ...p, videos: [...(p.videos || []), json.url] };
+      return { ...p, photos: [...p.photos, json.url] };
+    });
     await save({ ...store, products });
+  }
+
+  async function uploadHeroVideo(file: File) {
+    if (!store) return;
+    setHeroUploading(true);
+    setError("");
+    const data = new FormData();
+    data.set("file", file);
+    data.set("kind", "video");
+    try {
+      const res = await fetch("/api/master/upload", { method: "POST", body: data });
+      const json = await res.json();
+      if (!res.ok || !json.url) {
+        setError(json.error || "Hero video upload failed. Keep it under 40MB.");
+        return;
+      }
+      const next = { ...store, site: { ...store.site, heroVideoUrl: json.url } };
+      await save(next);
+      setHeroVideoFile(null);
+    } finally {
+      setHeroUploading(false);
+    }
   }
 
   if (!store) {
@@ -129,44 +168,24 @@ export function MasterClient() {
       {error ? <p className="err">{error}</p> : null}
 
       {tab === "products" ? (
-        <div>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => {
-              const p = emptyProduct();
-              p.sortOrder = store.products.length + 1;
-              setStore({ ...store, products: [...store.products, p] });
-            }}
-          >
-            Add product
-          </button>
-          {store.products.map((product, index) => (
-            <ProductEditor
-              key={product.id}
-              product={product}
-              onChange={(next) => {
-                const products = [...store.products];
-                products[index] = next;
-                setStore({ ...store, products });
-              }}
-              onMove={(dir) => {
-                const products = [...store.products];
-                const j = index + dir;
-                if (j < 0 || j >= products.length) return;
-                [products[index], products[j]] = [products[j], products[index]];
-                setStore({
-                  ...store,
-                  products: products.map((p, i) => ({ ...p, sortOrder: i + 1 })),
-                });
-              }}
-              onUpload={(file) => uploadTo(product.id, file)}
-            />
-          ))}
-          <button className="btn btn-bronze" type="button" onClick={() => save(store)}>
-            Save products
-          </button>
-        </div>
+        <ProductsTab
+          store={store}
+          setStore={setStore}
+          save={save}
+          uploadTo={uploadTo}
+          query={query}
+          setQuery={setQuery}
+          filterCat={filterCat}
+          setFilterCat={setFilterCat}
+          openId={openId}
+          setOpenId={setOpenId}
+          newCat={newCat}
+          setNewCat={setNewCat}
+          dragCat={dragCat}
+          setDragCat={setDragCat}
+          dragProd={dragProd}
+          setDragProd={setDragProd}
+        />
       ) : null}
 
       {tab === "copy" ? (
@@ -245,8 +264,57 @@ export function MasterClient() {
             <input value={store.site.logoUrl} onChange={(e) => setStore({ ...store, site: { ...store.site, logoUrl: e.target.value } })} />
           </label>
           <label>
-            Hero photo URL
+            Hero photo URL (still that shows after the clip, and on later visits)
             <input value={store.site.heroUrl} onChange={(e) => setStore({ ...store, site: { ...store.site, heroUrl: e.target.value } })} />
+          </label>
+          <p className="note">
+            Hero intro video — plays once on a visitor’s first visit (muted), then the still shows.
+          </p>
+          {store.site.heroVideoUrl ? (
+            <div>
+              <video src={store.site.heroVideoUrl} controls playsInline style={{ maxWidth: "100%", maxHeight: 240 }} />
+              <p className="muted">{store.site.heroVideoUrl}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = { ...store, site: { ...store.site, heroVideoUrl: "" } };
+                  setStore(next);
+                  save(next);
+                }}
+              >
+                Remove video
+              </button>
+            </div>
+          ) : (
+            <p className="muted">No hero video uploaded yet.</p>
+          )}
+          <label>
+            Choose hero video (mp4 / webm, under 40MB)
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,video/*"
+              onChange={(e) => setHeroVideoFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn"
+            disabled={!heroVideoFile || heroUploading}
+            onClick={() => heroVideoFile && uploadHeroVideo(heroVideoFile)}
+          >
+            {heroUploading
+              ? "Uploading…"
+              : heroVideoFile
+                ? `Upload hero video (${heroVideoFile.name})`
+                : "Upload hero video"}
+          </button>
+          <label>
+            Or paste hero video URL
+            <input
+              value={store.site.heroVideoUrl || ""}
+              onChange={(e) => setStore({ ...store, site: { ...store.site, heroVideoUrl: e.target.value } })}
+              placeholder="https://… or /uploads/…"
+            />
           </label>
           <label>
             Footer note
@@ -281,6 +349,10 @@ export function MasterClient() {
             Shop-floor notes (only you see these)
             <textarea value={store.site.shopFloorNotes} onChange={(e) => setStore({ ...store, site: { ...store.site, shopFloorNotes: e.target.value } })} />
           </label>
+          <p>
+            Visitors: {(store.stats?.uniqueVisitors || 0).toLocaleString("en-US")} unique ·{" "}
+            {(store.stats?.pageViews || 0).toLocaleString("en-US")} page views
+          </p>
           <p>Stripe env key: {envStripe ? "set" : "missing"} · Mode: {store.settings.stripeMode}</p>
           <label>
             Stripe mode
@@ -311,7 +383,9 @@ export function MasterClient() {
             your catalog checkout. Quote jobs stay off the cart.
           </p>
           <p className="note">
-            Quote email via Resend: {envResend ? "configured" : "not set — quotes still land in this inbox"}.
+            Quote emails go to the contact email above (and QUOTE_TO_EMAIL). SMTP: {envSmtp ? "set" : "not set"}.
+            Resend: {envResend ? "set" : "not set"}. If neither is set, the first quote sends a FormSubmit
+            confirmation to {store.site.contactEmail} — click that once, then new requests email you.
           </p>
           <button
             className="btn btn-bronze"
@@ -326,18 +400,240 @@ export function MasterClient() {
   );
 }
 
+function ProductsTab({
+  store,
+  setStore,
+  save,
+  uploadTo,
+  query,
+  setQuery,
+  filterCat,
+  setFilterCat,
+  openId,
+  setOpenId,
+  newCat,
+  setNewCat,
+  dragCat,
+  setDragCat,
+  dragProd,
+  setDragProd,
+}: {
+  store: ShopStore;
+  setStore: (s: ShopStore) => void;
+  save: (s: ShopStore) => Promise<void>;
+  uploadTo: (id: string, file: File, kind: "photo" | "video") => Promise<void>;
+  query: string;
+  setQuery: (v: string) => void;
+  filterCat: string;
+  setFilterCat: (v: string) => void;
+  openId: string | null;
+  setOpenId: (v: string | null) => void;
+  newCat: string;
+  setNewCat: (v: string) => void;
+  dragCat: number | null;
+  setDragCat: (v: number | null) => void;
+  dragProd: string | null;
+  setDragProd: (v: string | null) => void;
+}) {
+  const categories = store.categories || [];
+  const q = query.trim().toLowerCase();
+  const listed = store.products.filter((p) => {
+    if (filterCat !== "all" && p.category !== filterCat) return false;
+    if (!q) return true;
+    return `${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q);
+  });
+  const open = store.products.find((p) => p.id === openId);
+
+  function reorderCats(from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return;
+    const next = [...categories];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setStore({ ...store, categories: next.map((c, i) => ({ ...c, sortOrder: i + 1 })) });
+  }
+
+  function reorderProds(fromId: string, toId: string) {
+    if (fromId === toId) return;
+    const next = [...store.products];
+    const from = next.findIndex((p) => p.id === fromId);
+    const to = next.findIndex((p) => p.id === toId);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setStore({ ...store, products: next.map((p, i) => ({ ...p, sortOrder: i + 1 })) });
+  }
+
+  return (
+    <div>
+      <p className="note">
+        Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder.
+      </p>
+      <div className="mc-cat-row">
+        <button
+          type="button"
+          className={filterCat === "all" ? "mc-cat-chip on" : "mc-cat-chip"}
+          onClick={() => setFilterCat("all")}
+        >
+          All
+        </button>
+        {categories.map((c, i) => (
+          <span
+            key={c.id}
+            className={filterCat === c.name ? "mc-cat-chip on" : "mc-cat-chip"}
+            draggable
+            onDragStart={() => setDragCat(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragCat == null) return;
+              reorderCats(dragCat, i);
+              setDragCat(null);
+            }}
+          >
+            <button type="button" onClick={() => setFilterCat(c.name)}>
+              {c.name}
+            </button>
+            <button
+              type="button"
+              title="Remove category"
+              onClick={() => {
+                const next = categories.filter((x) => x.id !== c.id);
+                setStore({ ...store, categories: next.map((x, n) => ({ ...x, sortOrder: n + 1 })) });
+                if (filterCat === c.name) setFilterCat("all");
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={newCat}
+          onChange={(e) => setNewCat(e.target.value)}
+          placeholder="New category (Office, Tools…)"
+        />
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            const name = newCat.trim();
+            if (!name) return;
+            if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+              setNewCat("");
+              return;
+            }
+            const cat: ShopCategory = {
+              id: `cat_${Date.now().toString(36)}`,
+              name,
+              sortOrder: categories.length + 1,
+            };
+            setStore({ ...store, categories: [...categories, cat] });
+            setNewCat("");
+            setFilterCat(name);
+          }}
+        >
+          Add category
+        </button>
+      </div>
+
+      <label className="search-box">
+        Search products
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or category" />
+      </label>
+
+      <div className="hero-actions" style={{ marginBottom: 10 }}>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            const p = emptyProduct();
+            p.sortOrder = store.products.length + 1;
+            if (filterCat !== "all") p.category = filterCat;
+            else if (categories[0]) p.category = categories[0].name;
+            setStore({ ...store, products: [...store.products, p] });
+            setOpenId(p.id);
+          }}
+        >
+          Add product
+        </button>
+        <button className="btn btn-bronze" type="button" onClick={() => save(store)}>
+          Save products
+        </button>
+      </div>
+
+      <div className="mc-product-grid">
+        {listed.map((product) => (
+          <button
+            key={product.id}
+            type="button"
+            className={openId === product.id ? "mc-product-card open" : "mc-product-card"}
+            draggable
+            onDragStart={() => setDragProd(product.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragProd) reorderProds(dragProd, product.id);
+              setDragProd(null);
+            }}
+            onClick={() => setOpenId(openId === product.id ? null : product.id)}
+          >
+            <img src={product.photos[0] || "/logo.png"} alt="" />
+            <div className="pad">
+              <p className="card-meta">
+                {product.category}
+                {product.kind === "digital" ? " · Digital" : ""}
+              </p>
+              <h3>{product.name || "Untitled"}</h3>
+              <p className="price">{formatUsd(product.priceCents)}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {open ? (
+        <ProductEditor
+          product={open}
+          categories={categories}
+          onChange={(next) => {
+            setStore({
+              ...store,
+              products: store.products.map((p) => (p.id === next.id ? next : p)),
+            });
+          }}
+          onMove={(dir) => {
+            const products = [...store.products];
+            const index = products.findIndex((p) => p.id === open.id);
+            const j = index + dir;
+            if (index < 0 || j < 0 || j >= products.length) return;
+            [products[index], products[j]] = [products[j], products[index]];
+            setStore({
+              ...store,
+              products: products.map((p, i) => ({ ...p, sortOrder: i + 1 })),
+            });
+          }}
+          onUpload={(file, kind) => uploadTo(open.id, file, kind)}
+        />
+      ) : (
+        <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
+      )}
+    </div>
+  );
+}
+
 function ProductEditor({
   product,
+  categories,
   onChange,
   onMove,
   onUpload,
 }: {
   product: Product;
+  categories: ShopCategory[];
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
-  onUpload: (file: File) => void;
+  onUpload: (file: File, kind: "photo" | "video") => void;
 }) {
   const [photoUrl, setPhotoUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const dollars = (product.priceCents / 100).toFixed(2);
 
   return (
@@ -362,6 +658,37 @@ function ProductEditor({
         </label>
       </div>
       <div className="row-3">
+        <label>
+          Category
+          <select
+            value={product.category}
+            onChange={(e) => onChange({ ...product, category: e.target.value })}
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+            {!categories.some((c) => c.name === product.category) && product.category ? (
+              <option value={product.category}>{product.category}</option>
+            ) : null}
+          </select>
+        </label>
+        <label>
+          Type
+          <select
+            value={product.kind}
+            onChange={(e) =>
+              onChange({
+                ...product,
+                kind: e.target.value === "digital" ? "digital" : "physical",
+              })
+            }
+          >
+            <option value="physical">Physical (ships)</option>
+            <option value="digital">Digital (no shipping)</option>
+          </select>
+        </label>
         <label>
           Price (USD)
           <input
@@ -416,6 +743,16 @@ function ProductEditor({
         Variant note
         <textarea value={product.variantNote} onChange={(e) => onChange({ ...product, variantNote: e.target.value })} />
       </label>
+      {product.kind === "digital" ? (
+        <label>
+          Digital delivery note (shown on the product page)
+          <textarea
+            value={product.digitalNote}
+            onChange={(e) => onChange({ ...product, digitalNote: e.target.value })}
+            placeholder="Emailed after payment. File format, license, etc."
+          />
+        </label>
+      ) : null}
       <p className="note">Photos</p>
       <div className="thumbs">
         {product.photos.map((url) => (
@@ -435,27 +772,83 @@ function ProductEditor({
           <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} />
         </label>
         <label>
-          Or upload
+          Choose photo
           <input
             type="file"
             accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-            }}
+            onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
           />
         </label>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          if (!photoUrl.trim()) return;
-          onChange({ ...product, photos: [...product.photos, photoUrl.trim()] });
-          setPhotoUrl("");
-        }}
-      >
-        Add URL
-      </button>
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={!photoFile}
+          onClick={() => {
+            if (!photoFile) return;
+            onUpload(photoFile, "photo");
+            setPhotoFile(null);
+          }}
+        >
+          {photoFile ? `Upload photo (${photoFile.name})` : "Upload photo"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!photoUrl.trim()) return;
+            onChange({ ...product, photos: [...product.photos, photoUrl.trim()] });
+            setPhotoUrl("");
+          }}
+        >
+          Add photo URL
+        </button>
+      </div>
+      <p className="note">Demo videos (YouTube, Vimeo, or a direct .mp4 / .webm link)</p>
+      {(product.videos || []).map((url) => (
+        <p key={url} className="muted">
+          {url}{" "}
+          <button type="button" onClick={() => onChange({ ...product, videos: product.videos.filter((v) => v !== url) })}>
+            Remove
+          </button>
+        </p>
+      ))}
+      <label>
+        Choose video file
+        <input
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,video/*"
+          onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+        />
+      </label>
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={!videoFile}
+          onClick={() => {
+            if (!videoFile) return;
+            onUpload(videoFile, "video");
+            setVideoFile(null);
+          }}
+        >
+          {videoFile ? `Upload video (${videoFile.name})` : "Upload video"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!videoUrl.trim()) return;
+            onChange({ ...product, videos: [...(product.videos || []), videoUrl.trim()] });
+            setVideoUrl("");
+          }}
+        >
+          Add video URL
+        </button>
+      </div>
+      <label>
+        Or paste YouTube / Vimeo / mp4 URL
+        <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" />
+      </label>
     </div>
   );
 }

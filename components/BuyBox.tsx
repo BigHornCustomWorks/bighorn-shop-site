@@ -84,6 +84,11 @@ export function BuyBox({ product }: { product: Product }) {
         </button>
       </div>
       {error ? <p className="err">{error}</p> : null}
+      {product.kind === "digital" ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          Digital — nothing ships. {product.digitalNote}
+        </p>
+      ) : null}
     </div>
   );
 }
