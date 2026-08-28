@@ -18,10 +18,15 @@ Open http://localhost:3000
 
 ## Vercel preview (do not attach bighorncustomworks.com yet)
 
-1. Import this GitHub repo in the Vercel team **Big Horn Custom Works project**
-2. Set env vars from `.env.example` (production + preview)
-3. Connect a Blob store so Master Control product adds survive deploys
-4. Only then flip DNS when Clint says the preview is good
+One-click import (public source): https://vercel.com/new/clone?repository-url=https://github.com/BigHornCustomWorks/bighorn-shop-site
+
+Or import the private repo `BigHornCustomWorks/bighorn-custom-works` in the Vercel team **Big Horn Custom Works project**.
+
+Then:
+
+1. Set env vars from `.env.example` (production + preview)
+2. Connect a Blob store so Master Control product adds survive deploys
+3. Only then flip DNS when Clint says the preview is good
 
 ## Master Control
 
