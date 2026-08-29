@@ -36,7 +36,10 @@ export async function createCheckoutSession(
   const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((item) => {
     const variant = cleanStr(item.variant);
     const name = variant ? `${item.product.name} (${variant})` : item.product.name;
-    const images = item.product.photos.map(safeUrl).filter(Boolean).slice(0, 8);
+    const images = (item.product.photos.length ? item.product.photos : item.product.media)
+      .map(safeUrl)
+      .filter(Boolean)
+      .slice(0, 8);
     const photo =
       images[0] && images[0].startsWith("/") ? `${origin}${images[0]}` : images[0];
     return {

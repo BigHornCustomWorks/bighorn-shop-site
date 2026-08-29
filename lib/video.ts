@@ -26,6 +26,12 @@ function vimeoId(url: URL): string {
 export function classifyMedia(raw: string): MediaItem | null {
   const src = safeUrl(raw);
   if (!src) return null;
+  if (src.startsWith("/")) {
+    if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(src)) {
+      return { src, kind: "file", embedUrl: src };
+    }
+    return { src, kind: "unknown", embedUrl: src };
+  }
   try {
     const url = new URL(src);
     const host = url.hostname.replace(/^www\./, "");
@@ -58,4 +64,42 @@ export function classifyMedia(raw: string): MediaItem | null {
 
 export function mediaList(urls: string[]): MediaItem[] {
   return urls.map(classifyMedia).filter((m): m is MediaItem => Boolean(m));
+}
+
+export function isVideoSrc(raw: string): boolean {
+  const item = classifyMedia(raw);
+  return Boolean(item && (item.kind === "youtube" || item.kind === "vimeo" || item.kind === "file"));
+}
+
+export function orderedMedia(product: {
+  media?: string[];
+  photos?: string[];
+  videos?: string[];
+}): string[] {
+  if (product.media && product.media.length) {
+    return product.media.map(safeUrl).filter(Boolean);
+  }
+  return [...(product.photos || []), ...(product.videos || [])].map(safeUrl).filter(Boolean);
+}
+
+export function splitMedia(urls: string[]): { media: string[]; photos: string[]; videos: string[] } {
+  const media = urls.map(safeUrl).filter(Boolean).slice(0, 20);
+  return {
+    media,
+    photos: media.filter((url) => !isVideoSrc(url)),
+    videos: media.filter((url) => isVideoSrc(url)),
+  };
+}
+
+export function firstPhoto(product: {
+  media?: string[];
+  photos?: string[];
+  videos?: string[];
+}): string {
+  return splitMedia(orderedMedia(product)).photos[0] || "";
+}
+
+export function fileUploadKind(file: File): "photo" | "video" {
+  if (file.type.startsWith("video/") || /\.(mp4|webm|mov|ogg)$/i.test(file.name)) return "video";
+  return "photo";
 }

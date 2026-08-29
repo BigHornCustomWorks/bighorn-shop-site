@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
+import { firstPhoto } from "@/lib/video";
 
 export function ProductCard({ product }: { product: Product }) {
-  const photo = product.photos[0] || "/logo.png";
+  const photo = firstPhoto(product) || "/logo.png";
   const blurb = product.description.slice(0, 72);
   return (
     <Link className="product-card" href={`/shop/${product.slug}`}>

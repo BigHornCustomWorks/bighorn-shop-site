@@ -11,6 +11,7 @@ import {
   safeSlug,
   safeUrl,
 } from "./sanitize";
+import { splitMedia } from "./video";
 import type {
   FooterLink,
   Product,
@@ -46,14 +47,10 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<Product>;
   const name = cleanStr(src.name);
   if (!name) return null;
-  const photos = asArray<unknown>(src.photos)
-    .map((p) => safeUrl(p))
-    .filter(Boolean)
-    .slice(0, 12);
-  const videos = asArray<unknown>(src.videos)
-    .map((v) => safeUrl(v))
-    .filter(Boolean)
-    .slice(0, 8);
+  const photosIn = asArray<unknown>(src.photos).map((p) => safeUrl(p)).filter(Boolean);
+  const videosIn = asArray<unknown>(src.videos).map((v) => safeUrl(v)).filter(Boolean);
+  const mediaIn = asArray<unknown>(src.media).map((m) => safeUrl(m)).filter(Boolean);
+  const { media, photos, videos } = splitMedia(mediaIn.length ? mediaIn : [...photosIn, ...videosIn]);
   const kind: ProductKind = src.kind === "digital" ? "digital" : "physical";
   return {
     id: cleanStr(src.id, newId("prod")),
@@ -61,6 +58,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     name,
     priceCents: asCents(src.priceCents, 0),
     description: cleanMultiline(src.description),
+    media,
     photos,
     videos,
     category: cleanStr(src.category, "Mill accessories"),

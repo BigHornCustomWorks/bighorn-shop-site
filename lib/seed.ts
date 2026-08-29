@@ -33,7 +33,7 @@ export function defaultSite(): SiteCopy {
       { id: "repair", label: "Repair Status", url: "https://repairstatus.site" },
     ],
     shopFloorNotes:
-      "Shop-floor calls (edit these):\n• Shipping starts as a note, not a made-up rate. Set a flat amount in cents only if you want it added at Stripe Checkout.\n• Repair Status is a text link, never a catalog item and never $0.\n• Stripe is in test mode until you put live keys in Vercel env or the Stripe key field below.\n• Public pages ignore messy HTML/JS in these fields so a stray edit cannot crash the site.\n• Categories are a label on each product (Mill accessories, Digital downloads, or a new line you type). Shop filters by that label.\n• Digital products skip shipping at checkout. Delivery note is emailed / Master Control until a download locker is built.\n• Demo videos: paste YouTube, Vimeo, or a direct .mp4/.webm URL on the product.",
+      "Shop-floor calls (edit these):\n• Shipping starts as a note, not a made-up rate. Set a flat amount in cents only if you want it added at Stripe Checkout.\n• Repair Status is a text link, never a catalog item and never $0.\n• Stripe is in test mode until you put live keys in Vercel env or the Stripe key field below.\n• Public pages ignore messy HTML/JS in these fields so a stray edit cannot crash the site.\n• Categories are a label on each product (Mill accessories, Digital downloads, or a new line you type). Shop filters by that label.\n• Digital products skip shipping at checkout. Delivery note is emailed / Master Control until a download locker is built.\n• Media: one list per product. Upload a photo or video, or paste a URL. Drag to set the order they show on the product page.",
   };
 }
 
@@ -50,6 +50,10 @@ export function defaultProducts(): Product[] {
       priceCents: 16000,
       description:
         "For Precision Matthews PM-728 / PM-728VT. Custom-engineered Y and Z axis way covers designed to shield critical machine surfaces from chips and dust across three sides. Glass-reinforced TPU, 3D printed, heat and abrasion resistant. Set includes custom mounting brackets and hardware that attach to existing machine holes. No extra drilling.",
+      media: [
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoMay162026_125741PM.jpg",
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Photo_May_16_2026_12_57_07_PM.jpg",
+      ],
       photos: [
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoMay162026_125741PM.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Photo_May_16_2026_12_57_07_PM.jpg",
@@ -70,6 +74,10 @@ export function defaultProducts(): Product[] {
       priceCents: 3999,
       description:
         "For Precision Matthews PM-728VT bed T-slots. Dual-material 3D printed: hard outer shell that resists hot chips and abrasion, softer flexible layer that snaps in. Keeps chips, coolant, and debris out of the T-slots. Easy to install and remove.",
+      media: [
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/T-Slotcovers.jpg",
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_15.png",
+      ],
       photos: [
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/T-Slotcovers.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_15.png",
@@ -96,6 +104,11 @@ export function defaultProducts(): Product[] {
       priceCents: 13499,
       description:
         "For Precision Matthews PM-728VT. Replaces the stock spindle lock with a sliding mechanism. Locks the spindle with one motion. Solid steel. Hardware included. No mill modifications.",
+      media: [
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM_2.jpg",
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM.jpg",
+        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_14.png",
+      ],
       photos: [
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM_2.jpg",
         "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM.jpg",

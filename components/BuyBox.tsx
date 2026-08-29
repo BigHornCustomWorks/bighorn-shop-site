@@ -21,7 +21,7 @@ export function BuyBox({ product }: { product: Product }) {
         slug: product.slug,
         name: product.name,
         priceCents: product.priceCents,
-        photo: product.photos[0] || "",
+        photo: product.photos[0] || product.media[0] || "",
         variant,
       },
       qty,

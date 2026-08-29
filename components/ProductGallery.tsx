@@ -1,33 +1,29 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { classifyMedia, type MediaItem } from "@/lib/video";
+import { classifyMedia, firstPhoto, type MediaItem } from "@/lib/video";
 
 type Slide =
   | { type: "photo"; src: string }
   | { type: "video"; src: string; media: MediaItem };
 
 export function ProductGallery({
-  photos,
-  videos,
+  media,
   name,
 }: {
-  photos: string[];
-  videos: string[];
+  media: string[];
   name: string;
 }) {
   const slides: Slide[] = useMemo(() => {
-    const videoSlides: Slide[] = videos
-      .map((src) => {
-        const media = classifyMedia(src);
-        return media ? ({ type: "video", src, media } as Slide) : null;
-      })
-      .filter((s): s is Slide => Boolean(s));
-    const photoSlides: Slide[] = (photos.length ? photos : videoSlides.length ? [] : ["/logo.png"]).map(
-      (src) => ({ type: "photo", src }),
-    );
-    return [...photoSlides, ...videoSlides];
-  }, [photos, videos]);
+    const list = media.length ? media : ["/logo.png"];
+    return list.map((src) => {
+      const item = classifyMedia(src);
+      if (item && (item.kind === "youtube" || item.kind === "vimeo" || item.kind === "file")) {
+        return { type: "video" as const, src, media: item };
+      }
+      return { type: "photo" as const, src };
+    });
+  }, [media]);
 
   const [current, setCurrent] = useState(0);
   const slide = slides[current] || slides[0];
@@ -37,7 +33,7 @@ export function ProductGallery({
       {slide?.type === "photo" ? (
         <img src={slide.src} alt={name} />
       ) : slide?.type === "video" && slide.media.kind === "file" ? (
-        <video src={slide.media.embedUrl} controls playsInline poster={photos[0]}>
+        <video src={slide.media.embedUrl} controls playsInline poster={firstPhoto({ media }) || undefined}>
           Demo video
         </video>
       ) : slide?.type === "video" && (slide.media.kind === "youtube" || slide.media.kind === "vimeo") ? (

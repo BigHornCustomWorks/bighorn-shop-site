@@ -25,7 +25,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </Link>
       </p>
       <div className="grid-2">
-        <ProductGallery photos={product.photos} videos={product.videos} name={product.name} />
+        <ProductGallery media={product.media} name={product.name} />
         <div>
           <p className="section-kicker">
             {product.category}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { dollarsToCents, formatUsd } from "@/lib/money";
 import { newId, safeSlug } from "@/lib/sanitize";
+import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
 import type { Product, Quote, ShopCategory, ShopStore } from "@/lib/types";
 
 type Tab = "products" | "copy" | "quotes" | "settings";
@@ -13,6 +14,7 @@ const emptyProduct = (): Product => ({
   name: "",
   priceCents: 0,
   description: "",
+  media: [],
   photos: [],
   videos: [],
   category: "Mill accessories",
@@ -82,7 +84,8 @@ export function MasterClient() {
     setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.`);
   }
 
-  async function uploadTo(productId: string, file: File, kind: "photo" | "video" = "photo") {
+  async function uploadTo(productId: string, file: File) {
+    const kind = fileUploadKind(file);
     const data = new FormData();
     data.set("file", file);
     data.set("kind", kind);
@@ -94,8 +97,7 @@ export function MasterClient() {
     }
     const products = store.products.map((p) => {
       if (p.id !== productId) return p;
-      if (kind === "video") return { ...p, videos: [...(p.videos || []), json.url] };
-      return { ...p, photos: [...p.photos, json.url] };
+      return { ...p, media: [...orderedMedia(p), json.url] };
     });
     await save({ ...store, products });
   }
@@ -421,7 +423,7 @@ function ProductsTab({
   store: ShopStore;
   setStore: (s: ShopStore) => void;
   save: (s: ShopStore) => Promise<void>;
-  uploadTo: (id: string, file: File, kind: "photo" | "video") => Promise<void>;
+  uploadTo: (id: string, file: File) => Promise<void>;
   query: string;
   setQuery: (v: string) => void;
   filterCat: string;
@@ -574,7 +576,7 @@ function ProductsTab({
             }}
             onClick={() => setOpenId(openId === product.id ? null : product.id)}
           >
-            <img src={product.photos[0] || "/logo.png"} alt="" />
+            <img src={firstPhoto(product) || "/logo.png"} alt="" />
             <div className="pad">
               <p className="card-meta">
                 {product.category}
@@ -608,7 +610,7 @@ function ProductsTab({
               products: products.map((p, i) => ({ ...p, sortOrder: i + 1 })),
             });
           }}
-          onUpload={(file, kind) => uploadTo(open.id, file, kind)}
+          onUpload={(file) => uploadTo(open.id, file)}
         />
       ) : (
         <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
@@ -628,13 +630,13 @@ function ProductEditor({
   categories: ShopCategory[];
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
-  onUpload: (file: File, kind: "photo" | "video") => void;
+  onUpload: (file: File) => void;
 }) {
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [dragMedia, setDragMedia] = useState<number | null>(null);
   const dollars = (product.priceCents / 100).toFixed(2);
+  const media = orderedMedia(product);
 
   return (
     <div className="admin-product">
@@ -753,102 +755,84 @@ function ProductEditor({
           />
         </label>
       ) : null}
-      <p className="note">Photos</p>
-      <div className="thumbs">
-        {product.photos.map((url) => (
-          <button
-            key={url}
-            type="button"
-            title="Remove"
-            onClick={() => onChange({ ...product, photos: product.photos.filter((p) => p !== url) })}
+      <p className="note">Media — photos and videos in one list. Drag to set the order they show on the product page.</p>
+      <div className="mc-media-list">
+        {media.map((url, i) => (
+          <div
+            key={`${url}-${i}`}
+            className="mc-media-item"
+            draggable
+            onDragStart={() => setDragMedia(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragMedia == null || dragMedia === i) return;
+              const next = [...media];
+              const [item] = next.splice(dragMedia, 1);
+              next.splice(i, 0, item);
+              onChange({ ...product, media: next });
+              setDragMedia(null);
+            }}
           >
-            <img src={url} alt="" />
-          </button>
+            {isVideoSrc(url) ? (
+              <span className="thumb-video" title={url}>
+                ▶
+              </span>
+            ) : (
+              <img src={url} alt="" />
+            )}
+            <button
+              type="button"
+              className="mc-media-remove"
+              title="Remove"
+              onClick={() => onChange({ ...product, media: media.filter((_, n) => n !== i) })}
+            >
+              ×
+            </button>
+            <span className="mc-media-order">{i + 1}</span>
+          </div>
         ))}
       </div>
-      <div className="row">
-        <label>
-          Add photo URL
-          <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} />
-        </label>
-        <label>
-          Choose photo
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-          />
-        </label>
-      </div>
-      <div className="hero-actions">
-        <button
-          type="button"
-          className="btn"
-          disabled={!photoFile}
-          onClick={() => {
-            if (!photoFile) return;
-            onUpload(photoFile, "photo");
-            setPhotoFile(null);
-          }}
-        >
-          {photoFile ? `Upload photo (${photoFile.name})` : "Upload photo"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!photoUrl.trim()) return;
-            onChange({ ...product, photos: [...product.photos, photoUrl.trim()] });
-            setPhotoUrl("");
-          }}
-        >
-          Add photo URL
-        </button>
-      </div>
-      <p className="note">Demo videos (YouTube, Vimeo, or a direct .mp4 / .webm link)</p>
-      {(product.videos || []).map((url) => (
-        <p key={url} className="muted">
-          {url}{" "}
-          <button type="button" onClick={() => onChange({ ...product, videos: product.videos.filter((v) => v !== url) })}>
-            Remove
-          </button>
-        </p>
-      ))}
       <label>
-        Choose video file
+        Choose photo or video
         <input
           type="file"
-          accept="video/mp4,video/webm,video/quicktime,video/*"
-          onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+          accept="image/*,video/mp4,video/webm,video/quicktime,video/*"
+          onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
         />
       </label>
       <div className="hero-actions">
         <button
           type="button"
           className="btn"
-          disabled={!videoFile}
+          disabled={!mediaFile}
           onClick={() => {
-            if (!videoFile) return;
-            onUpload(videoFile, "video");
-            setVideoFile(null);
+            if (!mediaFile) return;
+            onUpload(mediaFile);
+            setMediaFile(null);
           }}
         >
-          {videoFile ? `Upload video (${videoFile.name})` : "Upload video"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!videoUrl.trim()) return;
-            onChange({ ...product, videos: [...(product.videos || []), videoUrl.trim()] });
-            setVideoUrl("");
-          }}
-        >
-          Add video URL
+          {mediaFile ? `Upload ${mediaFile.name}` : "Upload media"}
         </button>
       </div>
       <label>
-        Or paste YouTube / Vimeo / mp4 URL
-        <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" />
+        Or paste a photo, YouTube, Vimeo, or mp4 URL
+        <input
+          value={mediaUrl}
+          onChange={(e) => setMediaUrl(e.target.value)}
+          placeholder="https://… or /uploads/…"
+        />
       </label>
+      <button
+        type="button"
+        className="btn"
+        onClick={() => {
+          if (!mediaUrl.trim()) return;
+          onChange({ ...product, media: [...media, mediaUrl.trim()] });
+          setMediaUrl("");
+        }}
+      >
+        Add media URL
+      </button>
     </div>
   );
 }
