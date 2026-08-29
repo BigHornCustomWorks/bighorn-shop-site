@@ -27,6 +27,9 @@ export type Product = {
   variantNote: string;
   visible: boolean;
   sortOrder: number;
+  stripeProductId: string;
+  stripePriceId: string;
+  stripePriceCents: number;
 };
 
 export type Quote = {

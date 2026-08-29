@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isMaster } from "@/lib/auth";
 import { persistenceLabel, publicStore, readStore, writeStore } from "@/lib/store";
+import { syncCatalogToStripe } from "@/lib/stripe-catalog";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,13 @@ export async function PUT(req: Request) {
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
     stats: current.stats,
   };
-  const result = await writeStore(merged);
-  return NextResponse.json({ ok: result.ok, persisted: result.persisted, persistence: persistenceLabel() });
+  const sync = await syncCatalogToStripe(merged);
+  const result = await writeStore(sync.store);
+  return NextResponse.json({
+    ok: result.ok,
+    persisted: result.persisted,
+    persistence: persistenceLabel(),
+    stripeSynced: sync.synced,
+    stripeError: sync.error,
+  });
 }

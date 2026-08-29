@@ -23,6 +23,9 @@ const emptyProduct = (): Product => ({
   variants: [],
   variantNote: "",
   visible: true,
+  stripeProductId: "",
+  stripePriceId: "",
+  stripePriceCents: 0,
   sortOrder: 99,
 });
 
@@ -81,7 +84,13 @@ export function MasterClient() {
     }
     setStore(next);
     setPersistence(json.persistence || json.persisted || persistence);
-    setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.`);
+    const stripeNote = json.stripeError
+      ? ` Stripe: ${json.stripeError}`
+      : json.stripeSynced
+        ? ` Stripe catalog updated (${json.stripeSynced} item${json.stripeSynced === 1 ? "" : "s"}).`
+        : "";
+    setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.${stripeNote}`);
+    if (json.stripeError) setError(json.stripeError);
   }
 
   async function uploadTo(productId: string, file: File) {
@@ -356,6 +365,10 @@ export function MasterClient() {
             {(store.stats?.pageViews || 0).toLocaleString("en-US")} page views
           </p>
           <p>Stripe env key: {envStripe ? "set" : "missing"} · Mode: {store.settings.stripeMode}</p>
+          <p className="note">
+            Saving products also creates or updates them in Stripe (name, price, photos). Checkout uses those Stripe
+            prices. Variants (like T-slot color) stay on this site and show on the Stripe payment page.
+          </p>
           <label>
             Stripe mode
             <select

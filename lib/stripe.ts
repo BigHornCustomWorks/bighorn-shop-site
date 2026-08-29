@@ -42,8 +42,12 @@ export async function createCheckoutSession(
       .slice(0, 8);
     const photo =
       images[0] && images[0].startsWith("/") ? `${origin}${images[0]}` : images[0];
+    const quantity = Math.max(1, Math.min(item.quantity, 20));
+    if (item.product.stripePriceId && !variant) {
+      return { quantity, price: item.product.stripePriceId };
+    }
     return {
-      quantity: Math.max(1, Math.min(item.quantity, 20)),
+      quantity,
       price_data: {
         currency: "usd",
         unit_amount: item.product.priceCents,

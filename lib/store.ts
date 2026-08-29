@@ -73,6 +73,9 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
     sortOrder: asInt(src.sortOrder, i + 1),
+    stripeProductId: cleanStr(src.stripeProductId),
+    stripePriceId: cleanStr(src.stripePriceId),
+    stripePriceCents: asCents(src.stripePriceCents, 0),
   };
 }
 
