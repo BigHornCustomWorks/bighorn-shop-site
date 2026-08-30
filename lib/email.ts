@@ -187,6 +187,90 @@ export async function sendPlainEmail(opts: {
   });
 }
 
+/**
+ * Mail addressed to a customer rather than to the shop. FormSubmit is
+ * deliberately not a fallback here: it delivers to an inbox its owner has to
+ * activate, which is fine for Clint's inbox and useless for a stranger's.
+ */
+async function sendCustomerEmail(opts: { to: string; subject: string; text: string }): Promise<boolean> {
+  const to = cleanStr(opts.to);
+  if (!to) return false;
+
+  const user = cleanStr(process.env.SMTP_USER);
+  const pass = cleanStr(process.env.SMTP_PASS);
+  if (user && pass) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.createTransport({
+        host: cleanStr(process.env.SMTP_HOST, "smtp.gmail.com"),
+        port: Number(process.env.SMTP_PORT || 465),
+        secure: true,
+        auth: { user, pass },
+      });
+      await transporter.sendMail({
+        from: `Big Horn Custom Works <${user}>`,
+        to,
+        replyTo: shopInbox(),
+        subject: opts.subject,
+        text: opts.text,
+      });
+      return true;
+    } catch {
+      /* fall through to Resend */
+    }
+  }
+
+  const resendKey = cleanStr(process.env.RESEND_API_KEY);
+  if (resendKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "Big Horn Custom Works <onboarding@resend.dev>",
+          to: [to],
+          reply_to: shopInbox(),
+          subject: opts.subject,
+          text: opts.text,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+export async function sendShippedEmail(detail: {
+  to: string;
+  name: string;
+  carrier: string;
+  trackingNumber: string;
+  trackingUrl: string;
+  items: string;
+}): Promise<boolean> {
+  const carrier = detail.carrier || "the carrier";
+  const lines = [
+    detail.name ? `${detail.name},` : "Hi,",
+    "",
+    "Your order from Big Horn Custom Works has shipped from Sheridan, Wyoming.",
+    "",
+    `Carrier: ${carrier}`,
+    `Tracking number: ${detail.trackingNumber}`,
+  ];
+  if (detail.trackingUrl) lines.push(`Track it: ${detail.trackingUrl}`);
+  if (detail.items) lines.push("", "On the way:", detail.items);
+  lines.push("", "Reply to this email if anything looks wrong.", "", "— Clint, Big Horn Custom Works");
+
+  return sendCustomerEmail({
+    to: detail.to,
+    subject: `Your Big Horn Custom Works order shipped — ${carrier} ${detail.trackingNumber}`,
+    text: lines.join("\n"),
+  });
+}
+
 export async function sendOrderEmail(detail: {
   email: string;
   name: string;

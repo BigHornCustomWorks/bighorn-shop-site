@@ -108,6 +108,10 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     shippingLabel: cleanStr(src.shippingLabel),
     shippingCents: asCents(src.shippingCents, 0),
     taxCents: asCents(src.taxCents, 0),
+    trackingCarrier: cleanStr(src.trackingCarrier),
+    trackingNumber: cleanStr(src.trackingNumber),
+    shippedAt: cleanStr(src.shippedAt),
+    customerNotified: Boolean(src.customerNotified),
     emailed: Boolean(src.emailed),
     read: Boolean(src.read),
   };
@@ -199,7 +203,9 @@ function normalizeShippingOptions(src: Partial<SiteCopy>): ShippingOption[] {
   if (legacy > 0) {
     return [{ id: newId("ship"), label: "Standard shipping", amountCents: legacy, minDays: 0, maxDays: 0 }];
   }
-  return [];
+  // Same fallback rule the categories use: an empty list means "never
+  // configured", and shipping free by accident is worse than the default.
+  return seedStore().site.shippingOptions;
 }
 
 function normalizeStats(raw: unknown): ShopStats {

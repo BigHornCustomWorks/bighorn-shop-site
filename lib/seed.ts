@@ -19,7 +19,9 @@ export function defaultSite(): SiteCopy {
     shippingNote:
       "Ships from Sheridan, WY. Shipping is calculated at checkout — no invented rates. If extra postage applies, Clint will confirm before the order ships.",
     shippingCents: 0,
-    shippingOptions: [],
+    shippingOptions: [
+      { id: "flat", label: "Flat rate shipping", amountCents: 1499, minDays: 3, maxDays: 7 },
+    ],
     repairStatusLabel: "Repair Status",
     repairStatusLine:
       "Shop management software, live at repairstatus.site. A product of Big Horn Custom Works — not sold in this catalog.",

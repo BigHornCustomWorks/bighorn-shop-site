@@ -56,6 +56,16 @@ Stripe's limit), are edited in Master Control, and are sent as real Stripe
 chosen service and its cost land on the order email so the right label gets
 bought. A legacy flat `shippingCents` migrates into a single option.
 
+Shipping defaults to a single $14.99 flat rate when nothing is configured,
+so the shop can never quietly ship for free. There is no live carrier rate
+lookup: Stripe Checkout only shows rates defined up front.
+
+After buying a label, Clint pastes the tracking number into the order in
+Master Control and it emails the customer a tracking link (POST
+`/api/master/order-ship`). Customer-facing mail goes SMTP then Resend and
+never falls back to FormSubmit, which only delivers to an inbox its owner
+has activated.
+
 Sales tax is Stripe Tax (`automatic_tax`), gated behind the `taxEnabled`
 setting so it stays off until Stripe Tax is actually configured in the
 Dashboard. Stripe prices must carry `tax_behavior`, which is write-once — a

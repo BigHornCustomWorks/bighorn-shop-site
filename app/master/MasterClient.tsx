@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { dollarsToCents, formatUsd } from "@/lib/money";
 import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
+import { CARRIERS } from "@/lib/tracking";
 import type { Product, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
 
 type Tab = "products" | "copy" | "quotes" | "settings";
@@ -463,6 +464,14 @@ export function MasterClient() {
                 onRead={() => {
                   const orders = store.orders.map((o) => (o.id === order.id ? { ...o, read: true } : o));
                   save({ ...store, orders });
+                }}
+                onShipped={(fields) => {
+                  // The ship route already wrote this server-side; just mirror
+                  // it locally so the row updates without a full store PUT.
+                  setStore({
+                    ...store,
+                    orders: store.orders.map((o) => (o.id === order.id ? { ...o, ...fields } : o)),
+                  });
                 }}
               />
             ))
@@ -1003,16 +1012,102 @@ function ProductEditor({
   );
 }
 
-function OrderRow({ order, onRead }: { order: ShopOrder; onRead: () => void }) {
+function OrderRow({
+  order,
+  onRead,
+  onShipped,
+}: {
+  order: ShopOrder;
+  onRead: () => void;
+  onShipped: (fields: Partial<ShopOrder>) => void;
+}) {
+  const [carrier, setCarrier] = useState(order.trackingCarrier || "usps");
+  const [tracking, setTracking] = useState(order.trackingNumber || "");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [noteBad, setNoteBad] = useState(false);
+
+  async function markShipped() {
+    if (!tracking.trim()) {
+      setNoteBad(true);
+      setNote("Enter the tracking number from the label first.");
+      return;
+    }
+    setBusy(true);
+    setNote("");
+    const res = await fetch("/api/master/order-ship", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id, carrier, trackingNumber: tracking.trim() }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setNoteBad(true);
+      setNote(json.error || "Could not save that.");
+      return;
+    }
+    onShipped({
+      trackingCarrier: carrier,
+      trackingNumber: tracking.trim(),
+      shippedAt: json.shippedAt || new Date().toISOString(),
+      customerNotified: Boolean(json.notified),
+    });
+    setNoteBad(!json.notified);
+    setNote(
+      json.notified
+        ? "Tracking saved and emailed to the customer."
+        : json.error || "Tracking saved, but no email went out.",
+    );
+  }
+
   return (
     <div className="quote-item">
       <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
       {!order.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       {order.address ? <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p> : null}
+      {order.shippingLabel ? (
+        <p className="muted">
+          Paid for shipping: {order.shippingLabel} ({formatUsd(order.shippingCents)}) — buy this label
+        </p>
+      ) : null}
       <p className="muted">
         {order.createdAt} · {order.emailed ? "email sent" : "email failed — still saved here"}
       </p>
+
+      {order.shippedAt ? (
+        <p className="muted">
+          Shipped {order.shippedAt} · {order.trackingCarrier || "carrier"} {order.trackingNumber} ·{" "}
+          {order.customerNotified ? "customer emailed" : "customer NOT emailed"}
+        </p>
+      ) : null}
+
+      <div>
+        <label>
+          Carrier
+          <select value={carrier} onChange={(e) => setCarrier(e.target.value)}>
+            {CARRIERS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Tracking number
+          <input
+            value={tracking}
+            placeholder="Paste it off the label"
+            onChange={(e) => setTracking(e.target.value)}
+          />
+        </label>
+        <button type="button" onClick={markShipped} disabled={busy}>
+          {busy ? "Sending…" : order.shippedAt ? "Resend tracking" : "Mark shipped & email tracking"}
+        </button>
+      </div>
+      {note ? <p className={noteBad ? "err" : "ok"}>{note}</p> : null}
+
       {!order.read ? (
         <button type="button" onClick={onRead}>
           Mark read

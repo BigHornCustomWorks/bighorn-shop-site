@@ -116,6 +116,11 @@ export type ShopOrder = {
   shippingLabel: string;
   shippingCents: number;
   taxCents: number;
+  trackingCarrier: string;
+  trackingNumber: string;
+  shippedAt: string;
+  /** Whether the customer was successfully emailed the tracking number. */
+  customerNotified: boolean;
   emailed: boolean;
   read: boolean;
 };
