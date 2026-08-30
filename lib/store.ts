@@ -14,6 +14,7 @@ import {
 import { splitMedia } from "./video";
 import type {
   FooterLink,
+  ShippingOption,
   Product,
   ProductKind,
   ProductVariant,
@@ -86,6 +87,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripeProductId: cleanStr(src.stripeProductId),
     stripePriceId: cleanStr(src.stripePriceId),
     stripePriceCents: asCents(src.stripePriceCents, 0),
+    stripeTaxBehavior: cleanStr(src.stripeTaxBehavior),
   };
 }
 
@@ -103,6 +105,9 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     items: cleanMultiline(src.items),
     address: cleanMultiline(src.address),
     sessionId,
+    shippingLabel: cleanStr(src.shippingLabel),
+    shippingCents: asCents(src.shippingCents, 0),
+    taxCents: asCents(src.taxCents, 0),
     emailed: Boolean(src.emailed),
     read: Boolean(src.read),
   };
@@ -123,6 +128,19 @@ function normalizeQuote(raw: unknown): Quote | null {
     createdAt: cleanStr(src.createdAt, new Date().toISOString()),
     read: Boolean(src.read),
     emailed: Boolean(src.emailed),
+  };
+}
+
+function normalizeShippingOption(raw: unknown, i: number): ShippingOption | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShippingOption>;
+  const label = cleanStr(src.label);
+  if (!label) return null;
+  return {
+    id: cleanStr(src.id, newId("ship")),
+    label,
+    amountCents: asCents(src.amountCents, 0),
+    minDays: Math.max(0, Math.min(asInt(src.minDays, 0), 90)),
+    maxDays: Math.max(0, Math.min(asInt(src.maxDays, 0), 90)),
   };
 }
 
@@ -153,6 +171,7 @@ function normalizeSite(raw: unknown): SiteCopy {
     location: cleanStr(src.location, base.location),
     shippingNote: cleanMultiline(src.shippingNote, base.shippingNote),
     shippingCents: asCents(src.shippingCents, 0),
+    shippingOptions: normalizeShippingOptions(src),
     repairStatusLabel: cleanStr(src.repairStatusLabel, base.repairStatusLabel),
     repairStatusLine: cleanMultiline(src.repairStatusLine, base.repairStatusLine),
     repairStatusUrl: safeUrl(src.repairStatusUrl) || base.repairStatusUrl,
@@ -163,6 +182,24 @@ function normalizeSite(raw: unknown): SiteCopy {
     footerLinks: links.length ? links : base.footerLinks,
     shopFloorNotes: cleanMultiline(src.shopFloorNotes, base.shopFloorNotes),
   };
+}
+
+/**
+ * Stripe caps a Checkout Session at 5 shipping options. Stores written before
+ * this existed carried a single flat shippingCents, so migrate that into one
+ * named option rather than silently dropping the rate.
+ */
+function normalizeShippingOptions(src: Partial<SiteCopy>): ShippingOption[] {
+  const listed = asArray<unknown>(src.shippingOptions)
+    .map(normalizeShippingOption)
+    .filter((o): o is ShippingOption => Boolean(o))
+    .slice(0, 5);
+  if (listed.length) return listed;
+  const legacy = asCents(src.shippingCents, 0);
+  if (legacy > 0) {
+    return [{ id: newId("ship"), label: "Standard shipping", amountCents: legacy, minDays: 0, maxDays: 0 }];
+  }
+  return [];
 }
 
 function normalizeStats(raw: unknown): ShopStats {
@@ -182,6 +219,7 @@ function normalizeSettings(raw: unknown): ShopSettings {
     stripeSecretKey: looksLikeKey ? key : "",
     stripeMode: src.stripeMode === "live" ? "live" : "test",
     catalogMode,
+    taxEnabled: src.taxEnabled === true,
   };
 }
 

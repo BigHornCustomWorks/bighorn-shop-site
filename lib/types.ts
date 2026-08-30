@@ -30,6 +30,8 @@ export type Product = {
   stripeProductId: string;
   stripePriceId: string;
   stripePriceCents: number;
+  /** tax_behavior baked into the Stripe price. Prices without it break Stripe Tax. */
+  stripeTaxBehavior: string;
 };
 
 export type Quote = {
@@ -42,6 +44,16 @@ export type Quote = {
   createdAt: string;
   read: boolean;
   emailed: boolean;
+};
+
+export type ShippingOption = {
+  id: string;
+  /** Shown to the customer on the Stripe payment page, e.g. "USPS Priority Mail". */
+  label: string;
+  amountCents: number;
+  /** Business-day delivery estimate. 0 on either field hides the estimate. */
+  minDays: number;
+  maxDays: number;
 };
 
 export type FooterLink = {
@@ -63,7 +75,9 @@ export type SiteCopy = {
   linkedinUrl: string;
   location: string;
   shippingNote: string;
+  /** Legacy flat rate. Kept so old stores migrate into shippingOptions. */
   shippingCents: number;
+  shippingOptions: ShippingOption[];
   repairStatusLabel: string;
   repairStatusLine: string;
   repairStatusUrl: string;
@@ -80,6 +94,8 @@ export type ShopSettings = {
   stripeMode: "test" | "live";
   /** Which Stripe mode the cached stripeProductId / stripePriceId values belong to. */
   catalogMode: "test" | "live" | "";
+  /** Only turn on once Stripe Tax is activated in the Stripe Dashboard. */
+  taxEnabled: boolean;
 };
 
 export type ShopStats = {
@@ -96,6 +112,10 @@ export type ShopOrder = {
   items: string;
   address: string;
   sessionId: string;
+  /** Which shipping service the customer paid for, so the right label gets bought. */
+  shippingLabel: string;
+  shippingCents: number;
+  taxCents: number;
   emailed: boolean;
   read: boolean;
 };

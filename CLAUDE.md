@@ -48,6 +48,20 @@ the security boundary, and don't remove the `isMaster()` calls.**
 Public pages sanitize admin fields and fall back to seed copy, so a bad
 admin edit cannot break the storefront.
 
+## Shipping and tax
+
+Shipping is **not** a line item. Rates live in `site.shippingOptions` (max 5,
+Stripe's limit), are edited in Master Control, and are sent as real Stripe
+`shipping_options` so the customer picks a service on the payment page. The
+chosen service and its cost land on the order email so the right label gets
+bought. A legacy flat `shippingCents` migrates into a single option.
+
+Sales tax is Stripe Tax (`automatic_tax`), gated behind the `taxEnabled`
+setting so it stays off until Stripe Tax is actually configured in the
+Dashboard. Stripe prices must carry `tax_behavior`, which is write-once — a
+price created without it breaks the whole session, so the catalog sync
+recreates any price missing it and records `stripeTaxBehavior` on the product.
+
 ## Env
 
 Names live in `.env.example`; real values in gitignored `.env.local`.

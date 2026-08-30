@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const raw = event.data.object as Stripe.Checkout.Session;
     try {
       const session = await stripe.checkout.sessions.retrieve(raw.id, {
-        expand: ["line_items"],
+        expand: ["line_items", "shipping_cost.shipping_rate"],
       });
       const items = (session.line_items?.data || [])
         .map((line) => {
@@ -58,6 +58,11 @@ export async function POST(req: Request) {
       const email = session.customer_details?.email || session.customer_email || "";
       const amountCents = session.amount_total || 0;
       const address = addressLines(ship || null);
+      const shippingRate = session.shipping_cost?.shipping_rate;
+      const shippingLabel =
+        shippingRate && typeof shippingRate !== "string" ? shippingRate.display_name || "" : "";
+      const shippingCents = session.shipping_cost?.amount_total || 0;
+      const taxCents = session.total_details?.amount_tax || 0;
       // Stripe retries this webhook on any timeout or non-2xx. Claim the
       // order row FIRST so a retry sees it and stops, instead of sending a
       // second copy of the same order to the shop inbox.
@@ -77,6 +82,9 @@ export async function POST(req: Request) {
           items,
           address,
           sessionId: session.id,
+          shippingLabel,
+          shippingCents,
+          taxCents,
           emailed: false,
           read: false,
         },
@@ -97,6 +105,9 @@ export async function POST(req: Request) {
         address,
         sessionId: session.id,
         paid: session.payment_status === "paid",
+        shippingLabel,
+        shippingLabelCost: formatUsd(shippingCents),
+        taxLabel: formatUsd(taxCents),
       });
 
       if (emailed) {

@@ -26,6 +26,7 @@ const emptyProduct = (): Product => ({
   stripeProductId: "",
   stripePriceId: "",
   stripePriceCents: 0,
+  stripeTaxBehavior: "",
   sortOrder: 99,
 });
 
@@ -268,15 +269,108 @@ export function MasterClient() {
             Shipping note
             <textarea value={store.site.shippingNote} onChange={(e) => setStore({ ...store, site: { ...store.site, shippingNote: e.target.value } })} />
           </label>
-          <label>
-            Flat shipping (cents, 0 = none — do not invent rates)
-            <input
-              type="number"
-              min={0}
-              value={store.site.shippingCents}
-              onChange={(e) => setStore({ ...store, site: { ...store.site, shippingCents: Number(e.target.value) || 0 } })}
-            />
-          </label>
+          <div>
+            <p>
+              <strong>Shipping options</strong>
+            </p>
+            <p className="note">
+              What the customer picks from on the Stripe payment page, up to 5. Charge what the label plus packaging
+              actually costs you. Leave the day estimates at 0 to hide them.
+            </p>
+            {store.site.shippingOptions.length === 0 ? (
+              <p className="err">
+                No shipping options set — customers are not being charged shipping. Add at least one before going live.
+              </p>
+            ) : null}
+            {store.site.shippingOptions.map((opt, i) => {
+              const patch = (fields: Partial<typeof opt>) =>
+                setStore({
+                  ...store,
+                  site: {
+                    ...store.site,
+                    shippingCents: 0,
+                    shippingOptions: store.site.shippingOptions.map((o, idx) =>
+                      idx === i ? { ...o, ...fields } : o,
+                    ),
+                  },
+                });
+              return (
+                <div key={opt.id}>
+                  <label>
+                    Service name
+                    <input
+                      placeholder="USPS Priority Mail"
+                      value={opt.label}
+                      onChange={(e) => patch({ label: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Price ({formatUsd(opt.amountCents)})
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={(opt.amountCents / 100).toFixed(2)}
+                      onChange={(e) => patch({ amountCents: dollarsToCents(e.target.value) })}
+                    />
+                  </label>
+                  <label>
+                    Fastest (business days)
+                    <input
+                      type="number"
+                      min={0}
+                      value={opt.minDays}
+                      onChange={(e) => patch({ minDays: Number(e.target.value) || 0 })}
+                    />
+                  </label>
+                  <label>
+                    Slowest (business days)
+                    <input
+                      type="number"
+                      min={0}
+                      value={opt.maxDays}
+                      onChange={(e) => patch({ maxDays: Number(e.target.value) || 0 })}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setStore({
+                        ...store,
+                        site: {
+                          ...store.site,
+                          shippingCents: 0,
+                          shippingOptions: store.site.shippingOptions.filter((_, idx) => idx !== i),
+                        },
+                      })
+                    }
+                  >
+                    Remove {opt.label || "option"}
+                  </button>
+                </div>
+              );
+            })}
+            {store.site.shippingOptions.length < 5 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setStore({
+                    ...store,
+                    site: {
+                      ...store.site,
+                      shippingCents: 0,
+                      shippingOptions: [
+                        ...store.site.shippingOptions,
+                        { id: newId("ship"), label: "", amountCents: 0, minDays: 0, maxDays: 0 },
+                      ],
+                    },
+                  })
+                }
+              >
+                Add shipping option
+              </button>
+            ) : null}
+          </div>
           <label>
             Repair Status label
             <input value={store.site.repairStatusLabel} onChange={(e) => setStore({ ...store, site: { ...store.site, repairStatusLabel: e.target.value } })} />
@@ -412,6 +506,21 @@ export function MasterClient() {
           <p className="note">
             Saving products also creates or updates them in Stripe (name, price, photos). Checkout uses those Stripe
             prices. Variants (like T-slot color) stay on this site and show on the Stripe payment page.
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={store.settings.taxEnabled}
+              onChange={(e) =>
+                setStore({ ...store, settings: { ...store.settings, taxEnabled: e.target.checked } })
+              }
+            />{" "}
+            Let Stripe calculate and collect sales tax
+          </label>
+          <p className="note">
+            Turn this on only after Stripe Tax is switched on in the Stripe Dashboard, with the Sheridan origin
+            address and your registrations added. If it is on here but not set up there, checkout will fail. Stripe
+            charges a fee per taxed transaction.
           </p>
           <label>
             Stripe mode

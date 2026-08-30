@@ -53,7 +53,10 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
     priceId = "";
   }
 
-  if (!priceId || product.stripePriceCents !== product.priceCents) {
+  // tax_behavior is write-once on a Stripe price. A price created without it
+  // makes Stripe Tax reject the whole session, so recreate any price missing it.
+  const taxReady = product.stripeTaxBehavior === "exclusive";
+  if (!priceId || product.stripePriceCents !== product.priceCents || !taxReady) {
     if (priceId) {
       await stripe.prices.update(priceId, { active: false }).catch(() => undefined);
     }
@@ -61,6 +64,7 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
       product: productId,
       currency: "usd",
       unit_amount: product.priceCents,
+      tax_behavior: "exclusive",
       nickname: product.name,
       lookup_key: `bhcw_${product.id}_${product.priceCents}`,
       transfer_lookup_key: true,
@@ -74,6 +78,7 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
     stripeProductId: productId,
     stripePriceId: priceId,
     stripePriceCents: product.priceCents,
+    stripeTaxBehavior: "exclusive",
   };
 }
 
@@ -98,6 +103,7 @@ export async function syncCatalogToStripe(store: ShopStore): Promise<{
         stripeProductId: "",
         stripePriceId: "",
         stripePriceCents: 0,
+        stripeTaxBehavior: "",
       }))
     : store.products;
 

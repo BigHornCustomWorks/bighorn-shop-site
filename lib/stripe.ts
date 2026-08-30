@@ -20,6 +20,31 @@ export function siteUrl(): string {
   ).replace(/\/$/, "");
 }
 
+/**
+ * Stripe caps a session at 5 shipping options. Charging shipping as a normal
+ * line item (the old approach) hides it from Stripe Tax and from the shipping
+ * totals, so it has to go through shipping_options instead.
+ */
+function shippingOptionsFor(
+  store: ShopStore,
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  return store.site.shippingOptions.slice(0, 5).map((opt) => {
+    const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
+      type: "fixed_amount",
+      fixed_amount: { amount: opt.amountCents, currency: "usd" },
+      display_name: opt.label,
+      tax_behavior: "exclusive",
+    };
+    if (opt.minDays > 0 && opt.maxDays > 0) {
+      rate.delivery_estimate = {
+        minimum: { unit: "business_day", value: opt.minDays },
+        maximum: { unit: "business_day", value: opt.maxDays },
+      };
+    }
+    return { shipping_rate_data: rate };
+  });
+}
+
 function integrationId(): string {
   return `bhcw-shop-${randomBytes(4).toString("hex")}`;
 }
@@ -51,6 +76,7 @@ export async function createCheckoutSession(
       price_data: {
         currency: "usd",
         unit_amount: item.product.priceCents,
+        tax_behavior: "exclusive",
         product_data: {
           name,
           description: cleanStr(item.product.description).slice(0, 400) || undefined,
@@ -61,17 +87,6 @@ export async function createCheckoutSession(
   });
 
   const needsShipping = items.some((i) => i.product.kind !== "digital");
-
-  if (needsShipping && store.site.shippingCents > 0) {
-    line_items.push({
-      quantity: 1,
-      price_data: {
-        currency: "usd",
-        unit_amount: store.site.shippingCents,
-        product_data: { name: "Shipping from Sheridan, WY" },
-      },
-    });
-  }
 
   const params: Stripe.Checkout.SessionCreateParams = {
     mode: "payment",
@@ -86,6 +101,15 @@ export async function createCheckoutSession(
 
   if (needsShipping) {
     params.shipping_address_collection = { allowed_countries: ["US"] };
+    const options = shippingOptionsFor(store);
+    if (options.length) params.shipping_options = options;
+  }
+
+  if (store.settings.taxEnabled) {
+    params.automatic_tax = { enabled: true };
+    // Stripe Tax has to have an address to rate against. Physical orders get
+    // one from shipping collection; digital-only orders need a billing one.
+    if (!needsShipping) params.billing_address_collection = "required";
   }
 
   if (customerEmail) params.customer_email = customerEmail;

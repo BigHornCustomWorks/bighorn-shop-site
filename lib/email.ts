@@ -195,6 +195,9 @@ export async function sendOrderEmail(detail: {
   address: string;
   sessionId: string;
   paid: boolean;
+  shippingLabel?: string;
+  shippingLabelCost?: string;
+  taxLabel?: string;
 }): Promise<boolean> {
   const text = [
     "New catalog order — Big Horn Custom Works",
@@ -206,6 +209,11 @@ export async function sendOrderEmail(detail: {
     "",
     "Items:",
     detail.items || "(none listed)",
+    "",
+    detail.shippingLabel
+      ? `Shipping paid: ${detail.shippingLabel} — ${detail.shippingLabelCost || ""} (buy this label)`
+      : "Shipping paid: none selected",
+    detail.taxLabel ? `Sales tax collected: ${detail.taxLabel}` : "",
     "",
     detail.address ? `Ship to:\n${detail.address}` : "No shipping address (digital or not collected).",
     "",
