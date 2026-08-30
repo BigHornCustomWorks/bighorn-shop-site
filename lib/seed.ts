@@ -145,6 +145,7 @@ export function seedStore(): ShopStore {
     settings: {
       stripeSecretKey: "",
       stripeMode: "test",
+      catalogMode: "",
     },
     stats: { pageViews: 0, uniqueVisitors: 0 },
     updatedAt: "",

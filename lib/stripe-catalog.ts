@@ -1,5 +1,6 @@
 import type { Product, ShopStore } from "./types";
 import { stripeClient, siteUrl } from "./stripe";
+import { stripeKeyMode } from "./store";
 import { cleanStr, safeUrl } from "./sanitize";
 
 function httpsImages(product: Product): string[] {
@@ -22,6 +23,7 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
   const images = httpsImages(product);
   const description = cleanStr(product.description).slice(0, 400) || undefined;
   let productId = product.stripeProductId;
+  let priceId = product.stripePriceId;
 
   if (productId) {
     try {
@@ -46,9 +48,11 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
       metadata: { shop_id: product.id, slug: product.slug },
     });
     productId = created.id;
+    // The old product id was unusable, so its price id is dead too — never
+    // carry it onto the replacement product.
+    priceId = "";
   }
 
-  let priceId = product.stripePriceId;
   if (!priceId || product.stripePriceCents !== product.priceCents) {
     if (priceId) {
       await stripe.prices.update(priceId, { active: false }).catch(() => undefined);
@@ -81,10 +85,26 @@ export async function syncCatalogToStripe(store: ShopStore): Promise<{
   if (!stripeClient(store)) {
     return { store, synced: 0, error: "Stripe is not configured." };
   }
+
+  // Stripe catalog ids are per-mode: a test price is invisible to a live key
+  // and checkout dies with "No such price". If the key mode changed since the
+  // last sync, drop the cached ids so everything is recreated in the new mode.
+  const mode = stripeKeyMode(store);
+  const lastMode = store.settings.catalogMode || store.settings.stripeMode;
+  const stale = Boolean(mode && lastMode && lastMode !== mode);
+  const source = stale
+    ? store.products.map((p) => ({
+        ...p,
+        stripeProductId: "",
+        stripePriceId: "",
+        stripePriceCents: 0,
+      }))
+    : store.products;
+
   const products: Product[] = [];
   let synced = 0;
   let error = "";
-  for (const product of store.products) {
+  for (const product of source) {
     try {
       const next = await upsertOne(store, product);
       if (next.stripeProductId && next.stripeProductId !== product.stripeProductId) synced += 1;
@@ -96,5 +116,13 @@ export async function syncCatalogToStripe(store: ShopStore): Promise<{
       error = err instanceof Error ? err.message : "Stripe catalog sync failed.";
     }
   }
-  return { store: { ...store, products }, synced, error };
+  return {
+    store: {
+      ...store,
+      products,
+      settings: { ...store.settings, catalogMode: mode || store.settings.catalogMode },
+    },
+    synced,
+    error,
+  };
 }

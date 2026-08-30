@@ -58,6 +58,37 @@ export async function POST(req: Request) {
       const email = session.customer_details?.email || session.customer_email || "";
       const amountCents = session.amount_total || 0;
       const address = addressLines(ship || null);
+      // Stripe retries this webhook on any timeout or non-2xx. Claim the
+      // order row FIRST so a retry sees it and stops, instead of sending a
+      // second copy of the same order to the shop inbox.
+      const latest = await readStore();
+      if (latest.orders.some((o) => o.sessionId === session.id)) {
+        return NextResponse.json({ received: true });
+      }
+
+      const orderId = newId("order");
+      latest.orders = [
+        {
+          id: orderId,
+          createdAt: new Date().toISOString(),
+          email,
+          name,
+          amountCents,
+          items,
+          address,
+          sessionId: session.id,
+          emailed: false,
+          read: false,
+        },
+        ...latest.orders,
+      ].slice(0, 400);
+      const reserved = await writeStore(latest);
+      if (!reserved.ok) {
+        // Not fatal — the email below still reaches the shop — but the order
+        // list and the retry guard above are both unreliable until Blob is on.
+        console.error("order row not persisted", reserved.persisted, session.id);
+      }
+
       const emailed = await sendOrderEmail({
         email,
         name,
@@ -67,24 +98,14 @@ export async function POST(req: Request) {
         sessionId: session.id,
         paid: session.payment_status === "paid",
       });
-      const latest = await readStore();
-      if (!latest.orders.some((o) => o.sessionId === session.id)) {
-        latest.orders = [
-          {
-            id: newId("order"),
-            createdAt: new Date().toISOString(),
-            email,
-            name,
-            amountCents,
-            items,
-            address,
-            sessionId: session.id,
-            emailed,
-            read: false,
-          },
-          ...latest.orders,
-        ].slice(0, 400);
-        await writeStore(latest);
+
+      if (emailed) {
+        const after = await readStore();
+        const row = after.orders.find((o) => o.id === orderId);
+        if (row && !row.emailed) {
+          row.emailed = true;
+          await writeStore(after);
+        }
       }
     } catch (err) {
       console.error("order notify", err instanceof Error ? err.message : err);

@@ -33,6 +33,8 @@ export function MasterClient() {
   const [tab, setTab] = useState<Tab>("products");
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
+  const [storageDurable, setStorageDurable] = useState(true);
+  const [keyMode, setKeyMode] = useState("");
   const [envStripe, setEnvStripe] = useState(false);
   const [envResend, setEnvResend] = useState(false);
   const [status, setStatus] = useState("");
@@ -58,6 +60,8 @@ export function MasterClient() {
         const json = await res.json();
         setStore(json.store);
         setPersistence(json.persistence || "");
+        setStorageDurable(json.storageDurable !== false);
+        setKeyMode(json.stripeKeyMode || "");
         setEnvStripe(Boolean(json.envStripe));
         setEnvResend(Boolean(json.envResend));
         setEnvSmtp(Boolean(json.envSmtp));
@@ -89,8 +93,16 @@ export function MasterClient() {
       : json.stripeSynced
         ? ` Stripe catalog updated (${json.stripeSynced} item${json.stripeSynced === 1 ? "" : "s"}).`
         : "";
+    setStorageDurable(json.storageDurable !== false);
+    if (json.stripeKeyMode) setKeyMode(json.stripeKeyMode);
     setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.${stripeNote}`);
-    if (json.stripeError) setError(json.stripeError);
+    if (json.ok === false) {
+      setError(
+        "Saved to memory only — this will be lost on the next cold start. Connect a Vercel Blob store (BLOB_READ_WRITE_TOKEN) before taking real orders.",
+      );
+    } else if (json.stripeError) {
+      setError(json.stripeError);
+    }
   }
 
   async function uploadTo(productId: string, file: File) {
@@ -153,6 +165,12 @@ export function MasterClient() {
         crash the shop.
       </p>
       <p className="note">Storage: {persistence}</p>
+      {storageDurable ? null : (
+        <p className="err">
+          Storage is not durable — orders and edits here will disappear. Connect a Vercel Blob store
+          (BLOB_READ_WRITE_TOKEN) before going live.
+        </p>
+      )}
       <div className="tabs">
         {(
           [
@@ -381,7 +399,16 @@ export function MasterClient() {
             Visitors: {(store.stats?.uniqueVisitors || 0).toLocaleString("en-US")} unique ·{" "}
             {(store.stats?.pageViews || 0).toLocaleString("en-US")} page views
           </p>
-          <p>Stripe env key: {envStripe ? "set" : "missing"} · Mode: {store.settings.stripeMode}</p>
+          <p>
+            Stripe env key: {envStripe ? "set" : "missing"} · Key in use:{" "}
+            <strong>{keyMode || "unknown"}</strong> · Label: {store.settings.stripeMode}
+          </p>
+          {keyMode && keyMode !== store.settings.stripeMode ? (
+            <p className="err">
+              The mode label says “{store.settings.stripeMode}” but the key actually in use is {keyMode}. The key is
+              what counts — set STRIPE_SECRET_KEY in Vercel to change it.
+            </p>
+          ) : null}
           <p className="note">
             Saving products also creates or updates them in Stripe (name, price, photos). Checkout uses those Stripe
             prices. Variants (like T-slot color) stay on this site and show on the Stripe payment page.

@@ -78,6 +78,8 @@ export type SiteCopy = {
 export type ShopSettings = {
   stripeSecretKey: string;
   stripeMode: "test" | "live";
+  /** Which Stripe mode the cached stripeProductId / stripePriceId values belong to. */
+  catalogMode: "test" | "live" | "";
 };
 
 export type ShopStats = {

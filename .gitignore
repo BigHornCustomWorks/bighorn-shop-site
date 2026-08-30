@@ -12,3 +12,11 @@ scripts/parts/
 scripts/chunks/
 public/uploads/*
 !public/uploads/.gitkeep
+
+.vercel
+.env*
+
+# Build / deploy artifacts
+tsconfig.tsbuildinfo
+scripts/live-deploy.json
+scripts/live-files.json

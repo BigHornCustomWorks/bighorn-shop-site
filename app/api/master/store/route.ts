@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { isMaster } from "@/lib/auth";
-import { persistenceLabel, publicStore, readStore, writeStore } from "@/lib/store";
+import {
+  persistenceLabel,
+  publicStore,
+  readStore,
+  storageIsDurable,
+  stripeKeyMode,
+  writeStore,
+} from "@/lib/store";
 import { syncCatalogToStripe } from "@/lib/stripe-catalog";
 
 export const runtime = "nodejs";
@@ -18,6 +25,8 @@ export async function GET() {
     },
     publicPreview: publicStore(store),
     persistence: persistenceLabel(),
+    storageDurable: storageIsDurable(),
+    stripeKeyMode: stripeKeyMode(store),
     envStripe: Boolean(process.env.STRIPE_SECRET_KEY),
     envResend: Boolean(process.env.RESEND_API_KEY),
     envSmtp: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
@@ -57,6 +66,8 @@ export async function PUT(req: Request) {
     ok: result.ok,
     persisted: result.persisted,
     persistence: persistenceLabel(),
+    storageDurable: storageIsDurable(),
+    stripeKeyMode: stripeKeyMode(sync.store),
     stripeSynced: sync.synced,
     stripeError: sync.error,
   });

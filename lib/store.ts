@@ -32,8 +32,17 @@ const LOCAL_PATH = path.join(process.cwd(), "data", "store.json");
 type Cache = { data: ShopStore; at: number };
 const g = globalThis as typeof globalThis & { __bhcwCache?: Cache };
 
+/**
+ * Vercel Blob needs a real token. Being on Vercel is not enough: without the
+ * token every put() fails and the write falls through to the ephemeral
+ * serverless filesystem, which drops orders on the next cold start.
+ */
 function blobConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+export function storageIsDurable(): boolean {
+  return blobConfigured() || !process.env.VERCEL;
 }
 
 function normalizeVariant(raw: unknown, i: number): ProductVariant {
@@ -168,9 +177,11 @@ function normalizeSettings(raw: unknown): ShopSettings {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopSettings>;
   const key = cleanStr(src.stripeSecretKey);
   const looksLikeKey = /^(sk|rk)_/.test(key);
+  const catalogMode = src.catalogMode === "live" ? "live" : src.catalogMode === "test" ? "test" : "";
   return {
     stripeSecretKey: looksLikeKey ? key : "",
     stripeMode: src.stripeMode === "live" ? "live" : "test",
+    catalogMode,
   };
 }
 
@@ -302,7 +313,15 @@ export async function writeStore(next: ShopStore): Promise<{ ok: boolean; persis
 
   try {
     await writeLocal(store);
-    return { ok: true, persisted: process.env.VERCEL ? "ephemeral" : "file" };
+    // On Vercel this file is ephemeral. Report it as a failure so callers
+    // surface it, rather than pretending the write stuck.
+    if (process.env.VERCEL) {
+      console.error(
+        "store write is NOT durable: BLOB_READ_WRITE_TOKEN missing — connect a Vercel Blob store",
+      );
+      return { ok: false, persisted: "ephemeral" };
+    }
+    return { ok: true, persisted: "file" };
   } catch {
     return { ok: false, persisted: "memory" };
   }
@@ -362,8 +381,20 @@ export function stripeSecret(store: ShopStore): string {
   return cleanStr(store.settings.stripeSecretKey) || cleanStr(process.env.STRIPE_SECRET_KEY);
 }
 
+/**
+ * The mode of the key actually in use, read from its prefix. This is the real
+ * answer; settings.stripeMode is only a label someone picked in the UI.
+ */
+export function stripeKeyMode(store: ShopStore): "test" | "live" | "" {
+  const key = stripeSecret(store);
+  if (/^(sk|rk)_live_/.test(key)) return "live";
+  if (/^(sk|rk)_test_/.test(key)) return "test";
+  return "";
+}
+
 export function persistenceLabel(): string {
   if (process.env.BLOB_READ_WRITE_TOKEN) return "Vercel Blob (durable)";
-  if (process.env.VERCEL) return "Preview memory / local file — connect Blob so Master Control edits survive";
+  if (process.env.VERCEL)
+    return "NOT DURABLE — set BLOB_READ_WRITE_TOKEN (connect a Vercel Blob store) or orders and edits are lost";
   return "Local data/store.json";
 }
