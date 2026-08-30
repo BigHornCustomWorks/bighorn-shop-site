@@ -23,8 +23,8 @@ export function defaultSite(): SiteCopy {
     repairStatusLine:
       "Shop management software, live at repairstatus.site. A product of Big Horn Custom Works — not sold in this catalog.",
     repairStatusUrl: "https://repairstatus.site",
-    logoUrl: "https://bighorncustomworks.com/cdn/shop/files/Photo_Jul_20_2026_5_31_04_PM.png",
-    heroUrl: "https://bighorncustomworks.com/cdn/shop/files/web_logo_hero_graphic.jpg",
+    logoUrl: "/logo.png",
+    heroUrl: "/hero.jpg",
     heroVideoUrl: "/uploads/1787947574036-grok-video-8029923e-838e-4b53-b649-9b1858fe608d.mp4",
     footerNote: "Big Horn Custom Works LLC · Sheridan, Wyoming",
     footerLinks: [
