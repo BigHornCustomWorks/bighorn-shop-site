@@ -19,6 +19,7 @@ import type {
   ProductVariant,
   Quote,
   ShopCategory,
+  ShopOrder,
   ShopSettings,
   ShopStats,
   ShopStore,
@@ -76,6 +77,25 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripeProductId: cleanStr(src.stripeProductId),
     stripePriceId: cleanStr(src.stripePriceId),
     stripePriceCents: asCents(src.stripePriceCents, 0),
+  };
+}
+
+function normalizeOrder(raw: unknown): ShopOrder | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopOrder>;
+  const sessionId = cleanStr(src.sessionId);
+  const email = cleanStr(src.email);
+  if (!sessionId && !email && !cleanStr(src.items)) return null;
+  return {
+    id: cleanStr(src.id, newId("order")),
+    createdAt: cleanStr(src.createdAt, new Date().toISOString()),
+    email,
+    name: cleanStr(src.name),
+    amountCents: asCents(src.amountCents, 0),
+    items: cleanMultiline(src.items),
+    address: cleanMultiline(src.address),
+    sessionId,
+    emailed: Boolean(src.emailed),
+    read: Boolean(src.read),
   };
 }
 
@@ -200,6 +220,10 @@ export function normalizeStore(raw: unknown): ShopStore {
       .map(normalizeQuote)
       .filter((q): q is Quote => Boolean(q))
       .slice(0, 400),
+    orders: asArray<unknown>(src.orders)
+      .map(normalizeOrder)
+      .filter((o): o is ShopOrder => Boolean(o))
+      .slice(0, 400),
     site: normalizeSite(src.site),
     settings: normalizeSettings(src.settings),
     stats: normalizeStats(src.stats),
@@ -314,9 +338,10 @@ export function productBySlug(store: ShopStore, slug: string): Product | undefin
   return visibleProducts(store).find((p) => p.slug === want);
 }
 
-export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quotes"> & {
+export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quotes" | "orders"> & {
   settings: { stripeMode: "test" | "live"; stripeConfigured: boolean };
   quoteCount: number;
+  orderCount: number;
 } {
   return {
     products: store.products,
@@ -325,6 +350,7 @@ export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quo
     stats: store.stats,
     updatedAt: store.updatedAt,
     quoteCount: store.quotes.length,
+    orderCount: store.orders.length,
     settings: {
       stripeMode: store.settings.stripeMode,
       stripeConfigured: Boolean(stripeSecret(store)),

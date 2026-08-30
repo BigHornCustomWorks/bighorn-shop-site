@@ -140,6 +140,7 @@ export function seedStore(): ShopStore {
     products: defaultProducts(),
     categories: defaultCategories(),
     quotes: [],
+    orders: [],
     site: defaultSite(),
     settings: {
       stripeSecretKey: "",

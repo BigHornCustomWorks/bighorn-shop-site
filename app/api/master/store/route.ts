@@ -46,6 +46,7 @@ export async function PUT(req: Request) {
         nextKey && !nextKey.includes("•") ? nextKey : current.settings.stripeSecretKey,
     },
     quotes: Array.isArray(incoming.quotes) ? incoming.quotes : current.quotes,
+    orders: Array.isArray(incoming.orders) ? incoming.orders : current.orders,
     products: Array.isArray(incoming.products) ? incoming.products : current.products,
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
     stats: current.stats,

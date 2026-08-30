@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { sendOrderEmail } from "@/lib/email";
 import { formatUsd } from "@/lib/money";
-import { readStore } from "@/lib/store";
+import { newId } from "@/lib/sanitize";
+import { readStore, writeStore } from "@/lib/store";
 import { stripeClient } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -54,17 +55,39 @@ export async function POST(req: Request) {
         extra.shipping_details?.name ||
         extra.customer_details?.name ||
         "";
-      await sendOrderEmail({
-        email: session.customer_details?.email || session.customer_email || "",
+      const email = session.customer_details?.email || session.customer_email || "";
+      const amountCents = session.amount_total || 0;
+      const address = addressLines(ship || null);
+      const emailed = await sendOrderEmail({
+        email,
         name,
-        amountLabel: formatUsd(session.amount_total || 0),
+        amountLabel: formatUsd(amountCents),
         items,
-        address: addressLines(ship || null),
+        address,
         sessionId: session.id,
         paid: session.payment_status === "paid",
       });
-    } catch {
-      /* payment already succeeded; do not fail the webhook */
+      const latest = await readStore();
+      if (!latest.orders.some((o) => o.sessionId === session.id)) {
+        latest.orders = [
+          {
+            id: newId("order"),
+            createdAt: new Date().toISOString(),
+            email,
+            name,
+            amountCents,
+            items,
+            address,
+            sessionId: session.id,
+            emailed,
+            read: false,
+          },
+          ...latest.orders,
+        ].slice(0, 400);
+        await writeStore(latest);
+      }
+    } catch (err) {
+      console.error("order notify", err instanceof Error ? err.message : err);
     }
   }
 

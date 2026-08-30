@@ -68,26 +68,47 @@ async function sendViaResend(quote: Quote, to: string): Promise<boolean> {
   }
 }
 
-async function sendViaFormSubmit(quote: Quote, to: string): Promise<boolean> {
+function formOrigin(): string {
+  return cleanStr(process.env.NEXT_PUBLIC_SITE_URL, "https://bighorncustomworks.com").replace(/\/$/, "");
+}
+
+async function formSubmit(to: string, fields: Record<string, string>): Promise<boolean> {
+  const origin = formOrigin();
   try {
     const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(to)}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Origin: origin,
+        Referer: `${origin}/`,
+      },
       body: JSON.stringify({
-        name: quote.name,
-        email: quote.email,
-        phone: quote.phone,
-        message: quoteBody(quote),
-        _replyto: quote.email,
-        _subject: `Quote request from ${quote.name || quote.email}`,
+        ...fields,
         _template: "box",
         _captcha: "false",
       }),
     });
-    return res.ok;
+    const json = (await res.json().catch(() => ({}))) as { success?: boolean | string; message?: string };
+    const ok = json.success === true || json.success === "true";
+    if (!ok) {
+      console.error("formsubmit", json.message || res.status);
+    }
+    return ok;
   } catch {
     return false;
   }
+}
+
+async function sendViaFormSubmit(quote: Quote, to: string): Promise<boolean> {
+  return formSubmit(to, {
+    name: quote.name,
+    email: quote.email,
+    phone: quote.phone,
+    message: quoteBody(quote),
+    _replyto: quote.email,
+    _subject: `Quote request from ${quote.name || quote.email}`,
+  });
 }
 
 export async function sendQuoteEmail(quote: Quote, toEmail?: string): Promise<boolean> {
@@ -109,17 +130,6 @@ export async function sendPlainEmail(opts: {
 }): Promise<boolean> {
   const to = cleanStr(opts.to) || shopInbox();
   const replyTo = cleanStr(opts.replyTo);
-  const stub: Quote = {
-    id: "mail",
-    name: "Big Horn Custom Works shop",
-    email: replyTo || to,
-    phone: "",
-    need: opts.text,
-    photoUrl: "",
-    createdAt: new Date().toISOString(),
-    read: false,
-    emailed: false,
-  };
 
   const user = cleanStr(process.env.SMTP_USER);
   const pass = cleanStr(process.env.SMTP_PASS);
@@ -168,29 +178,12 @@ export async function sendPlainEmail(opts: {
     }
   }
 
-  stub.name = "Catalog order";
-  return sendViaFormSubmit(
-    { ...stub, email: replyTo || to },
-    to,
-  ).then(async (ok) => {
-    if (ok) return true;
-    try {
-      const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(to)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          name: "Catalog order",
-          email: replyTo || to,
-          message: opts.text,
-          _subject: opts.subject,
-          _template: "box",
-          _captcha: "false",
-        }),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+  return formSubmit(to, {
+    name: "Catalog order",
+    email: replyTo || to,
+    message: opts.text,
+    _replyto: replyTo,
+    _subject: opts.subject,
   });
 }
 

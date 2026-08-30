@@ -85,10 +85,24 @@ export type ShopStats = {
   uniqueVisitors: number;
 };
 
+export type ShopOrder = {
+  id: string;
+  createdAt: string;
+  email: string;
+  name: string;
+  amountCents: number;
+  items: string;
+  address: string;
+  sessionId: string;
+  emailed: boolean;
+  read: boolean;
+};
+
 export type ShopStore = {
   products: Product[];
   categories: ShopCategory[];
   quotes: Quote[];
+  orders: ShopOrder[];
   site: SiteCopy;
   settings: ShopSettings;
   stats: ShopStats;

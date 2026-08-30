@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { dollarsToCents, formatUsd } from "@/lib/money";
 import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
-import type { Product, Quote, ShopCategory, ShopStore } from "@/lib/types";
+import type { Product, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
 
 type Tab = "products" | "copy" | "quotes" | "settings";
 
@@ -142,7 +142,8 @@ export function MasterClient() {
     );
   }
 
-  const unread = store.quotes.filter((q) => !q.read).length;
+  const unread =
+    store.quotes.filter((q) => !q.read).length + (store.orders || []).filter((o) => !o.read).length;
 
   return (
     <div className="master">
@@ -157,7 +158,7 @@ export function MasterClient() {
           [
             ["products", "Products"],
             ["copy", "Site copy"],
-            ["quotes", `Quotes${unread ? ` (${unread})` : ""}`],
+            ["quotes", `Inbox${unread ? ` (${unread})` : ""}`],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -339,6 +340,22 @@ export function MasterClient() {
 
       {tab === "quotes" ? (
         <div>
+          <h2>Orders</h2>
+          {!(store.orders && store.orders.length) ? (
+            <p>No catalog orders yet. Paid Stripe checkouts land here even if email fails.</p>
+          ) : (
+            store.orders.map((order) => (
+              <OrderRow
+                key={order.id}
+                order={order}
+                onRead={() => {
+                  const orders = store.orders.map((o) => (o.id === order.id ? { ...o, read: true } : o));
+                  save({ ...store, orders });
+                }}
+              />
+            ))
+          )}
+          <h2>Quotes</h2>
           {!store.quotes.length ? <p>No quote requests yet.</p> : null}
           {store.quotes.map((quote) => (
             <QuoteRow
@@ -846,6 +863,25 @@ function ProductEditor({
       >
         Add media URL
       </button>
+    </div>
+  );
+}
+
+function OrderRow({ order, onRead }: { order: ShopOrder; onRead: () => void }) {
+  return (
+    <div className="quote-item">
+      <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
+      {!order.read ? <span className="muted"> · new</span> : null}
+      <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
+      {order.address ? <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p> : null}
+      <p className="muted">
+        {order.createdAt} · {order.emailed ? "email sent" : "email failed — still saved here"}
+      </p>
+      {!order.read ? (
+        <button type="button" onClick={onRead}>
+          Mark read
+        </button>
+      ) : null}
     </div>
   );
 }
