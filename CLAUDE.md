@@ -72,6 +72,21 @@ Dashboard. Stripe prices must carry `tax_behavior`, which is write-once — a
 price created without it breaks the whole session, so the catalog sync
 recreates any price missing it and records `stripeTaxBehavior` on the product.
 
+## Uploads
+
+Vercel caps any request passing through a serverless function at 4.5 MB.
+Master Control therefore uploads **client-side**: the browser gets a token
+from `/api/blob-upload` and sends the file straight to Blob, skipping that
+cap. Photos are shrunk in the browser first (`lib/compressImage.ts`).
+
+`/api/blob-upload` sits outside `/api/master` on purpose — Blob calls it
+back server-to-server with no session cookie, so the master middleware
+would block it. Auth happens in `onBeforeGenerateToken`, which only runs on
+the request the browser itself makes.
+
+`/api/master/upload` remains as a fallback for local dev and is genuinely
+limited to 4.5 MB. All limits live in `lib/uploadLimits.ts`.
+
 ## Env
 
 Names live in `.env.example`; real values in gitignored `.env.local`.

@@ -3,12 +3,17 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { isMaster } from "@/lib/auth";
 import { safeUrl } from "@/lib/sanitize";
+import { SERVER_UPLOAD_MAX, humanSize } from "@/lib/uploadLimits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const PHOTO_MAX = 12_000_000;
-const VIDEO_MAX = 40_000_000;
+/**
+ * Fallback path only. Master Control uploads straight to Blob from the browser
+ * via /api/blob-upload; this route is for local development and for when that
+ * fails. Everything here passes through a serverless function, so the platform
+ * caps it at 4.5 MB regardless of what we would prefer.
+ */
 
 function safeName(name: string, fallback: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || fallback;
@@ -29,7 +34,12 @@ export async function POST(req: Request) {
     form = await req.formData();
   } catch {
     return NextResponse.json(
-      { error: "Video did not upload whole. Keep it under 40MB and try again." },
+      {
+        error:
+          "Upload was cut off. This backup route is limited to " +
+          humanSize(SERVER_UPLOAD_MAX) +
+          " — reload Master Control so it uploads straight to storage instead.",
+      },
       { status: 413 },
     );
   }
@@ -38,10 +48,16 @@ export async function POST(req: Request) {
   if (!(file instanceof File) || !file.size) {
     return NextResponse.json({ error: "No file." }, { status: 400 });
   }
-  const max = kind === "video" ? VIDEO_MAX : PHOTO_MAX;
-  if (file.size > max) {
+  if (file.size > SERVER_UPLOAD_MAX) {
     return NextResponse.json(
-      { error: kind === "video" ? "Video too large (40MB max)." : "File too large (12MB max)." },
+      {
+        error:
+          "That file is " +
+          humanSize(file.size) +
+          ". This backup route caps at " +
+          humanSize(SERVER_UPLOAD_MAX) +
+          " — reload Master Control so it uploads straight to storage instead.",
+      },
       { status: 400 },
     );
   }

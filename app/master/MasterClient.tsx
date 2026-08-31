@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { compressImage } from "@/lib/compressImage";
 import { dollarsToCents, formatUsd } from "@/lib/money";
+import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/uploadLimits";
 import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
@@ -107,20 +109,72 @@ export function MasterClient() {
     }
   }
 
-  async function uploadTo(productId: string, file: File) {
-    const kind = fileUploadKind(file);
+  /**
+   * Sends the file straight to Vercel Blob so it never passes through a
+   * serverless function, which is what the 4.5 MB cap actually applies to.
+   * Falls back to the old server route (local dev, or no Blob token) where that
+   * cap is real. Returns "" and sets the error message on failure.
+   */
+  async function uploadFile(file: File, kind: string): Promise<string> {
+    const fallbackName = kind === "video" ? "clip.mp4" : "photo.jpg";
+    const pathname = "bhcw/" + kind + "s/" + safeUploadName(file.name, fallbackName);
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(pathname, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob-upload",
+        clientPayload: kind,
+        contentType: file.type || undefined,
+      });
+      if (blob?.url) return blob.url;
+    } catch {
+      /* fall through to the server route */
+    }
+
+    if (file.size > SERVER_UPLOAD_MAX) {
+      setError(
+        "Direct upload failed, and " +
+          humanSize(file.size) +
+          " is too big for the backup route. Try a smaller file, or paste a URL.",
+      );
+      return "";
+    }
     const data = new FormData();
     data.set("file", file);
     data.set("kind", kind);
     const res = await fetch("/api/master/upload", { method: "POST", body: data });
-    const json = await res.json();
-    if (!res.ok || !json.url || !store) {
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.url) {
       setError(json.error || "Upload failed. Paste a URL instead.");
+      return "";
+    }
+    return json.url;
+  }
+
+  async function uploadTo(productId: string, file: File) {
+    const kind = fileUploadKind(file);
+    setError("");
+    setStatus("Uploading…");
+
+    // Shrink photos first: a 9 MB phone shot becomes a few hundred KB with no
+    // visible difference on a shop page.
+    const toSend = kind === "video" ? file : await compressImage(file);
+
+    const max = maxForKind(kind);
+    if (toSend.size > max) {
+      setStatus("");
+      setError("That " + kind + " is " + humanSize(toSend.size) + " and the limit is " + humanSize(max) + ".");
+      return;
+    }
+
+    const url = await uploadFile(toSend, kind);
+    if (!url || !store) {
+      setStatus("");
       return;
     }
     const products = store.products.map((p) => {
       if (p.id !== productId) return p;
-      return { ...p, media: [...orderedMedia(p), json.url] };
+      return { ...p, media: [...orderedMedia(p), url] };
     });
     await save({ ...store, products });
   }
