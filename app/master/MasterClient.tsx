@@ -38,6 +38,7 @@ export function MasterClient() {
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
   const [storageDurable, setStorageDurable] = useState(true);
+  const [blobNote, setBlobNote] = useState("");
   const [keyMode, setKeyMode] = useState("");
   const [envStripe, setEnvStripe] = useState(false);
   const [envResend, setEnvResend] = useState(false);
@@ -65,6 +66,16 @@ export function MasterClient() {
         setStore(json.store);
         setPersistence(json.persistence || "");
         setStorageDurable(json.storageDurable !== false);
+        if (json.blob) {
+          const b = json.blob;
+          setBlobNote(
+            b.error
+              ? "Blob check failed: " + b.error
+              : b.readOk
+                ? "Blob reachable" + (b.found ? ", store file found." : ", no store file yet.")
+                : "",
+          );
+        }
         setKeyMode(json.stripeKeyMode || "");
         setEnvStripe(Boolean(json.envStripe));
         setEnvResend(Boolean(json.envResend));
@@ -102,7 +113,9 @@ export function MasterClient() {
     setStatus(`Saved (${json.persisted || "ok"}). Shop page reads this without a deploy.${stripeNote}`);
     if (json.ok === false) {
       setError(
-        "Saved to memory only — this will be lost on the next cold start. Connect a Vercel Blob store (BLOB_READ_WRITE_TOKEN) before taking real orders.",
+        "Saved to memory only — this will be lost on the next cold start. Reason: " +
+          (json.storageError || "unknown") +
+          ".",
       );
     } else if (json.stripeError) {
       setError(json.stripeError);
@@ -227,6 +240,7 @@ export function MasterClient() {
           (BLOB_READ_WRITE_TOKEN) before going live.
         </p>
       )}
+      {blobNote ? <p className="note">{blobNote}</p> : null}
       <div className="tabs">
         {(
           [

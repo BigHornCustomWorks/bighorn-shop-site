@@ -316,8 +316,8 @@ async function readBlob(): Promise<ShopStore | null> {
   }
 }
 
-async function writeBlob(store: ShopStore): Promise<boolean> {
-  if (!blobConfigured()) return false;
+async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string }> {
+  if (!blobConfigured()) return { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
   try {
     const { put } = await import("@vercel/blob");
     const safe = {
@@ -331,9 +331,46 @@ async function writeBlob(store: ShopStore): Promise<boolean> {
       contentType: "application/json",
       cacheControlMaxAge: 60,
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true, error: "" };
+  } catch (err) {
+    // Swallowing this made a broken Blob store look identical to a missing
+    // one. The reason matters: bad token, wrong store, rejected option.
+    const error = err instanceof Error ? err.message : "Blob write failed.";
+    console.error("blob write failed:", error);
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Read-only probe so Master Control can say whether the token actually works,
+ * rather than only reporting whether it exists.
+ */
+export async function blobDiagnostics(): Promise<{
+  tokenPresent: boolean;
+  readOk: boolean;
+  found: boolean;
+  error: string;
+}> {
+  const tokenPresent = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  if (!tokenPresent) {
+    return { tokenPresent, readOk: false, found: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
+  }
+  try {
+    const { list } = await import("@vercel/blob");
+    const listed = await list({ prefix: BLOB_PATH });
+    return {
+      tokenPresent,
+      readOk: true,
+      found: listed.blobs.some((b) => b.pathname === BLOB_PATH),
+      error: "",
+    };
+  } catch (err) {
+    return {
+      tokenPresent,
+      readOk: false,
+      found: false,
+      error: err instanceof Error ? err.message : "Blob list failed.",
+    };
   }
 }
 
@@ -348,26 +385,26 @@ export async function readStore(): Promise<ShopStore> {
   return data;
 }
 
-export async function writeStore(next: ShopStore): Promise<{ ok: boolean; persisted: string }> {
+export async function writeStore(
+  next: ShopStore,
+): Promise<{ ok: boolean; persisted: string; error: string }> {
   const store = normalizeStore({ ...next, updatedAt: new Date().toISOString() });
   g.__bhcwCache = { data: store, at: Date.now() };
 
-  const blobOk = await writeBlob(store);
-  if (blobOk) return { ok: true, persisted: "blob" };
+  const blob = await writeBlob(store);
+  if (blob.ok) return { ok: true, persisted: "blob", error: "" };
 
   try {
     await writeLocal(store);
     // On Vercel this file is ephemeral. Report it as a failure so callers
     // surface it, rather than pretending the write stuck.
     if (process.env.VERCEL) {
-      console.error(
-        "store write is NOT durable: BLOB_READ_WRITE_TOKEN missing — connect a Vercel Blob store",
-      );
-      return { ok: false, persisted: "ephemeral" };
+      console.error("store write is NOT durable:", blob.error);
+      return { ok: false, persisted: "ephemeral", error: blob.error };
     }
-    return { ok: true, persisted: "file" };
+    return { ok: true, persisted: "file", error: "" };
   } catch {
-    return { ok: false, persisted: "memory" };
+    return { ok: false, persisted: "memory", error: blob.error };
   }
 }
 

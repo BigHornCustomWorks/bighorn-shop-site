@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isMaster } from "@/lib/auth";
 import {
+  blobDiagnostics,
   persistenceLabel,
   publicStore,
   readStore,
@@ -26,6 +27,7 @@ export async function GET() {
     publicPreview: publicStore(store),
     persistence: persistenceLabel(),
     storageDurable: storageIsDurable(),
+    blob: await blobDiagnostics(),
     stripeKeyMode: stripeKeyMode(store),
     envStripe: Boolean(process.env.STRIPE_SECRET_KEY),
     envResend: Boolean(process.env.RESEND_API_KEY),
@@ -67,6 +69,7 @@ export async function PUT(req: Request) {
     persisted: result.persisted,
     persistence: persistenceLabel(),
     storageDurable: storageIsDurable(),
+    storageError: result.error,
     stripeKeyMode: stripeKeyMode(sync.store),
     stripeSynced: sync.synced,
     stripeError: sync.error,
