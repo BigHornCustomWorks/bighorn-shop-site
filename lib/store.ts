@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { seedStore } from "./seed";
@@ -27,8 +28,28 @@ import type {
   SiteCopy,
 } from "./types";
 
-const BLOB_PATH = "bhcw/store.json";
+/** Where the store file used to live, before the name was made unguessable. */
+const LEGACY_BLOB_PATH = "bhcw/store.json";
 const LOCAL_PATH = path.join(process.cwd(), "data", "store.json");
+
+/**
+ * This SDK can only write to a PUBLIC Blob store, so whatever we put there is
+ * readable by anyone who knows the URL — and the store file holds quotes and
+ * orders, meaning customer names, emails, phones and shipping addresses.
+ *
+ * A fixed "bhcw/store.json" sits at a completely predictable URL next to the
+ * product photos, so anyone with a photo link could try for it. Deriving the
+ * filename from the master session secret gives it 128 bits of entropy.
+ *
+ * This is obscurity, not access control: the URL should be treated as a
+ * credential. Encrypting the customer records would be the real fix.
+ */
+function blobPath(): string {
+  const secret = cleanStr(process.env.MASTER_SESSION_SECRET);
+  if (!secret) return LEGACY_BLOB_PATH;
+  const tag = createHash("sha256").update("bhcw-store:" + secret).digest("hex").slice(0, 32);
+  return "bhcw/store-" + tag + ".json";
+}
 
 type Cache = { data: ShopStore; at: number };
 const g = globalThis as typeof globalThis & { __bhcwCache?: Cache };
@@ -304,13 +325,18 @@ async function readBlob(): Promise<ShopStore | null> {
   if (!blobConfigured()) return null;
   try {
     const { list } = await import("@vercel/blob");
-    const listed = await list({ prefix: BLOB_PATH });
-    const hit = listed.blobs.find((b) => b.pathname === BLOB_PATH);
-    if (!hit?.url) return null;
-    const res = await fetch(hit.url, { cache: "no-store" });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return normalizeStore(json);
+    // Current name first, then the old predictable one, so a store written
+    // before this change still loads and gets migrated on the next save.
+    const candidates = [blobPath(), LEGACY_BLOB_PATH];
+    for (const pathname of candidates) {
+      const listed = await list({ prefix: pathname });
+      const hit = listed.blobs.find((b) => b.pathname === pathname);
+      if (!hit?.url) continue;
+      const res = await fetch(hit.url, { cache: "no-store" });
+      if (!res.ok) continue;
+      return normalizeStore(await res.json());
+    }
+    return null;
   } catch {
     return null;
   }
@@ -324,13 +350,27 @@ async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string
       ...store,
       settings: { ...store.settings, stripeSecretKey: "" },
     };
-    await put(BLOB_PATH, JSON.stringify(safe), {
+    const pathname = blobPath();
+    await put(pathname, JSON.stringify(safe), {
       access: "public",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/json",
       cacheControlMaxAge: 60,
     });
+    // Once the data is safely at the unguessable name, remove the old copy so
+    // customer records stop sitting at a URL anyone could guess.
+    // Attempted on every save rather than once per process: a once-only flag
+    // silently skips the cleanup if the legacy file shows up later, and admin
+    // saves are rare enough that the extra call costs nothing.
+    if (pathname !== LEGACY_BLOB_PATH) {
+      try {
+        const { del } = await import("@vercel/blob");
+        await del(LEGACY_BLOB_PATH);
+      } catch {
+        /* it usually just does not exist */
+      }
+    }
     return { ok: true, error: "" };
   } catch (err) {
     // Swallowing this made a broken Blob store look identical to a missing
@@ -357,11 +397,12 @@ export async function blobDiagnostics(): Promise<{
   }
   try {
     const { list } = await import("@vercel/blob");
-    const listed = await list({ prefix: BLOB_PATH });
+    const pathname = blobPath();
+    const listed = await list({ prefix: pathname });
     return {
       tokenPresent,
       readOk: true,
-      found: listed.blobs.some((b) => b.pathname === BLOB_PATH),
+      found: listed.blobs.some((b) => b.pathname === pathname),
       error: "",
     };
   } catch (err) {
