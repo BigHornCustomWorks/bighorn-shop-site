@@ -109,6 +109,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripePriceId: cleanStr(src.stripePriceId),
     stripePriceCents: asCents(src.stripePriceCents, 0),
     stripeTaxBehavior: cleanStr(src.stripeTaxBehavior),
+    shippingCents: asCents(src.shippingCents, 0),
   };
 }
 
@@ -197,6 +198,7 @@ function normalizeSite(raw: unknown): SiteCopy {
     shippingNote: cleanMultiline(src.shippingNote, base.shippingNote),
     shippingCents: asCents(src.shippingCents, 0),
     shippingOptions: normalizeShippingOptions(src),
+    perItemShippingLabel: cleanStr(src.perItemShippingLabel, base.perItemShippingLabel),
     repairStatusLabel: cleanStr(src.repairStatusLabel, base.repairStatusLabel),
     repairStatusLine: cleanMultiline(src.repairStatusLine, base.repairStatusLine),
     repairStatusUrl: safeUrl(src.repairStatusUrl) || base.repairStatusUrl,
@@ -247,6 +249,7 @@ function normalizeSettings(raw: unknown): ShopSettings {
     stripeMode: src.stripeMode === "live" ? "live" : "test",
     catalogMode,
     taxEnabled: src.taxEnabled === true,
+    shippingCombine: src.shippingCombine === "sum" ? "sum" : "highest",
   };
 }
 

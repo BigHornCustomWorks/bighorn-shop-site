@@ -30,6 +30,7 @@ const emptyProduct = (): Product => ({
   stripePriceId: "",
   stripePriceCents: 0,
   stripeTaxBehavior: "",
+  shippingCents: 0,
   sortOrder: 99,
 });
 
@@ -585,6 +586,38 @@ export function MasterClient() {
             prices. Variants (like T-slot color) stay on this site and show on the Stripe payment page.
           </p>
           <label>
+            Shipping on multi-item orders
+            <select
+              value={store.settings.shippingCombine}
+              onChange={(e) =>
+                setStore({
+                  ...store,
+                  settings: {
+                    ...store.settings,
+                    shippingCombine: e.target.value === "sum" ? "sum" : "highest",
+                  },
+                })
+              }
+            >
+              <option value="highest">Charge the dearest item only (ships together)</option>
+              <option value="sum">Add up every item (each needs its own box)</option>
+            </select>
+          </label>
+          <label>
+            Shipping name customers see
+            <input
+              value={store.site.perItemShippingLabel}
+              onChange={(e) =>
+                setStore({ ...store, site: { ...store.site, perItemShippingLabel: e.target.value } })
+              }
+            />
+          </label>
+          <p className="note">
+            Any item with its own shipping cost takes over from the shop-wide rates for that order.
+            Items left at 0 ship along free. If no item in the cart has a cost set, the shop-wide
+            options above are used instead.
+          </p>
+          <label>
             <input
               type="checkbox"
               checked={store.settings.taxEnabled}
@@ -941,6 +974,15 @@ function ProductEditor({
             onChange={(e) => onChange({ ...product, priceCents: dollarsToCents(e.target.value) })}
           />
         </label>
+        {product.kind === "digital" ? null : (
+          <label>
+            Shipping for this item (USD, 0 = use the shop rate)
+            <input
+              value={(product.shippingCents / 100).toFixed(2)}
+              onChange={(e) => onChange({ ...product, shippingCents: dollarsToCents(e.target.value) })}
+            />
+          </label>
+        )}
         <label>
           Visible on site
           <select

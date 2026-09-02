@@ -56,6 +56,11 @@ Stripe's limit), are edited in Master Control, and are sent as real Stripe
 chosen service and its cost land on the order email so the right label gets
 bought. A legacy flat `shippingCents` migrates into a single option.
 
+Each product can carry its own `shippingCents`. If any physical item in the
+cart has one, it overrides the shop-wide rates for that order; items left at
+0 ship along free. `settings.shippingCombine` decides how several priced
+items combine — `highest` (default, one box) or `sum` (each needs its own).
+
 Shipping defaults to a single $14.99 flat rate when nothing is configured,
 so the shop can never quietly ship for free. There is no live carrier rate
 lookup: Stripe Checkout only shows rates defined up front.

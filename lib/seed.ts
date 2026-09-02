@@ -22,6 +22,7 @@ export function defaultSite(): SiteCopy {
     shippingOptions: [
       { id: "flat", label: "Flat rate shipping", amountCents: 1499, minDays: 3, maxDays: 7 },
     ],
+    perItemShippingLabel: "Shipping from Sheridan, WY",
     repairStatusLabel: "Repair Status",
     repairStatusLine:
       "Shop management software, live at repairstatus.site. A product of Big Horn Custom Works — not sold in this catalog.",
@@ -72,6 +73,7 @@ export function defaultProducts(): Product[] {
       stripePriceId: "",
       stripePriceCents: 0,
       stripeTaxBehavior: "",
+      shippingCents: 0,
       sortOrder: 1,
     },
     {
@@ -106,6 +108,7 @@ export function defaultProducts(): Product[] {
       stripePriceId: "",
       stripePriceCents: 0,
       stripeTaxBehavior: "",
+      shippingCents: 0,
       sortOrder: 2,
     },
     {
@@ -136,6 +139,7 @@ export function defaultProducts(): Product[] {
       stripePriceId: "",
       stripePriceCents: 0,
       stripeTaxBehavior: "",
+      shippingCents: 0,
       sortOrder: 3,
     },
   ];
@@ -153,6 +157,7 @@ export function seedStore(): ShopStore {
       stripeMode: "test",
       catalogMode: "",
       taxEnabled: false,
+      shippingCombine: "highest",
     },
     stats: { pageViews: 0, uniqueVisitors: 0 },
     updatedAt: "",

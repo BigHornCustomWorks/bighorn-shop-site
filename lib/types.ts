@@ -32,6 +32,8 @@ export type Product = {
   stripePriceCents: number;
   /** tax_behavior baked into the Stripe price. Prices without it break Stripe Tax. */
   stripeTaxBehavior: string;
+  /** What it costs to ship this item. 0 means fall back to the shop-wide rates. */
+  shippingCents: number;
 };
 
 export type Quote = {
@@ -78,6 +80,8 @@ export type SiteCopy = {
   /** Legacy flat rate. Kept so old stores migrate into shippingOptions. */
   shippingCents: number;
   shippingOptions: ShippingOption[];
+  /** Name shown for shipping when the price comes from the items themselves. */
+  perItemShippingLabel: string;
   repairStatusLabel: string;
   repairStatusLine: string;
   repairStatusUrl: string;
@@ -96,6 +100,12 @@ export type ShopSettings = {
   catalogMode: "test" | "live" | "";
   /** Only turn on once Stripe Tax is activated in the Stripe Dashboard. */
   taxEnabled: boolean;
+  /**
+   * How per-item shipping costs combine on a multi-item order.
+   * "highest" charges the dearest item only, on the assumption things ship
+   * together. "sum" charges every item, for goods that need their own box.
+   */
+  shippingCombine: "highest" | "sum";
 };
 
 export type ShopStats = {

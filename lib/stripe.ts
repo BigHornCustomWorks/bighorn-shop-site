@@ -25,9 +25,50 @@ export function siteUrl(): string {
  * line item (the old approach) hides it from Stripe Tax and from the shipping
  * totals, so it has to go through shipping_options instead.
  */
+/**
+ * Per-item shipping wins when any physical item in the cart carries its own
+ * cost, because a way cover and a t-slot cover do not cost the same to post.
+ * Items left at 0 ride along free.
+ *
+ * "highest" assumes the order goes in one box and charges the dearest item.
+ * "sum" charges every item and suits goods that each need their own box.
+ */
+function perItemShipping(
+  store: ShopStore,
+  items: { product: Product; quantity: number }[],
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const priced = items.filter(
+    (i) => i.product.kind !== "digital" && i.product.shippingCents > 0,
+  );
+  if (!priced.length) return [];
+
+  const amount =
+    store.settings.shippingCombine === "sum"
+      ? priced.reduce(
+          (total, i) => total + i.product.shippingCents * Math.max(1, i.quantity),
+          0,
+        )
+      : Math.max(...priced.map((i) => i.product.shippingCents));
+
+  return [
+    {
+      shipping_rate_data: {
+        type: "fixed_amount",
+        fixed_amount: { amount, currency: "usd" },
+        display_name: cleanStr(store.site.perItemShippingLabel) || "Shipping",
+        tax_behavior: "exclusive",
+      },
+    },
+  ];
+}
+
 function shippingOptionsFor(
   store: ShopStore,
+  items: { product: Product; quantity: number }[],
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const fromItems = perItemShipping(store, items);
+  if (fromItems.length) return fromItems;
+
   return store.site.shippingOptions.slice(0, 5).map((opt) => {
     const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
       type: "fixed_amount",
@@ -101,7 +142,7 @@ export async function createCheckoutSession(
 
   if (needsShipping) {
     params.shipping_address_collection = { allowed_countries: ["US"] };
-    const options = shippingOptionsFor(store);
+    const options = shippingOptionsFor(store, items);
     if (options.length) params.shipping_options = options;
   }
 
