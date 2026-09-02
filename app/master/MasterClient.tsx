@@ -34,6 +34,44 @@ const emptyProduct = (): Product => ({
   sortOrder: 99,
 });
 
+/**
+ * A money field you can actually type in.
+ *
+ * Binding value straight to (cents / 100).toFixed(2) reformats on every
+ * keystroke, so backspace looked broken: deleting a character from "14.99"
+ * gave "14.9", which became 1490 cents, which rendered back as "14.90". The
+ * field never emptied and the caret jumped.
+ *
+ * Hold whatever was typed while the field has focus — including an empty box
+ * mid-edit — and only tidy the formatting on the way out. Outside changes are
+ * adopted only when the field is not being edited, so a save cannot overwrite
+ * what is being typed.
+ */
+function MoneyInput({ cents, onCents }: { cents: number; onCents: (cents: number) => void }) {
+  const [text, setText] = useState((cents / 100).toFixed(2));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setText((cents / 100).toFixed(2));
+  }, [cents, editing]);
+
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      onFocus={() => setEditing(true)}
+      onChange={(e) => {
+        setText(e.target.value);
+        onCents(dollarsToCents(e.target.value));
+      }}
+      onBlur={() => {
+        setEditing(false);
+        setText((dollarsToCents(text) / 100).toFixed(2));
+      }}
+    />
+  );
+}
+
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("products");
   const [store, setStore] = useState<ShopStore | null>(null);
@@ -379,13 +417,7 @@ export function MasterClient() {
                   </label>
                   <label>
                     Price ({formatUsd(opt.amountCents)})
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={(opt.amountCents / 100).toFixed(2)}
-                      onChange={(e) => patch({ amountCents: dollarsToCents(e.target.value) })}
-                    />
+                    <MoneyInput cents={opt.amountCents} onCents={(amountCents) => patch({ amountCents })} />
                   </label>
                   <label>
                     Fastest (business days)
@@ -914,7 +946,6 @@ function ProductEditor({
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [dragMedia, setDragMedia] = useState<number | null>(null);
-  const dollars = (product.priceCents / 100).toFixed(2);
   const media = orderedMedia(product);
 
   return (
@@ -972,17 +1003,17 @@ function ProductEditor({
         </label>
         <label>
           Price (USD)
-          <input
-            value={dollars}
-            onChange={(e) => onChange({ ...product, priceCents: dollarsToCents(e.target.value) })}
+          <MoneyInput
+            cents={product.priceCents}
+            onCents={(priceCents) => onChange({ ...product, priceCents })}
           />
         </label>
         {product.kind === "digital" ? null : (
           <label>
             Shipping for this item (USD, 0 = use the shop rate)
-            <input
-              value={(product.shippingCents / 100).toFixed(2)}
-              onChange={(e) => onChange({ ...product, shippingCents: dollarsToCents(e.target.value) })}
+            <MoneyInput
+              cents={product.shippingCents}
+              onCents={(shippingCents) => onChange({ ...product, shippingCents })}
             />
           </label>
         )}
