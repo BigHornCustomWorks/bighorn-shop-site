@@ -62,7 +62,7 @@ export async function PUT(req: Request) {
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
     stats: current.stats,
   };
-  const sync = await syncCatalogToStripe(merged);
+  const sync = await syncCatalogToStripe(merged, current);
   const result = await writeStore(sync.store);
   return NextResponse.json({
     ok: result.ok,

@@ -88,6 +88,10 @@ export function MasterClient() {
   async function save(next: ShopStore, extra?: { stripeSecretKey?: string }) {
     setStatus("Saving…");
     setError("");
+    // Commit locally BEFORE the request, never after. A save can take seconds
+    // (it talks to Stripe), and applying this snapshot on the way back threw
+    // away everything typed in the meantime — text fields appeared to revert.
+    setStore(next);
     const payload = extra?.stripeSecretKey
       ? { ...next, settings: { ...next.settings, stripeSecretKey: extra.stripeSecretKey } }
       : next;
@@ -102,7 +106,6 @@ export function MasterClient() {
       setStatus("");
       return;
     }
-    setStore(next);
     setPersistence(json.persistence || json.persisted || persistence);
     const stripeNote = json.stripeError
       ? ` Stripe: ${json.stripeError}`

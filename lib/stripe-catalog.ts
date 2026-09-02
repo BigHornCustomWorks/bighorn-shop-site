@@ -82,7 +82,30 @@ async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
   };
 }
 
-export async function syncCatalogToStripe(store: ShopStore): Promise<{
+/**
+ * Whether this product still matches what Stripe already has. Re-pushing an
+ * unchanged product costs two API round-trips for nothing, and with a dozen
+ * products that turns every save into a multi-second wait.
+ */
+function needsSync(previous: Product | undefined, product: Product): boolean {
+  if (!product.stripeProductId || !product.stripePriceId) return true;
+  if (product.stripeTaxBehavior !== "exclusive") return true;
+  if (product.stripePriceCents !== product.priceCents) return true;
+  if (!previous) return true;
+  return (
+    previous.name !== product.name ||
+    previous.description !== product.description ||
+    previous.visible !== product.visible ||
+    previous.priceCents !== product.priceCents ||
+    previous.photos.join("|") !== product.photos.join("|") ||
+    previous.media.join("|") !== product.media.join("|")
+  );
+}
+
+export async function syncCatalogToStripe(
+  store: ShopStore,
+  previous?: ShopStore,
+): Promise<{
   store: ShopStore;
   synced: number;
   error: string;
@@ -107,16 +130,19 @@ export async function syncCatalogToStripe(store: ShopStore): Promise<{
       }))
     : store.products;
 
+  const before = new Map((previous?.products || []).map((p) => [p.id, p]));
   const products: Product[] = [];
   let synced = 0;
   let error = "";
   for (const product of source) {
+    // A mode switch cleared every id, so everything genuinely has to go up.
+    if (!stale && !needsSync(before.get(product.id), product)) {
+      products.push(product);
+      continue;
+    }
     try {
-      const next = await upsertOne(store, product);
-      if (next.stripeProductId && next.stripeProductId !== product.stripeProductId) synced += 1;
-      else if (next.stripePriceId !== product.stripePriceId) synced += 1;
-      else if (next.stripeProductId) synced += 1;
-      products.push(next);
+      products.push(await upsertOne(store, product));
+      synced += 1;
     } catch (err) {
       products.push(product);
       error = err instanceof Error ? err.message : "Stripe catalog sync failed.";
