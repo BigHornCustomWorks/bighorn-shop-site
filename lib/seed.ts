@@ -55,12 +55,12 @@ export function defaultProducts(): Product[] {
       description:
         "For Precision Matthews PM-728 / PM-728VT. Custom-engineered Y and Z axis way covers designed to shield critical machine surfaces from chips and dust across three sides. Glass-reinforced TPU, 3D printed, heat and abrasion resistant. Set includes custom mounting brackets and hardware that attach to existing machine holes. No extra drilling.",
       media: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoMay162026_125741PM.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Photo_May_16_2026_12_57_07_PM.jpg",
+        "/products/way-covers-1.jpg",
+        "/products/way-covers-2.jpg",
       ],
       photos: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoMay162026_125741PM.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Photo_May_16_2026_12_57_07_PM.jpg",
+        "/products/way-covers-1.jpg",
+        "/products/way-covers-2.jpg",
       ],
       videos: [],
       category: "Mill accessories",
@@ -84,12 +84,12 @@ export function defaultProducts(): Product[] {
       description:
         "For Precision Matthews PM-728VT bed T-slots. Dual-material 3D printed: hard outer shell that resists hot chips and abrasion, softer flexible layer that snaps in. Keeps chips, coolant, and debris out of the T-slots. Easy to install and remove.",
       media: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/T-Slotcovers.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_15.png",
+        "/products/t-slot-1.jpg",
+        "/products/t-slot-2.png",
       ],
       photos: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/T-Slotcovers.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_15.png",
+        "/products/t-slot-1.jpg",
+        "/products/t-slot-2.png",
       ],
       videos: [],
       category: "Mill accessories",
@@ -119,14 +119,14 @@ export function defaultProducts(): Product[] {
       description:
         "For Precision Matthews PM-728VT. Replaces the stock spindle lock with a sliding mechanism. Locks the spindle with one motion. Solid steel. Hardware included. No mill modifications.",
       media: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM_2.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_14.png",
+        "/products/spindle-1.jpg",
+        "/products/spindle-2.jpg",
+        "/products/spindle-3.png",
       ],
       photos: [
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM_2.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/PhotoApr292026_25023PM.jpg",
-        "https://cdn.shopify.com/s/files/1/1009/3654/8650/files/Screenshot_14.png",
+        "/products/spindle-1.jpg",
+        "/products/spindle-2.jpg",
+        "/products/spindle-3.png",
       ],
       videos: [],
       category: "Mill accessories",
