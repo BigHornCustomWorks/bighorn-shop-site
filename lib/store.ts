@@ -321,6 +321,49 @@ function normalizeGallerySection(raw: unknown, i: number): GallerySection | null
   };
 }
 
+
+/**
+ * Live Blob previously held an incomplete sample gallery (odd slots only) with
+ * captions for small decorative signs but old storefront/ranch JPEGs. Seed alone
+ * cannot win while any gallery array exists in Blob — so heal the known sample
+ * section back to the full 10-slot default without wiping real custom sections.
+ */
+function healSampleGallery(sections: GallerySection[]): GallerySection[] {
+  const seed = seedStore().gallery;
+  const seedCnc = seed.find((s) => s.id === "gal_cnc_signs") || seed[0];
+  const seedMetal = seed.find((s) => s.id === "gal_custom_metal");
+  const need = new Set(
+    Array.from({ length: 10 }, (_, i) => `/gallery/cnc-sign-${String(i + 1).padStart(2, "0")}.jpg`),
+  );
+
+  let changed = false;
+  const out = sections.map((section) => {
+    const srcs = section.photos.map((p) => p.src);
+    const allSamplePaths = srcs.length > 0 && srcs.every((s) => /^\/gallery\/cnc-sign-\d{2}\.jpg$/.test(s));
+    const isCncSample =
+      section.id === "gal_cnc_signs" ||
+      (/plasma-cut signs/i.test(section.title) && (allSamplePaths || section.photos.every((p) => p.simulated)));
+    if (!isCncSample || !seedCnc) return section;
+    const have = new Set(srcs);
+    const incomplete = [...need].some((s) => !have.has(s)) || section.photos.length < 10;
+    if (!incomplete) return section;
+    changed = true;
+    return {
+      ...seedCnc,
+      id: section.id || seedCnc.id,
+      visible: section.visible,
+      sortOrder: section.sortOrder,
+    };
+  });
+
+  if (seedMetal && !out.some((s) => s.id === "gal_custom_metal" || /custom metal signs/i.test(s.title))) {
+    out.push({ ...seedMetal, sortOrder: out.length + 1 });
+    changed = true;
+  }
+
+  return changed ? out.map((s, i) => ({ ...s, sortOrder: i + 1 })) : sections;
+}
+
 function normalizeGallery(raw: unknown): GallerySection[] {
   const listed = asArray<unknown>(raw)
     .map(normalizeGallerySection)
@@ -472,8 +515,16 @@ export async function readStore(): Promise<ShopStore> {
   const fromBlob = await readBlob();
   const fromLocal = fromBlob ? null : await readLocal();
   const data = fromBlob || fromLocal || seedStore();
-  g.__bhcwCache = { data, at: Date.now() };
-  return data;
+  const healedGallery = healSampleGallery(data.gallery || []);
+  const needsHeal =
+    JSON.stringify(healedGallery) !== JSON.stringify(data.gallery || []);
+  const finalStore = needsHeal ? { ...data, gallery: healedGallery } : data;
+  g.__bhcwCache = { data: finalStore, at: Date.now() };
+  if (needsHeal && blobConfigured()) {
+    // Fire-and-forget durable repair so the next cold start already has 10 samples.
+    void writeStore(finalStore);
+  }
+  return finalStore;
 }
 
 export async function writeStore(
