@@ -23,8 +23,9 @@ export function Header({ site }: { site: SiteCopy }) {
           Menu
         </button>
         <nav className={open ? "nav open" : "nav"} onClick={() => setOpen(false)}>
-          <Link href="/shop">Shop</Link>
-          <Link href="/custom">Custom work</Link>
+          <Link href="/physical">Physical</Link>
+          <Link href="/digital">Digital</Link>
+          <Link href="/custom">Custom</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/cart">
