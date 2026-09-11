@@ -46,7 +46,7 @@ export default async function HomePage() {
               <p className="gate-title-sub">Software &amp; tools · left side matches the CAD hero</p>
             </div>
             <Link className="gate digital" href="/digital">
-              <img className="bg gate-logo-bg" src={site.logoUrl || "/logo.png"} alt="" />
+              <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="" />
               <div className="shade" />
               <div className="content">
                 <span className="badge">Pushing this</span>
