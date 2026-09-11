@@ -60,6 +60,7 @@ export async function PUT(req: Request) {
     orders: Array.isArray(incoming.orders) ? incoming.orders : current.orders,
     products: Array.isArray(incoming.products) ? incoming.products : current.products,
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
+    gallery: Array.isArray(incoming.gallery) ? incoming.gallery : current.gallery,
     stats: current.stats,
   };
   const sync = await syncCatalogToStripe(merged, current);

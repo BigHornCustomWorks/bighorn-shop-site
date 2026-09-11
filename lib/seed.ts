@@ -194,6 +194,7 @@ export function defaultGallery(): GallerySection[] {
   ];
 }
 
+
 export function seedStore(): ShopStore {
   return {
     products: defaultProducts(),

@@ -335,7 +335,7 @@ export function MasterClient() {
       ) : null}
 
       {tab === "gallery" ? (
-        <GalleryTab store={store} setStore={setStore} save={save} uploadTo={uploadTo} />
+        <GalleryTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
       ) : null}
 
       {tab === "copy" ? (
