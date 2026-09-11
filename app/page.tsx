@@ -7,7 +7,9 @@ import { safeUrl } from "@/lib/sanitize";
 
 export default async function HomePage() {
   const store = await readStore();
-  const products = visibleProducts(store).slice(0, 3);
+  const all = visibleProducts(store);
+  const products = all.filter((p) => p.kind !== "digital").slice(0, 3);
+  const digital = all.filter((p) => p.kind === "digital");
   const site = store.site;
   const rsUrl = safeUrl(site.repairStatusUrl);
 
@@ -51,6 +53,20 @@ export default async function HomePage() {
             All products
           </Link>
         </p>
+
+        {digital.length ? (
+          <>
+            <hr className="rule" />
+            <p className="section-kicker">Digital products</p>
+            <h2>Software and services</h2>
+            <p className="lede">Software and services for local shops — month to month, no long contract.</p>
+            <div className="grid-catalog">
+              {digital.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </>
+        ) : null}
 
         <div className="rs-line">
           {rsUrl ? (

@@ -34,6 +34,10 @@ export type Product = {
   stripeTaxBehavior: string;
   /** What it costs to ship this item. 0 means fall back to the shop-wide rates. */
   shippingCents: number;
+  /** Shown instead of currency when set (e.g. From $49/mo, Coming soon). */
+  priceLabel: string;
+  /** If set, product is a link-out (no cart) — CTA goes here. */
+  externalUrl: string;
 };
 
 export type Quote = {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
@@ -13,6 +14,10 @@ export function BuyBox({ product }: { product: Product }) {
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const priceText = product.priceLabel || formatUsd(product.priceCents);
+  const external = (product.externalUrl || "").trim();
+  const comingSoon = /coming soon/i.test(product.priceLabel || "") || /coming soon/i.test(product.digitalNote || "");
+  const linkOut = Boolean(external);
 
   function addToCart() {
     add(
@@ -49,9 +54,55 @@ export function BuyBox({ product }: { product: Product }) {
     }
   }
 
+  if (comingSoon && !linkOut) {
+    return (
+      <div>
+        <p className="price">{priceText}</p>
+        <div className="hero-actions" style={{ marginTop: 14 }}>
+          <Link className="btn btn-bronze" href="/contact">
+            Get updates
+          </Link>
+        </div>
+        {product.digitalNote ? (
+          <p className="note" style={{ marginTop: 10 }}>
+            {product.digitalNote}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (linkOut) {
+    const isInternal = external.startsWith("/");
+    return (
+      <div>
+        <p className="price">{priceText}</p>
+        <div className="hero-actions" style={{ marginTop: 14 }}>
+          {isInternal ? (
+            <Link className="btn btn-bronze" href={external}>
+              {comingSoon ? "Get updates" : "Try the demo"}
+            </Link>
+          ) : (
+            <a className="btn btn-bronze" href={external} rel="noreferrer">
+              {comingSoon ? "Get updates" : "Try the demo"}
+            </a>
+          )}
+          <Link className="btn" href="/contact">
+            Contact
+          </Link>
+        </div>
+        {product.digitalNote ? (
+          <p className="note" style={{ marginTop: 10 }}>
+            {product.digitalNote}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div>
-      <p className="price">{formatUsd(product.priceCents)}</p>
+      <p className="price">{priceText}</p>
       {product.variants.length ? (
         <label>
           Color

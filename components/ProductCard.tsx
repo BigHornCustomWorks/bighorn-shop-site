@@ -11,6 +11,7 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="product-card-media">
         <img src={photo} alt="" />
         {(product.videos || []).length ? <span className="badge-media">Video</span> : null}
+        {/coming soon/i.test(product.priceLabel || "") ? <span className="badge-media">Coming soon</span> : null}
       </div>
       <div className="pad">
         <p className="card-meta">
@@ -18,7 +19,7 @@ export function ProductCard({ product }: { product: Product }) {
           {product.kind === "digital" ? " · Digital" : ""}
         </p>
         <h3>{product.name}</h3>
-        <p className="price">{formatUsd(product.priceCents)}</p>
+        <p className="price">{product.priceLabel || formatUsd(product.priceCents)}</p>
         <p className="muted card-blurb">
           {blurb}
           {product.description.length > 72 ? "…" : ""}

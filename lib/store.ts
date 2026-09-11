@@ -110,6 +110,8 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripePriceCents: asCents(src.stripePriceCents, 0),
     stripeTaxBehavior: cleanStr(src.stripeTaxBehavior),
     shippingCents: asCents(src.shippingCents, 0),
+    priceLabel: cleanStr(src.priceLabel),
+    externalUrl: safeUrl(src.externalUrl),
   };
 }
 

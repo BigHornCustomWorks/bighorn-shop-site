@@ -14,6 +14,8 @@ export async function POST(req: Request) {
       .map((row: { productId?: string; quantity?: number; variant?: string }) => {
         const product = store.products.find((p) => p.id === cleanStr(row.productId) && p.visible);
         if (!product) return null;
+        // Link-out / coming-soon digital services are not Stripe cart items.
+        if (product.externalUrl || /coming soon/i.test(product.priceLabel || "")) return null;
         return {
           product,
           quantity: asInt(row.quantity, 1),

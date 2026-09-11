@@ -74,6 +74,8 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      priceLabel: "",
+      externalUrl: "",
       sortOrder: 1,
     },
     {
@@ -109,6 +111,8 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      priceLabel: "",
+      externalUrl: "",
       sortOrder: 2,
     },
     {
@@ -140,6 +144,8 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      priceLabel: "",
+      externalUrl: "",
       sortOrder: 3,
     },
   ];

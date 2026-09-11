@@ -31,6 +31,8 @@ const emptyProduct = (): Product => ({
   stripePriceCents: 0,
   stripeTaxBehavior: "",
   shippingCents: 0,
+  priceLabel: "",
+  externalUrl: "",
   sortOrder: 99,
 });
 
@@ -1006,6 +1008,22 @@ function ProductEditor({
           <MoneyInput
             cents={product.priceCents}
             onCents={(priceCents) => onChange({ ...product, priceCents })}
+          />
+        </label>
+                <label>
+          Price label (optional — overrides dollar price on cards, e.g. From $49/mo or Coming soon)
+          <input
+            value={product.priceLabel || ""}
+            onChange={(e) => onChange({ ...product, priceLabel: e.target.value })}
+            placeholder="Leave blank to show the USD price"
+          />
+        </label>
+        <label>
+          External link (optional — no cart; CTA opens this URL)
+          <input
+            value={product.externalUrl || ""}
+            onChange={(e) => onChange({ ...product, externalUrl: e.target.value })}
+            placeholder="https://… or /contact"
           />
         </label>
         {product.kind === "digital" ? null : (
