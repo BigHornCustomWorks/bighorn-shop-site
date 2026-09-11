@@ -8,8 +8,9 @@ import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
 import type { Product, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
+import { GalleryTab } from "@/components/GalleryTab";
 
-type Tab = "products" | "copy" | "quotes" | "settings";
+type Tab = "products" | "gallery" | "copy" | "quotes" | "settings";
 
 const emptyProduct = (): Product => ({
   id: newId("prod"),
@@ -289,6 +290,7 @@ export function MasterClient() {
         {(
           [
             ["products", "Products"],
+            ["gallery", "Gallery"],
             ["copy", "Site copy"],
             ["quotes", `Inbox${unread ? ` (${unread})` : ""}`],
             ["settings", "Settings"],
@@ -330,6 +332,10 @@ export function MasterClient() {
           dragProd={dragProd}
           setDragProd={setDragProd}
         />
+      ) : null}
+
+      {tab === "gallery" ? (
+        <GalleryTab store={store} setStore={setStore} save={save} uploadTo={uploadTo} />
       ) : null}
 
       {tab === "copy" ? (

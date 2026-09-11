@@ -77,6 +77,23 @@ export default async function HomePage() {
           </div>
         </div>
 
+
+        <section className="gallery-cta">
+          <div className="gallery-cta-media">
+            <img src="/gallery/gallery-cta-hero.jpg" alt="Sample · Decorative CNC plasma-cut mountain wall art" />
+          </div>
+          <div className="gallery-cta-panel">
+            <span className="badge">New · Photo gallery</span>
+            <h2>See the work</h2>
+            <p>
+              CNC plasma-cut signs on real homes and businesses — and more as Clint adds sections.
+            </p>
+            <Link className="btn btn-spark" href="/gallery">
+              Open photo gallery →
+            </Link>
+          </div>
+        </section>
+
         <div className="third">
           <div className="card">
             <p className="section-kicker">Custom work</p>

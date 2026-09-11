@@ -1,4 +1,4 @@
-import type { Product, ShopCategory, ShopStore, SiteCopy } from "./types";
+import type { GallerySection, Product, ShopCategory, ShopStore, SiteCopy } from "./types";
 
 export function defaultSite(): SiteCopy {
   return {
@@ -151,6 +151,49 @@ export function defaultProducts(): Product[] {
   ];
 }
 
+export function defaultGallery(): GallerySection[] {
+  const captions = [
+    "Sample · House number plaque",
+    "Sample · Monogram wall plaque",
+    "Sample · Mountain wall art",
+    "Sample · Garden welcome stake",
+    "Sample · Patio family name",
+    "Sample · Porch address plaque",
+    "Sample · House number plaque (alt)",
+    "Sample · Monogram wall plaque (alt)",
+    "Sample · Mountain wall art (alt)",
+    "Sample · Garden welcome stake (alt)",
+  ];
+  const photos = captions.map((caption, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    return {
+      id: `photo_cnc_${n}`,
+      src: `/gallery/cnc-sign-${n}.jpg`,
+      caption,
+      alt: caption,
+      simulated: true,
+    };
+  });
+  return [
+    {
+      id: "gal_cnc_signs",
+      title: "CNC plasma-cut signs",
+      subtitle: "Small decorative pieces · Homes",
+      visible: true,
+      sortOrder: 1,
+      photos,
+    },
+    {
+      id: "gal_custom_metal",
+      title: "Custom metal signs",
+      subtitle: "Coming soon",
+      visible: true,
+      sortOrder: 2,
+      photos: [],
+    },
+  ];
+}
+
 export function seedStore(): ShopStore {
   return {
     products: defaultProducts(),
@@ -158,6 +201,7 @@ export function seedStore(): ShopStore {
     quotes: [],
     orders: [],
     site: defaultSite(),
+    gallery: defaultGallery(),
     settings: {
       stripeSecretKey: "",
       stripeMode: "test",

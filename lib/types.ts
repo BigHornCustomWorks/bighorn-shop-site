@@ -36,7 +36,7 @@ export type Product = {
   shippingCents: number;
   /** Shown instead of currency when set (e.g. From $49/mo, Coming soon). */
   priceLabel: string;
-  /** If set, product is a link-out (no cart) — CTA goes here. */
+  /** If set, product is a link-out (no cart) â€” CTA goes here. */
   externalUrl: string;
 };
 
@@ -139,12 +139,31 @@ export type ShopOrder = {
   read: boolean;
 };
 
+
+export type GalleryPhoto = {
+  id: string;
+  src: string;
+  caption: string;
+  alt: string;
+  simulated?: boolean;
+};
+
+export type GallerySection = {
+  id: string;
+  title: string;
+  subtitle: string;
+  visible: boolean;
+  sortOrder: number;
+  photos: GalleryPhoto[];
+};
+
 export type ShopStore = {
   products: Product[];
   categories: ShopCategory[];
   quotes: Quote[];
   orders: ShopOrder[];
   site: SiteCopy;
+  gallery: GallerySection[];
   settings: ShopSettings;
   stats: ShopStats;
   updatedAt: string;

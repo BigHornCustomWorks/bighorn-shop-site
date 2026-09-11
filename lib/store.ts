@@ -15,6 +15,8 @@ import {
 import { splitMedia } from "./video";
 import type {
   FooterLink,
+  GalleryPhoto,
+  GallerySection,
   ShippingOption,
   Product,
   ProductKind,
@@ -34,7 +36,7 @@ const LOCAL_PATH = path.join(process.cwd(), "data", "store.json");
 
 /**
  * This SDK can only write to a PUBLIC Blob store, so whatever we put there is
- * readable by anyone who knows the URL — and the store file holds quotes and
+ * readable by anyone who knows the URL â€” and the store file holds quotes and
  * orders, meaning customer names, emails, phones and shipping addresses.
  *
  * A fixed "bhcw/store.json" sits at a completely predictable URL next to the
@@ -286,6 +288,48 @@ function mergeCategories(raw: unknown, products: Product[]): ShopCategory[] {
   return merged.length ? merged.map((c, i) => ({ ...c, sortOrder: i + 1 })) : seedStore().categories;
 }
 
+
+function normalizeGalleryPhoto(raw: unknown, i: number): GalleryPhoto | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<GalleryPhoto>;
+  const url = safeUrl(src.src);
+  if (!url) return null;
+  const caption = cleanStr(src.caption);
+  return {
+    id: cleanStr(src.id, newId("photo")),
+    src: url,
+    caption,
+    alt: cleanStr(src.alt, caption || `Gallery photo ${i + 1}`),
+    simulated: src.simulated === true,
+  };
+}
+
+function normalizeGallerySection(raw: unknown, i: number): GallerySection | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<GallerySection>;
+  const title = cleanStr(src.title);
+  if (!title) return null;
+  const photos = asArray<unknown>(src.photos)
+    .map(normalizeGalleryPhoto)
+    .filter((p): p is GalleryPhoto => Boolean(p))
+    .slice(0, 48);
+  return {
+    id: cleanStr(src.id, newId("gal")),
+    title,
+    subtitle: cleanStr(src.subtitle),
+    visible: src.visible !== false,
+    sortOrder: asInt(src.sortOrder, i + 1),
+    photos,
+  };
+}
+
+function normalizeGallery(raw: unknown): GallerySection[] {
+  const listed = asArray<unknown>(raw)
+    .map(normalizeGallerySection)
+    .filter((s): s is GallerySection => Boolean(s))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((s, i) => ({ ...s, sortOrder: i + 1 }));
+  return listed.length ? listed : seedStore().gallery;
+}
+
 export function normalizeStore(raw: unknown): ShopStore {
   const base = seedStore();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStore>;
@@ -306,6 +350,7 @@ export function normalizeStore(raw: unknown): ShopStore {
       .filter((o): o is ShopOrder => Boolean(o))
       .slice(0, 400),
     site: normalizeSite(src.site),
+    gallery: normalizeGallery(src.gallery),
     settings: normalizeSettings(src.settings),
     stats: normalizeStats(src.stats),
     updatedAt: cleanStr(src.updatedAt),
@@ -493,6 +538,7 @@ export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quo
     products: store.products,
     categories: store.categories,
     site: store.site,
+    gallery: store.gallery,
     stats: store.stats,
     updatedAt: store.updatedAt,
     quoteCount: store.quotes.length,
@@ -522,6 +568,6 @@ export function stripeKeyMode(store: ShopStore): "test" | "live" | "" {
 export function persistenceLabel(): string {
   if (process.env.BLOB_READ_WRITE_TOKEN) return "Vercel Blob (durable)";
   if (process.env.VERCEL)
-    return "NOT DURABLE — set BLOB_READ_WRITE_TOKEN (connect a Vercel Blob store) or orders and edits are lost";
+    return "NOT DURABLE â€” set BLOB_READ_WRITE_TOKEN (connect a Vercel Blob store) or orders and edits are lost";
   return "Local data/store.json";
 }
