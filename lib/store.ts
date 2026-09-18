@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { seedStore } from "./seed";
+import { defaultMetalSigns, seedStore } from "./seed";
 import {
   asArray,
   asCents,
@@ -18,6 +18,7 @@ import type {
   GalleryPhoto,
   GallerySection,
   ShippingOption,
+  MetalSignsConfig,
   Product,
   ProductKind,
   ProductVariant,
@@ -85,7 +86,8 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
   const videosIn = asArray<unknown>(src.videos).map((v) => safeUrl(v)).filter(Boolean);
   const mediaIn = asArray<unknown>(src.media).map((m) => safeUrl(m)).filter(Boolean);
   const { media, photos, videos } = splitMedia(mediaIn.length ? mediaIn : [...photosIn, ...videosIn]);
-  const kind: ProductKind = src.kind === "digital" ? "digital" : "physical";
+  const kind: ProductKind =
+    src.kind === "digital" ? "digital" : src.kind === "sign" ? "sign" : "physical";
   return {
     id: cleanStr(src.id, newId("prod")),
     slug: safeSlug(src.slug, safeSlug(name, `part-${i + 1}`)),
@@ -373,6 +375,35 @@ function normalizeGallery(raw: unknown): GallerySection[] {
   return listed.length ? listed : seedStore().gallery;
 }
 
+function clampInch(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0.25, Math.min(240, Math.round(n * 100) / 100));
+}
+
+function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
+  const base = defaultMetalSigns();
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<MetalSignsConfig>;
+  const media = asArray<unknown>(src.media)
+    .map((m) => safeUrl(m))
+    .filter(Boolean);
+  return {
+    visible: src.visible !== false,
+    heading: cleanStr(src.heading, base.heading),
+    lede: cleanMultiline(src.lede, base.lede),
+    note: cleanMultiline(src.note, base.note),
+    unit: src.unit === "sqin" ? "sqin" : "sqft",
+    rateCents: asCents(src.rateCents, 0),
+    minCents: asCents(src.minCents, 0),
+    minWidthIn: clampInch(src.minWidthIn, base.minWidthIn),
+    minHeightIn: clampInch(src.minHeightIn, base.minHeightIn),
+    maxWidthIn: clampInch(src.maxWidthIn, base.maxWidthIn),
+    maxHeightIn: clampInch(src.maxHeightIn, base.maxHeightIn),
+    shippingCents: asCents(src.shippingCents, 0),
+    media: media.length ? media : base.media,
+  };
+}
+
 export function normalizeStore(raw: unknown): ShopStore {
   const base = seedStore();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStore>;
@@ -394,6 +425,7 @@ export function normalizeStore(raw: unknown): ShopStore {
       .slice(0, 400),
     site: normalizeSite(src.site),
     gallery: normalizeGallery(src.gallery),
+    metalSigns: normalizeMetalSigns(src.metalSigns),
     settings: normalizeSettings(src.settings),
     stats: normalizeStats(src.stats),
     updatedAt: cleanStr(src.updatedAt),
@@ -590,6 +622,7 @@ export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quo
     categories: store.categories,
     site: store.site,
     gallery: store.gallery,
+    metalSigns: store.metalSigns,
     stats: store.stats,
     updatedAt: store.updatedAt,
     quoteCount: store.quotes.length,

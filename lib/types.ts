@@ -3,7 +3,29 @@ export type ProductVariant = {
   name: string;
 };
 
-export type ProductKind = "physical" | "digital";
+export type ProductKind = "physical" | "digital" | "sign";
+
+export type SignUnit = "sqft" | "sqin";
+
+/** Shop-wide metal-sign estimator. Rate is set in Master Control; size is entered by the customer. */
+export type MetalSignsConfig = {
+  visible: boolean;
+  heading: string;
+  lede: string;
+  note: string;
+  unit: SignUnit;
+  /** Cents charged per square foot or per square inch, matching `unit`. */
+  rateCents: number;
+  /** Floor for a finished sign. 0 means no minimum. */
+  minCents: number;
+  minWidthIn: number;
+  minHeightIn: number;
+  maxWidthIn: number;
+  maxHeightIn: number;
+  /** 0 = use the shop-wide shipping options. */
+  shippingCents: number;
+  media: string[];
+};
 
 export type ShopCategory = {
   id: string;
@@ -164,6 +186,7 @@ export type ShopStore = {
   orders: ShopOrder[];
   site: SiteCopy;
   gallery: GallerySection[];
+  metalSigns: MetalSignsConfig;
   settings: ShopSettings;
   stats: ShopStats;
   updatedAt: string;

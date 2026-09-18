@@ -17,8 +17,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <Link className="back-link" href="/">
           ← Home
         </Link>
-        <Link className="back-link" href="/shop">
-          Shop
+        <Link
+          className="back-link"
+          href={product.kind === "digital" ? "/digital" : product.kind === "sign" ? "/signs" : "/physical"}
+        >
+          {product.kind === "digital" ? "Digital" : product.kind === "sign" ? "Signs" : "Physical"}
         </Link>
         <Link className="back-link" href={`/shop?category=${cat}`}>
           {product.category}
@@ -29,7 +32,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div>
           <p className="section-kicker">
             {product.category}
-            {product.kind === "digital" ? " · Digital" : ""}
+            {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
           </p>
           <h1>{product.name}</h1>
           <p style={{ whiteSpace: "pre-wrap" }}>{product.description}</p>

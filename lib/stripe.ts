@@ -1,8 +1,10 @@
 import Stripe from "stripe";
 import { randomBytes } from "node:crypto";
 import type { Product, ShopStore } from "./types";
+import type { SignQuote } from "./sign-price";
 import { stripeSecret } from "./store";
 import { cleanStr, safeUrl } from "./sanitize";
+import { isVideoSrc } from "./video";
 
 export function stripeClient(store: ShopStore): Stripe | null {
   const key = stripeSecret(store);
@@ -153,6 +155,102 @@ export async function createCheckoutSession(
     if (!needsShipping) params.billing_address_collection = "required";
   }
 
+  if (customerEmail) params.customer_email = customerEmail;
+
+  try {
+    return await stripe.checkout.sessions.create({
+      ...params,
+      integration_identifier: integrationId(),
+    } as Stripe.Checkout.SessionCreateParams);
+  } catch {
+    return await stripe.checkout.sessions.create(params);
+  }
+}
+
+function signShippingOptions(
+  store: ShopStore,
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  if (store.metalSigns.shippingCents > 0) {
+    return [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: { amount: store.metalSigns.shippingCents, currency: "usd" },
+          display_name: cleanStr(store.site.perItemShippingLabel) || "Shipping",
+          tax_behavior: "exclusive",
+        },
+      },
+    ];
+  }
+  return store.site.shippingOptions.slice(0, 5).map((opt) => {
+    const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
+      type: "fixed_amount",
+      fixed_amount: { amount: opt.amountCents, currency: "usd" },
+      display_name: opt.label,
+      tax_behavior: "exclusive",
+    };
+    if (opt.minDays > 0 && opt.maxDays > 0) {
+      rate.delivery_estimate = {
+        minimum: { unit: "business_day", value: opt.minDays },
+        maximum: { unit: "business_day", value: opt.maxDays },
+      };
+    }
+    return { shipping_rate_data: rate };
+  });
+}
+
+export async function createSignCheckoutSession(
+  store: ShopStore,
+  quote: Extract<SignQuote, { ok: true }>,
+  customerEmail?: string,
+) {
+  const stripe = stripeClient(store);
+  if (!stripe) throw new Error("Stripe is not configured.");
+  const origin = siteUrl();
+
+  const photoSrc = (store.metalSigns.media || []).find((src) => src && !isVideoSrc(src)) || "";
+  const photo = photoSrc
+    ? photoSrc.startsWith("/")
+      ? `${origin}${photoSrc}`
+      : safeUrl(photoSrc)
+    : "";
+
+  const params: Stripe.Checkout.SessionCreateParams = {
+    mode: "payment",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: quote.cents,
+          tax_behavior: "exclusive",
+          product_data: {
+            name: quote.name,
+            description: quote.description || undefined,
+            images: photo ? [photo] : undefined,
+          },
+        },
+      },
+    ],
+    success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/checkout/cancel`,
+    shipping_address_collection: { allowed_countries: ["US"] },
+    metadata: {
+      shop: "big-horn-custom-works",
+      kind: "sign-estimate",
+      widthIn: String(quote.widthIn),
+      heightIn: String(quote.heightIn),
+      areaLabel: quote.areaLabel,
+      rateLabel: quote.rateLabel,
+    },
+  };
+
+  const options = signShippingOptions(store);
+  if (options.length) params.shipping_options = options;
+
+  if (store.settings.taxEnabled) {
+    params.automatic_tax = { enabled: true };
+  }
   if (customerEmail) params.customer_email = customerEmail;
 
   try {

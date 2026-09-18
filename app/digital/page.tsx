@@ -5,7 +5,7 @@ import { readStore, visibleProducts } from "@/lib/store";
 export default async function DigitalPage() {
   const store = await readStore();
   const products = visibleProducts(store).filter(
-    (p) => p.kind === "digital" || /digital/i.test(p.category),
+    (p) => p.kind === "digital" || (p.kind !== "sign" && /digital/i.test(p.category)),
   );
 
   return (

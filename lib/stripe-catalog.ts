@@ -18,7 +18,7 @@ function httpsImages(product: Product): string[] {
 
 async function upsertOne(store: ShopStore, product: Product): Promise<Product> {
   const stripe = stripeClient(store);
-  if (!stripe || !product.name || product.priceCents <= 0) return product;
+  if (!stripe || !product.name || product.priceCents <= 0 || product.externalUrl) return product;
 
   const images = httpsImages(product);
   const description = cleanStr(product.description).slice(0, 400) || undefined;

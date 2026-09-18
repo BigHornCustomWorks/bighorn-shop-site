@@ -54,6 +54,19 @@ export function BuyBox({ product }: { product: Product }) {
     }
   }
 
+  if (product.kind === "sign" && product.priceCents <= 0 && !linkOut) {
+    return (
+      <div>
+        <p className="price">{priceText === formatUsd(0) ? "Size-based" : priceText}</p>
+        <div className="hero-actions" style={{ marginTop: 14 }}>
+          <Link className="btn btn-bronze" href="/signs">
+            Get a size estimate
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (comingSoon && !linkOut) {
     return (
       <div>

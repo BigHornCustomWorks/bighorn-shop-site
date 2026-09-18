@@ -70,7 +70,7 @@ export default async function HomePage() {
                 <span className="badge">Shop floor &amp; signs</span>
                 <h3>Parts, signs &amp; fab goods</h3>
                 <p>One door into everything you can buy as a physical product — not a wall of SKUs on the home page.</p>
-                <p className="includes">Includes: mill accessories · CNC plasma-cut signs · custom signs</p>
+                <p className="includes">Includes: mill accessories · CNC plasma-cut signs · size estimator</p>
                 <span className="btn btn-bronze">Enter physical products →</span>
               </div>
             </Link>

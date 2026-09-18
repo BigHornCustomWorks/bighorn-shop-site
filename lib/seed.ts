@@ -1,4 +1,4 @@
-import type { GallerySection, Product, ShopCategory, ShopStore, SiteCopy } from "./types";
+import type { GallerySection, MetalSignsConfig, Product, ShopCategory, ShopStore, SiteCopy } from "./types";
 
 export function defaultSite(): SiteCopy {
   return {
@@ -42,7 +42,29 @@ export function defaultSite(): SiteCopy {
 }
 
 export function defaultCategories(): ShopCategory[] {
-  return [{ id: "cat_mill", name: "Mill accessories", sortOrder: 1 }];
+  return [
+    { id: "cat_mill", name: "Mill accessories", sortOrder: 1 },
+    { id: "cat_digital", name: "Digital", sortOrder: 2 },
+    { id: "cat_signs", name: "Metal signs", sortOrder: 3 },
+  ];
+}
+
+export function defaultMetalSigns(): MetalSignsConfig {
+  return {
+    visible: true,
+    heading: "CNC plasma-cut metal signs",
+    lede: "Enter the finished width and height. Price is the area times the shop rate.",
+    note: "Quoted as raw plasma-cut steel unless you ask for paint, powder, or mounting. Odd shapes and extra work still go through a custom quote.",
+    unit: "sqft",
+    rateCents: 0,
+    minCents: 0,
+    minWidthIn: 4,
+    minHeightIn: 4,
+    maxWidthIn: 48,
+    maxHeightIn: 48,
+    shippingCents: 0,
+    media: ["/gallery/gallery-cta-hero.jpg"],
+  };
 }
 
 export function defaultProducts(): Product[] {
@@ -203,6 +225,7 @@ export function seedStore(): ShopStore {
     orders: [],
     site: defaultSite(),
     gallery: defaultGallery(),
+    metalSigns: defaultMetalSigns(),
     settings: {
       stripeSecretKey: "",
       stripeMode: "test",

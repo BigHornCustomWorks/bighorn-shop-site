@@ -16,7 +16,7 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="pad">
         <p className="card-meta">
           {product.category}
-          {product.kind === "digital" ? " · Digital" : ""}
+          {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
         </p>
         <h3>{product.name}</h3>
         <p className="price">{product.priceLabel || formatUsd(product.priceCents)}</p>

@@ -4,9 +4,7 @@ import { readStore, shopFilterCategories, visibleProducts } from "@/lib/store";
 
 export default async function PhysicalPage() {
   const store = await readStore();
-  const products = visibleProducts(store).filter(
-    (p) => p.kind !== "digital" && !/digital/i.test(p.category),
-  );
+  const products = visibleProducts(store).filter((p) => p.kind === "physical");
   const categories = shopFilterCategories({ ...store, products });
 
   return (
@@ -19,20 +17,23 @@ export default async function PhysicalPage() {
       <p className="section-kicker">Physical products</p>
       <h1>Parts, signs &amp; fab goods</h1>
       <p className="lede">
-        {store.site.shippingNote} Mill accessories ship from Sheridan. CNC plasma-cut signs and custom signs may appear
-        as coming soon until SKUs are ready in Master Control.
+        {store.site.shippingNote} Mill accessories ship from Sheridan. Metal signs have their own size-based estimate.
       </p>
       <ShopBrowser products={products} categories={categories} />
       <div className="card" style={{ marginTop: 28 }}>
-        <p className="section-kicker">Also coming into this door</p>
-        <h3>CNC plasma-cut signs · Custom signs</h3>
+        <p className="section-kicker">Metal signs</p>
+        <h3>{store.metalSigns.heading || "CNC plasma-cut signs"}</h3>
         <p className="muted">
-          Placeholder for signage lines — no invented prices. When ready, add them in Master Control under a physical
-          category.
+          Enter a finished size, see the shop rate, and pay that amount on Stripe — or send a custom quote.
         </p>
-        <Link className="btn" href="/custom">
-          Request a custom sign quote
-        </Link>
+        <div className="hero-actions">
+          <Link className="btn btn-bronze" href="/signs">
+            Size estimator →
+          </Link>
+          <Link className="btn" href="/custom">
+            Request a custom sign quote
+          </Link>
+        </div>
       </div>
     </div>
   );

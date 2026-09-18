@@ -61,6 +61,7 @@ export async function PUT(req: Request) {
     products: Array.isArray(incoming.products) ? incoming.products : current.products,
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,
     gallery: Array.isArray(incoming.gallery) ? incoming.gallery : current.gallery,
+    metalSigns: incoming.metalSigns && typeof incoming.metalSigns === "object" ? incoming.metalSigns : current.metalSigns,
     stats: current.stats,
   };
   const sync = await syncCatalogToStripe(merged, current);

@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { compressImage } from "@/lib/compressImage";
-import { dollarsToCents, formatUsd } from "@/lib/money";
+import { formatUsd } from "@/lib/money";
 import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/uploadLimits";
 import { newId, safeSlug } from "@/lib/sanitize";
-import { fileUploadKind, firstPhoto, isVideoSrc, orderedMedia } from "@/lib/video";
+import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
-import type { Product, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
+import type { Product, ProductKind, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
+import { MediaField } from "@/components/MediaField";
+import { MoneyInput } from "@/components/MoneyInput";
+import { SignsTab } from "@/components/SignsTab";
 
-type Tab = "products" | "gallery" | "copy" | "quotes" | "settings";
+type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "settings";
 
-const emptyProduct = (): Product => ({
+const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   id: newId("prod"),
   slug: "",
   name: "",
@@ -21,8 +24,8 @@ const emptyProduct = (): Product => ({
   media: [],
   photos: [],
   videos: [],
-  category: "Mill accessories",
-  kind: "physical",
+  category: kind === "digital" ? "Digital" : kind === "sign" ? "Metal signs" : "Mill accessories",
+  kind,
   digitalNote: "",
   variants: [],
   variantNote: "",
@@ -37,46 +40,8 @@ const emptyProduct = (): Product => ({
   sortOrder: 99,
 });
 
-/**
- * A money field you can actually type in.
- *
- * Binding value straight to (cents / 100).toFixed(2) reformats on every
- * keystroke, so backspace looked broken: deleting a character from "14.99"
- * gave "14.9", which became 1490 cents, which rendered back as "14.90". The
- * field never emptied and the caret jumped.
- *
- * Hold whatever was typed while the field has focus — including an empty box
- * mid-edit — and only tidy the formatting on the way out. Outside changes are
- * adopted only when the field is not being edited, so a save cannot overwrite
- * what is being typed.
- */
-function MoneyInput({ cents, onCents }: { cents: number; onCents: (cents: number) => void }) {
-  const [text, setText] = useState((cents / 100).toFixed(2));
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    if (!editing) setText((cents / 100).toFixed(2));
-  }, [cents, editing]);
-
-  return (
-    <input
-      inputMode="decimal"
-      value={text}
-      onFocus={() => setEditing(true)}
-      onChange={(e) => {
-        setText(e.target.value);
-        onCents(dollarsToCents(e.target.value));
-      }}
-      onBlur={() => {
-        setEditing(false);
-        setText((dollarsToCents(text) / 100).toFixed(2));
-      }}
-    />
-  );
-}
-
 export function MasterClient() {
-  const [tab, setTab] = useState<Tab>("products");
+  const [tab, setTab] = useState<Tab>("physical");
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
   const [storageDurable, setStorageDurable] = useState(true);
@@ -271,13 +236,35 @@ export function MasterClient() {
   const unread =
     store.quotes.filter((q) => !q.read).length + (store.orders || []).filter((o) => !o.read).length;
 
+  const productTabProps = {
+    store,
+    setStore,
+    save,
+    uploadTo,
+    query,
+    setQuery,
+    filterCat,
+    setFilterCat,
+    openId,
+    setOpenId,
+    newCat,
+    setNewCat,
+    dragCat,
+    setDragCat,
+    dragProd,
+    setDragProd,
+  };
+
   return (
     <div className="master">
-      <h1>Master Control</h1>
-      <p className="note">
-        Edit copy, products, photos, prices, and links. Public pages only render cleaned text — messy HTML/JS will not
-        crash the shop.
-      </p>
+      <div className="mc-section-head">
+        <p className="section-kicker">Master Control</p>
+        <h1>Shop editor</h1>
+        <p className="lede">
+          Same doors as the public site — Physical, Digital, and Metal signs. Edit copy, photos, prices, and the sign
+          rate without a deploy.
+        </p>
+      </div>
       <p className="note">Storage: {persistence}</p>
       {storageDurable ? null : (
         <p className="err">
@@ -286,17 +273,28 @@ export function MasterClient() {
         </p>
       )}
       {blobNote ? <p className="note">{blobNote}</p> : null}
-      <div className="tabs">
+      <div className="mc-tabs">
         {(
           [
-            ["products", "Products"],
+            ["physical", "Physical"],
+            ["digital", "Digital"],
+            ["signs", "Metal signs"],
             ["gallery", "Gallery"],
             ["copy", "Site copy"],
             ["quotes", `Inbox${unread ? ` (${unread})` : ""}`],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
-          <button key={id} className={tab === id ? "on" : ""} type="button" onClick={() => setTab(id)}>
+          <button
+            key={id}
+            className={tab === id ? "on" : ""}
+            type="button"
+            onClick={() => {
+              setTab(id);
+              setOpenId(null);
+              setFilterCat("all");
+            }}
+          >
             {label}
           </button>
         ))}
@@ -313,25 +311,19 @@ export function MasterClient() {
       {status ? <p className="ok">{status}</p> : null}
       {error ? <p className="err">{error}</p> : null}
 
-      {tab === "products" ? (
-        <ProductsTab
-          store={store}
-          setStore={setStore}
-          save={save}
-          uploadTo={uploadTo}
-          query={query}
-          setQuery={setQuery}
-          filterCat={filterCat}
-          setFilterCat={setFilterCat}
-          openId={openId}
-          setOpenId={setOpenId}
-          newCat={newCat}
-          setNewCat={setNewCat}
-          dragCat={dragCat}
-          setDragCat={setDragCat}
-          dragProd={dragProd}
-          setDragProd={setDragProd}
-        />
+      {tab === "physical" ? (
+        <ProductsTab kind="physical" heading="Parts & fab goods" kicker="Physical products" {...productTabProps} />
+      ) : null}
+
+      {tab === "digital" ? (
+        <ProductsTab kind="digital" heading="Software & tools" kicker="Digital products" {...productTabProps} />
+      ) : null}
+
+      {tab === "signs" ? (
+        <>
+          <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
+          <ProductsTab kind="sign" heading="Fixed-size sign SKUs" kicker="Optional catalog" {...productTabProps} />
+        </>
       ) : null}
 
       {tab === "gallery" ? (
@@ -722,6 +714,9 @@ export function MasterClient() {
 }
 
 function ProductsTab({
+  kind,
+  heading,
+  kicker,
   store,
   setStore,
   save,
@@ -739,6 +734,9 @@ function ProductsTab({
   dragProd,
   setDragProd,
 }: {
+  kind: ProductKind;
+  heading: string;
+  kicker: string;
   store: ShopStore;
   setStore: (s: ShopStore) => void;
   save: (s: ShopStore) => Promise<void>;
@@ -759,11 +757,12 @@ function ProductsTab({
   const categories = store.categories || [];
   const q = query.trim().toLowerCase();
   const listed = store.products.filter((p) => {
+    if (p.kind !== kind) return false;
     if (filterCat !== "all" && p.category !== filterCat) return false;
     if (!q) return true;
     return `${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q);
   });
-  const open = store.products.find((p) => p.id === openId);
+  const open = store.products.find((p) => p.id === openId && p.kind === kind);
 
   function reorderCats(from: number, to: number) {
     if (from === to || from < 0 || to < 0) return;
@@ -775,20 +774,34 @@ function ProductsTab({
 
   function reorderProds(fromId: string, toId: string) {
     if (fromId === toId) return;
-    const next = [...store.products];
-    const from = next.findIndex((p) => p.id === fromId);
-    const to = next.findIndex((p) => p.id === toId);
+    const group = store.products.filter((p) => p.kind === kind);
+    const rest = store.products.filter((p) => p.kind !== kind);
+    const from = group.findIndex((p) => p.id === fromId);
+    const to = group.findIndex((p) => p.id === toId);
     if (from < 0 || to < 0) return;
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    setStore({ ...store, products: next.map((p, i) => ({ ...p, sortOrder: i + 1 })) });
+    const nextGroup = [...group];
+    const [item] = nextGroup.splice(from, 1);
+    nextGroup.splice(to, 0, item);
+    setStore({
+      ...store,
+      products: [...nextGroup, ...rest].map((p, i) => ({ ...p, sortOrder: i + 1 })),
+    });
   }
+
+  const addLabel =
+    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add sign SKU" : "Add physical product";
 
   return (
     <div>
-      <p className="note">
-        Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder.
-      </p>
+      <div className="mc-section-head">
+        <p className="section-kicker">{kicker}</p>
+        <h2>{heading}</h2>
+        <p className="note">
+          {kind === "sign"
+            ? "Optional ready-to-order signs with a fixed price. Custom sizes use the rate above, not these SKUs."
+            : "Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder."}
+        </p>
+      </div>
       <div className="mc-cat-row">
         <button
           type="button"
@@ -865,15 +878,14 @@ function ProductsTab({
           className="btn"
           type="button"
           onClick={() => {
-            const p = emptyProduct();
+            const p = emptyProduct(kind);
             p.sortOrder = store.products.length + 1;
             if (filterCat !== "all") p.category = filterCat;
-            else if (categories[0]) p.category = categories[0].name;
             setStore({ ...store, products: [...store.products, p] });
             setOpenId(p.id);
           }}
         >
-          Add product
+          {addLabel}
         </button>
         <button className="btn btn-bronze" type="button" onClick={() => save(store)}>
           Save products
@@ -899,7 +911,7 @@ function ProductsTab({
             <div className="pad">
               <p className="card-meta">
                 {product.category}
-                {product.kind === "digital" ? " · Digital" : ""}
+                {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
               </p>
               <h3>{product.name || "Untitled"}</h3>
               <p className="price">{formatUsd(product.priceCents)}</p>
@@ -951,9 +963,6 @@ function ProductEditor({
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
 }) {
-  const [mediaUrl, setMediaUrl] = useState("");
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [dragMedia, setDragMedia] = useState<number | null>(null);
   const media = orderedMedia(product);
 
   return (
@@ -998,15 +1007,17 @@ function ProductEditor({
           Type
           <select
             value={product.kind}
-            onChange={(e) =>
+            onChange={(e) => {
+              const next = e.target.value;
               onChange({
                 ...product,
-                kind: e.target.value === "digital" ? "digital" : "physical",
-              })
-            }
+                kind: next === "digital" ? "digital" : next === "sign" ? "sign" : "physical",
+              });
+            }}
           >
             <option value="physical">Physical (ships)</option>
             <option value="digital">Digital (no shipping)</option>
+            <option value="sign">Metal sign (ships)</option>
           </select>
         </label>
         <label>
@@ -1098,84 +1109,11 @@ function ProductEditor({
           />
         </label>
       ) : null}
-      <p className="note">Media — photos and videos in one list. Drag to set the order they show on the product page.</p>
-      <div className="mc-media-list">
-        {media.map((url, i) => (
-          <div
-            key={`${url}-${i}`}
-            className="mc-media-item"
-            draggable
-            onDragStart={() => setDragMedia(i)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (dragMedia == null || dragMedia === i) return;
-              const next = [...media];
-              const [item] = next.splice(dragMedia, 1);
-              next.splice(i, 0, item);
-              onChange({ ...product, media: next });
-              setDragMedia(null);
-            }}
-          >
-            {isVideoSrc(url) ? (
-              <span className="thumb-video" title={url}>
-                ▶
-              </span>
-            ) : (
-              <img src={url} alt="" />
-            )}
-            <button
-              type="button"
-              className="mc-media-remove"
-              title="Remove"
-              onClick={() => onChange({ ...product, media: media.filter((_, n) => n !== i) })}
-            >
-              ×
-            </button>
-            <span className="mc-media-order">{i + 1}</span>
-          </div>
-        ))}
-      </div>
-      <label>
-        Choose photo or video
-        <input
-          type="file"
-          accept="image/*,video/mp4,video/webm,video/quicktime,video/*"
-          onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
-        />
-      </label>
-      <div className="hero-actions">
-        <button
-          type="button"
-          className="btn"
-          disabled={!mediaFile}
-          onClick={() => {
-            if (!mediaFile) return;
-            onUpload(mediaFile);
-            setMediaFile(null);
-          }}
-        >
-          {mediaFile ? `Upload ${mediaFile.name}` : "Upload media"}
-        </button>
-      </div>
-      <label>
-        Or paste a photo, YouTube, Vimeo, or mp4 URL
-        <input
-          value={mediaUrl}
-          onChange={(e) => setMediaUrl(e.target.value)}
-          placeholder="https://… or /uploads/…"
-        />
-      </label>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => {
-          if (!mediaUrl.trim()) return;
-          onChange({ ...product, media: [...media, mediaUrl.trim()] });
-          setMediaUrl("");
-        }}
-      >
-        Add media URL
-      </button>
+      <MediaField
+        urls={media}
+        onChange={(next) => onChange({ ...product, media: next })}
+        onUpload={async (file) => onUpload(file)}
+      />
     </div>
   );
 }

@@ -36,13 +36,21 @@ export async function POST(req: Request) {
       const session = await stripe.checkout.sessions.retrieve(raw.id, {
         expand: ["line_items", "shipping_cost.shipping_rate"],
       });
-      const items = (session.line_items?.data || [])
-        .map((line) => {
-          const qty = line.quantity || 1;
-          const name = line.description || "Item";
-          return `• ${qty} × ${name}`;
-        })
-        .join("\n");
+      const meta = session.metadata || {};
+      const signNote =
+        meta.kind === "sign-estimate" && meta.widthIn && meta.heightIn
+          ? `\n  ${meta.widthIn} × ${meta.heightIn} in${meta.areaLabel ? ` · ${meta.areaLabel}` : ""}${
+              meta.rateLabel ? ` · ${meta.rateLabel}` : ""
+            }`
+          : "";
+      const items =
+        (session.line_items?.data || [])
+          .map((line) => {
+            const qty = line.quantity || 1;
+            const name = line.description || "Item";
+            return `• ${qty} × ${name}`;
+          })
+          .join("\n") + signNote;
       const extra = session as Stripe.Checkout.Session & {
         shipping_details?: { name?: string | null; address?: Stripe.Address | null };
       };
