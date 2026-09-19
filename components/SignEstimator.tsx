@@ -95,7 +95,7 @@ export function SignEstimator({
               </button>
             </div>
             <p className="note" style={{ marginTop: 12 }}>
-              Shipping is based on the finished size — larger signs cost more to post. {shippingNote}
+              On Stripe you can ship (size-based postage) or choose local pickup in Sheridan at $0. {shippingNote}
             </p>
           </>
         ) : (

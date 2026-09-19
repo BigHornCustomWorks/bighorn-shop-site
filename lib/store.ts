@@ -206,6 +206,8 @@ function normalizeSite(raw: unknown): SiteCopy {
     shippingCents: asCents(src.shippingCents, 0),
     shippingOptions: normalizeShippingOptions(src),
     perItemShippingLabel: cleanStr(src.perItemShippingLabel, base.perItemShippingLabel),
+    pickupEnabled: src.pickupEnabled !== false,
+    pickupLabel: cleanStr(src.pickupLabel, base.pickupLabel),
     repairStatusLabel: cleanStr(src.repairStatusLabel, base.repairStatusLabel),
     repairStatusLine: cleanMultiline(src.repairStatusLine, base.repairStatusLine),
     repairStatusUrl: safeUrl(src.repairStatusUrl) || base.repairStatusUrl,

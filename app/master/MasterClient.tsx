@@ -412,13 +412,33 @@ export function MasterClient() {
             Shipping note
             <textarea value={store.site.shippingNote} onChange={(e) => setStore({ ...store, site: { ...store.site, shippingNote: e.target.value } })} />
           </label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={store.site.pickupEnabled !== false}
+              onChange={(e) =>
+                setStore({ ...store, site: { ...store.site, pickupEnabled: e.target.checked } })
+              }
+            />
+            Offer local pickup (no shipping)
+          </label>
+          {store.site.pickupEnabled !== false ? (
+            <label>
+              Pickup label on Stripe
+              <input
+                value={store.site.pickupLabel || ""}
+                onChange={(e) => setStore({ ...store, site: { ...store.site, pickupLabel: e.target.value } })}
+                placeholder="Local pickup — Sheridan, WY"
+              />
+            </label>
+          ) : null}
           <div>
             <p>
               <strong>Shipping options</strong>
             </p>
             <p className="note">
-              What the customer picks from on the Stripe payment page, up to 5. Charge what the label plus packaging
-              actually costs you. Leave the day estimates at 0 to hide them.
+              What the customer picks from on the Stripe payment page, up to 5 including pickup. Charge what the label
+              plus packaging actually costs you. Leave the day estimates at 0 to hide them.
             </p>
             {store.site.shippingOptions.length === 0 ? (
               <p className="err">

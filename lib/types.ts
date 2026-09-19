@@ -117,6 +117,9 @@ export type SiteCopy = {
   shippingOptions: ShippingOption[];
   /** Name shown for shipping when the price comes from the items themselves. */
   perItemShippingLabel: string;
+  /** Offer $0 local pickup on Stripe next to paid shipping. */
+  pickupEnabled: boolean;
+  pickupLabel: string;
   repairStatusLabel: string;
   repairStatusLine: string;
   repairStatusUrl: string;

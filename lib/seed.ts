@@ -23,6 +23,8 @@ export function defaultSite(): SiteCopy {
       { id: "flat", label: "Flat rate shipping", amountCents: 1499, minDays: 3, maxDays: 7 },
     ],
     perItemShippingLabel: "Shipping from Sheridan, WY",
+    pickupEnabled: true,
+    pickupLabel: "Local pickup — Sheridan, WY",
     repairStatusLabel: "Repair Status",
     repairStatusLine:
       "Shop management software, live at repairstatus.site. A product of Big Horn Custom Works — not sold in this catalog.",

@@ -35,6 +35,30 @@ export function siteUrl(): string {
  * "highest" assumes the order goes in one box and charges the dearest item.
  * "sum" charges every item and suits goods that each need their own box.
  */
+function pickupOption(
+  store: ShopStore,
+): Stripe.Checkout.SessionCreateParams.ShippingOption | null {
+  if (store.site.pickupEnabled === false) return null;
+  return {
+    shipping_rate_data: {
+      type: "fixed_amount",
+      fixed_amount: { amount: 0, currency: "usd" },
+      display_name: cleanStr(store.site.pickupLabel) || "Local pickup — Sheridan, WY",
+      tax_behavior: "exclusive",
+    },
+  };
+}
+
+function withPickup(
+  store: ShopStore,
+  paid: Stripe.Checkout.SessionCreateParams.ShippingOption[],
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const pickup = pickupOption(store);
+  const room = pickup ? 4 : 5;
+  const list = paid.slice(0, room);
+  return pickup ? [pickup, ...list] : list;
+}
+
 function perItemShipping(
   store: ShopStore,
   items: { product: Product; quantity: number }[],
@@ -69,9 +93,9 @@ function shippingOptionsFor(
   items: { product: Product; quantity: number }[],
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
   const fromItems = perItemShipping(store, items);
-  if (fromItems.length) return fromItems;
+  if (fromItems.length) return withPickup(store, fromItems);
 
-  return store.site.shippingOptions.slice(0, 5).map((opt) => {
+  const paid = store.site.shippingOptions.slice(0, 5).map((opt) => {
     const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
       type: "fixed_amount",
       fixed_amount: { amount: opt.amountCents, currency: "usd" },
@@ -86,6 +110,7 @@ function shippingOptionsFor(
     }
     return { shipping_rate_data: rate };
   });
+  return withPickup(store, paid);
 }
 
 function integrationId(): string {
@@ -143,6 +168,9 @@ export async function createCheckoutSession(
     params.shipping_address_collection = { allowed_countries: ["US"] };
     const options = shippingOptionsFor(store, items);
     if (options.length) params.shipping_options = options;
+    if (store.site.pickupEnabled !== false) {
+      params.phone_number_collection = { enabled: true };
+    }
   }
 
   if (store.settings.taxEnabled) {
@@ -169,7 +197,7 @@ function signShippingOptions(
   shippingCents: number,
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
   if (shippingCents > 0) {
-    return [
+    return withPickup(store, [
       {
         shipping_rate_data: {
           type: "fixed_amount",
@@ -178,23 +206,26 @@ function signShippingOptions(
           tax_behavior: "exclusive",
         },
       },
-    ];
+    ]);
   }
-  return store.site.shippingOptions.slice(0, 5).map((opt) => {
-    const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
-      type: "fixed_amount",
-      fixed_amount: { amount: opt.amountCents, currency: "usd" },
-      display_name: opt.label,
-      tax_behavior: "exclusive",
-    };
-    if (opt.minDays > 0 && opt.maxDays > 0) {
-      rate.delivery_estimate = {
-        minimum: { unit: "business_day", value: opt.minDays },
-        maximum: { unit: "business_day", value: opt.maxDays },
+  return withPickup(
+    store,
+    store.site.shippingOptions.slice(0, 5).map((opt) => {
+      const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
+        type: "fixed_amount",
+        fixed_amount: { amount: opt.amountCents, currency: "usd" },
+        display_name: opt.label,
+        tax_behavior: "exclusive",
       };
-    }
-    return { shipping_rate_data: rate };
-  });
+      if (opt.minDays > 0 && opt.maxDays > 0) {
+        rate.delivery_estimate = {
+          minimum: { unit: "business_day", value: opt.minDays },
+          maximum: { unit: "business_day", value: opt.maxDays },
+        };
+      }
+      return { shipping_rate_data: rate };
+    }),
+  );
 }
 
 export async function createSignCheckoutSession(
@@ -246,6 +277,9 @@ export async function createSignCheckoutSession(
 
   const options = signShippingOptions(store, quote.shippingCents);
   if (options.length) params.shipping_options = options;
+  if (store.site.pickupEnabled !== false) {
+    params.phone_number_collection = { enabled: true };
+  }
 
   if (store.settings.taxEnabled) {
     params.automatic_tax = { enabled: true };
