@@ -1179,7 +1179,12 @@ function OrderRow({
         </p>
       ) : null}
       <p className="muted">
-        {order.createdAt} · {order.emailed ? "email sent" : "email failed — still saved here"}
+        {order.sessionId.startsWith("cs_test_")
+          ? "TEST checkout — no real card was charged. "
+          : order.sessionId.startsWith("cs_live_")
+            ? "Live payment. "
+            : ""}
+        {order.createdAt} · {order.emailed ? "email sent to the shop inbox" : "email failed — still saved here"}
       </p>
 
       {order.shippedAt ? (

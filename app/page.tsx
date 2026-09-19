@@ -29,29 +29,28 @@ export default async function HomePage() {
           <p className="section-kicker">Who we are</p>
           <p className="lede">
             Clint Stussi’s Sheridan shop — custom design, fabrication, and the software local businesses need on the
-            floor. Pick a path below.
+            floor.
           </p>
         </div>
 
         <div className="gate-head">
           <p className="section-kicker">Explore</p>
           <h2>What are you looking for?</h2>
-          <p>Homepage stays a front door. Products live one click in — so software isn’t buried under mill parts.</p>
         </div>
 
         <div className="gates">
           <div className="gate-col">
             <div>
               <h2 className="gate-title digital">Digital Products</h2>
-              <p className="gate-title-sub">Software &amp; tools · left side matches the CAD hero</p>
+              <p className="gate-title-sub">Software &amp; tools</p>
             </div>
             <Link className="gate digital" href="/digital">
               <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="" />
               <div className="shade" />
               <div className="content">
-                <span className="badge">Pushing this</span>
+                <span className="badge">Software</span>
                 <h3>Software &amp; apps</h3>
-                <p>Repair Status and other tools for shops — month to month, not a mill-parts cart.</p>
+                <p>Repair Status and other tools for shops — month to month.</p>
                 <p className="includes">Includes: Repair Status · Google review collection (coming soon)</p>
                 <span className="btn btn-spark">Enter digital products →</span>
               </div>
@@ -61,7 +60,7 @@ export default async function HomePage() {
           <div className="gate-col">
             <div>
               <h2 className="gate-title physical">Physical Products</h2>
-              <p className="gate-title-sub">Parts, signs &amp; fab goods · one click in</p>
+              <p className="gate-title-sub">Parts, signs &amp; fab goods</p>
             </div>
             <Link className="gate" href="/physical">
               <img className="bg" src={physicalPhoto} alt="" />
@@ -69,7 +68,7 @@ export default async function HomePage() {
               <div className="content">
                 <span className="badge">Shop floor &amp; signs</span>
                 <h3>Parts, signs &amp; fab goods</h3>
-                <p>One door into everything you can buy as a physical product — not a wall of SKUs on the home page.</p>
+                <p>Mill accessories, CNC plasma-cut signs, and fab goods from the Sheridan shop.</p>
                 <p className="includes">Includes: mill accessories · CNC plasma-cut signs · size estimator</p>
                 <span className="btn btn-bronze">Enter physical products →</span>
               </div>
