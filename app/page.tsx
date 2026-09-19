@@ -9,9 +9,12 @@ export default async function HomePage() {
   const site = store.site;
   const rsUrl = safeUrl(site.repairStatusUrl) || "https://repairstatus.site/";
   const physicalPhoto =
-    store.products.find((p) => p.kind !== "digital" && (p.photos?.[0] || p.media?.[0]))?.photos?.[0] ||
-    store.products.find((p) => p.kind !== "digital")?.media?.[0] ||
+    store.products.find((p) => p.kind === "physical" && (p.photos?.[0] || p.media?.[0]))?.photos?.[0] ||
+    store.products.find((p) => p.kind === "physical")?.media?.[0] ||
     "/products/spindle-1.jpg";
+  const signPhoto =
+    (store.metalSigns.media || []).find((src) => src && !src.match(/\.(mp4|webm|mov)(\?|$)/i)) ||
+    "/gallery/gallery-cta-hero.jpg";
 
   return (
     <>
@@ -38,6 +41,20 @@ export default async function HomePage() {
           <h2>What are you looking for?</h2>
         </div>
 
+        <Link className="gallery-cta signs-cta" href="/signs">
+          <div className="gallery-cta-media">
+            <img src={signPhoto} alt="CNC plasma-cut metal signs" />
+          </div>
+          <div className="gallery-cta-panel">
+            <span className="badge">Metal signs</span>
+            <h2>Plasma-cut signs</h2>
+            <p>
+              Ready-made pieces as Clint builds them — plus custom sizes with a price from the finished dimensions.
+            </p>
+            <span className="btn btn-spark">Shop metal signs →</span>
+          </div>
+        </Link>
+
         <div className="gates">
           <div className="gate-col">
             <div>
@@ -60,38 +77,22 @@ export default async function HomePage() {
           <div className="gate-col">
             <div>
               <h2 className="gate-title physical">Physical Products</h2>
-              <p className="gate-title-sub">Parts, signs &amp; fab goods</p>
+              <p className="gate-title-sub">Mill accessories &amp; fab goods</p>
             </div>
             <Link className="gate" href="/physical">
               <img className="bg" src={physicalPhoto} alt="" />
               <div className="shade" />
               <div className="content">
-                <span className="badge">Shop floor &amp; signs</span>
-                <h3>Parts, signs &amp; fab goods</h3>
-                <p>Mill accessories, CNC plasma-cut signs, and fab goods from the Sheridan shop.</p>
-                <p className="includes">Includes: mill accessories · CNC plasma-cut signs · size estimator</p>
+                <span className="badge">Shop floor</span>
+                <h3>Parts &amp; fab goods</h3>
+                <p>Mill accessories and other physical goods from the Sheridan shop.</p>
+                <p className="includes">Includes: mill accessories · 3D-printed parts</p>
                 <span className="btn btn-bronze">Enter physical products →</span>
               </div>
             </Link>
           </div>
         </div>
 
-
-        <section className="gallery-cta">
-          <div className="gallery-cta-media">
-            <img src="/gallery/gallery-cta-hero.jpg" alt="Sample · Decorative CNC plasma-cut mountain wall art" />
-          </div>
-          <div className="gallery-cta-panel">
-            <span className="badge">New · Photo gallery</span>
-            <h2>See the work</h2>
-            <p>
-              CNC plasma-cut signs on real homes and businesses — and more as Clint adds sections.
-            </p>
-            <Link className="btn btn-spark" href="/gallery">
-              Open photo gallery →
-            </Link>
-          </div>
-        </section>
 
         <div className="third">
           <div className="card">

@@ -40,8 +40,29 @@ export default async function SignsPage() {
 
       {signs.note ? <p className="note">{signs.note}</p> : null}
 
+      <section style={{ marginTop: 28 }}>
+        <p className="section-kicker">Ready to ship</p>
+        <h2>Pre-made signs</h2>
+        <p className="muted">Pieces Clint has already cut — buy as listed. New photos land here as he makes them.</p>
+        {catalog.length ? (
+          <div className="grid-catalog">
+            {catalog.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        ) : (
+          <div className="card">
+            <p className="muted">Nothing listed yet. Custom sizes are below, or request a quote.</p>
+          </div>
+        )}
+      </section>
+
       {signs.visible ? (
-        <SignEstimator config={signs} shippingNote={store.site.shippingNote} />
+        <section style={{ marginTop: 36 }}>
+          <p className="section-kicker">Custom size</p>
+          <h2>Need a specific size?</h2>
+          <SignEstimator config={signs} shippingNote={store.site.shippingNote} />
+        </section>
       ) : (
         <div className="card" style={{ marginTop: 20 }}>
           <p className="section-kicker">Coming soon</p>
@@ -52,18 +73,6 @@ export default async function SignsPage() {
           </Link>
         </div>
       )}
-
-      {catalog.length ? (
-        <section style={{ marginTop: 36 }}>
-          <p className="section-kicker">Fixed sizes</p>
-          <h2>Ready-to-order signs</h2>
-          <div className="grid-catalog">
-            {catalog.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <p style={{ marginTop: 28 }}>
         <Link className="btn" href="/gallery">

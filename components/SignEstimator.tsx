@@ -80,18 +80,22 @@ export function SignEstimator({
         <p className="section-kicker kicker-spark">Estimate</p>
         {quote.ok ? (
           <>
-            <p className="price">{formatUsd(quote.cents)}</p>
+            <p className="price">{formatUsd(quote.totalCents)}</p>
             <p>
               {inchLabel(quote.widthIn)} × {inchLabel(quote.heightIn)} in · {quote.areaLabel}
             </p>
-            <p className="muted">{quote.rateLabel}{quote.minApplied ? " · minimum applied" : ""}</p>
+            <p className="muted">
+              Sign {formatUsd(quote.cents)}
+              {quote.minApplied ? " (minimum applied)" : ""} · {quote.shippingLabel}
+            </p>
+            <p className="muted">{quote.rateLabel}</p>
             <div className="hero-actions" style={{ marginTop: 16 }}>
               <button className="btn btn-spark" type="button" onClick={pay} disabled={busy}>
                 {busy ? "Opening Stripe…" : "Pay this estimate"}
               </button>
             </div>
             <p className="note" style={{ marginTop: 12 }}>
-              Opens Stripe Checkout with this amount. {shippingNote}
+              Shipping is based on the finished size — larger signs cost more to post. {shippingNote}
             </p>
           </>
         ) : (

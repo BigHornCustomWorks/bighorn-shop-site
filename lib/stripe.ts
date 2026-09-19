@@ -166,14 +166,15 @@ export async function createCheckoutSession(
 
 function signShippingOptions(
   store: ShopStore,
+  shippingCents: number,
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
-  if (store.metalSigns.shippingCents > 0) {
+  if (shippingCents > 0) {
     return [
       {
         shipping_rate_data: {
           type: "fixed_amount",
-          fixed_amount: { amount: store.metalSigns.shippingCents, currency: "usd" },
-          display_name: cleanStr(store.site.perItemShippingLabel) || "Shipping",
+          fixed_amount: { amount: shippingCents, currency: "usd" },
+          display_name: cleanStr(store.site.perItemShippingLabel) || "Shipping from Sheridan, WY",
           tax_behavior: "exclusive",
         },
       },
@@ -239,10 +240,11 @@ export async function createSignCheckoutSession(
       heightIn: String(quote.heightIn),
       areaLabel: quote.areaLabel,
       rateLabel: quote.rateLabel,
+      shippingCents: String(quote.shippingCents),
     },
   };
 
-  const options = signShippingOptions(store);
+  const options = signShippingOptions(store, quote.shippingCents);
   if (options.length) params.shipping_options = options;
 
   if (store.settings.taxEnabled) {

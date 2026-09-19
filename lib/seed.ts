@@ -53,7 +53,7 @@ export function defaultMetalSigns(): MetalSignsConfig {
   return {
     visible: true,
     heading: "CNC plasma-cut metal signs",
-    lede: "Enter the finished width and height. Price is the area times the shop rate.",
+    lede: "Ready-made signs as Clint cuts them, plus custom sizes priced from the finished width and height.",
     note: "Quoted as raw plasma-cut steel unless you ask for paint, powder, or mounting. Odd shapes and extra work still go through a custom quote.",
     unit: "sqft",
     rateCents: 0,
@@ -63,6 +63,9 @@ export function defaultMetalSigns(): MetalSignsConfig {
     maxWidthIn: 48,
     maxHeightIn: 48,
     shippingCents: 0,
+    shippingBaseCents: 0,
+    shippingPerSqFtCents: 0,
+    shippingMaxCents: 0,
     media: ["/gallery/gallery-cta-hero.jpg"],
   };
 }

@@ -101,11 +101,35 @@ export function SignsTab({
               Minimum charge (0 = none)
               <MoneyInput cents={signs.minCents} onCents={(minCents) => patch({ minCents })} />
             </label>
+          </div>
+          <p className="section-kicker" style={{ marginTop: 8 }}>
+            Shipping by size
+          </p>
+          <p className="note">
+            Postage = base + (square feet × extra). A 12×12 is 1 sq ft; a 24×24 is 4 sq ft. Leave all at $0 to use the
+            shop-wide rate. Live USPS quotes need the customer’s ZIP before Stripe — we can add that later with a
+            carrier account. Size-based postage works now because we already know the sign dimensions.
+          </p>
+          <div className="row-3">
             <label>
-              Shipping for a sign (0 = shop rate)
+              Base postage
               <MoneyInput
-                cents={signs.shippingCents}
-                onCents={(shippingCents) => patch({ shippingCents })}
+                cents={signs.shippingBaseCents}
+                onCents={(shippingBaseCents) => patch({ shippingBaseCents })}
+              />
+            </label>
+            <label>
+              Extra per sq ft
+              <MoneyInput
+                cents={signs.shippingPerSqFtCents}
+                onCents={(shippingPerSqFtCents) => patch({ shippingPerSqFtCents })}
+              />
+            </label>
+            <label>
+              Cap (0 = none)
+              <MoneyInput
+                cents={signs.shippingMaxCents}
+                onCents={(shippingMaxCents) => patch({ shippingMaxCents })}
               />
             </label>
           </div>
@@ -162,9 +186,12 @@ export function SignsTab({
           </div>
           {quote.ok ? (
             <>
-              <p className="price">{formatUsd(quote.cents)}</p>
+              <p className="price">{formatUsd(quote.totalCents)}</p>
               <p>
                 {inchLabel(quote.widthIn)} × {inchLabel(quote.heightIn)} in · {quote.areaLabel}
+              </p>
+              <p>
+                Sign {formatUsd(quote.cents)} · {quote.shippingLabel}
               </p>
               <p>{quote.rateLabel}</p>
             </>

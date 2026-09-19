@@ -22,8 +22,17 @@ export type MetalSignsConfig = {
   minHeightIn: number;
   maxWidthIn: number;
   maxHeightIn: number;
-  /** 0 = use the shop-wide shipping options. */
+  /**
+   * Legacy flat postage. Used only when base and per-sq-ft shipping are both 0.
+   * 0 then falls through to the shop-wide shipping options.
+   */
   shippingCents: number;
+  /** Minimum postage for a custom-size sign. */
+  shippingBaseCents: number;
+  /** Extra postage per square foot of finished sign. */
+  shippingPerSqFtCents: number;
+  /** 0 = no cap. */
+  shippingMaxCents: number;
   media: string[];
 };
 

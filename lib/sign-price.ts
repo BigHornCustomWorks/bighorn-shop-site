@@ -5,11 +5,14 @@ export type SignQuote =
   | {
       ok: true;
       cents: number;
+      shippingCents: number;
+      totalCents: number;
       widthIn: number;
       heightIn: number;
       area: number;
       areaLabel: string;
       rateLabel: string;
+      shippingLabel: string;
       name: string;
       description: string;
       minApplied: boolean;
@@ -34,6 +37,17 @@ export function unitLabel(unit: SignUnit): string {
 export function signArea(widthIn: number, heightIn: number, unit: SignUnit): number {
   const sqin = Math.max(0, widthIn) * Math.max(0, heightIn);
   return unit === "sqft" ? sqin / 144 : sqin;
+}
+
+/** Postage from finished size. Larger signs cost more to ship. */
+export function signShippingCents(cfg: MetalSignsConfig, widthIn: number, heightIn: number): number {
+  const sqft = (Math.max(0, widthIn) * Math.max(0, heightIn)) / 144;
+  const base = cfg.shippingBaseCents || 0;
+  const per = cfg.shippingPerSqFtCents || 0;
+  if (base <= 0 && per <= 0) return cfg.shippingCents || 0;
+  let cents = base + Math.round(sqft * per);
+  if (cfg.shippingMaxCents > 0) cents = Math.min(cents, cfg.shippingMaxCents);
+  return Math.max(0, cents);
 }
 
 export function estimateSign(
@@ -79,15 +93,25 @@ export function estimateSign(
   const rateLabel = `${formatUsd(cfg.rateCents)} / ${unit}`;
   const size = `${inchLabel(widthIn)} × ${inchLabel(heightIn)} in`;
   const minNote = minApplied ? ` Minimum charge ${formatUsd(cfg.minCents)} applied.` : "";
+  const shippingCents = signShippingCents(cfg, widthIn, heightIn);
+  const shippingLabel =
+    shippingCents > 0
+      ? cfg.shippingPerSqFtCents > 0
+        ? `Shipping ${formatUsd(shippingCents)} (size-based)`
+        : `Shipping ${formatUsd(shippingCents)}`
+      : "Shipping at checkout";
 
   return {
     ok: true,
     cents,
+    shippingCents,
+    totalCents: cents + shippingCents,
     widthIn,
     heightIn,
     area,
     areaLabel,
     rateLabel,
+    shippingLabel,
     name: `Custom metal sign (${size})`,
     description: `${areaLabel} at ${rateLabel}.${minNote}`.slice(0, 400),
     minApplied,

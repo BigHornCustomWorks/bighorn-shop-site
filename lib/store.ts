@@ -428,6 +428,9 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
     maxWidthIn: clampInch(src.maxWidthIn, base.maxWidthIn),
     maxHeightIn: clampInch(src.maxHeightIn, base.maxHeightIn),
     shippingCents: asCents(src.shippingCents, 0),
+    shippingBaseCents: asCents(src.shippingBaseCents, 0),
+    shippingPerSqFtCents: asCents(src.shippingPerSqFtCents, 0),
+    shippingMaxCents: asCents(src.shippingMaxCents, 0),
     media: media.length ? media : base.media,
   };
 }

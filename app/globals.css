@@ -840,11 +840,20 @@ button.mc-stat { font: inherit; color: inherit; }
   grid-template-columns: 1.2fr 1fr;
   gap: 0;
   margin: 8px 0 28px;
+  text-decoration: none;
+  color: inherit;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--rule);
   box-shadow: var(--shadow);
   min-height: 280px;
+}
+.signs-cta:hover .btn-spark {
+  filter: brightness(1.08);
+}
+.physical-signs-cta {
+  min-height: 200px;
+  margin: 0 0 28px;
 }
 .gallery-cta-media {
   background: var(--weld);
