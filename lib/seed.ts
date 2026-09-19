@@ -233,7 +233,7 @@ export function seedStore(): ShopStore {
       taxEnabled: false,
       shippingCombine: "highest",
     },
-    stats: { pageViews: 0, uniqueVisitors: 0 },
+    stats: { pageViews: 0, uniqueVisitors: 0, days: [], sources: { facebook: 0, instagram: 0, google: 0, direct: 0, other: 0 } },
     updatedAt: "",
   };
 }

@@ -8,7 +8,15 @@ export function VisitBeacon() {
 
   useEffect(() => {
     if (path.startsWith("/master") || path.startsWith("/api")) return;
-    fetch("/api/visit", { method: "POST", keepalive: true }).catch(() => {
+    fetch("/api/visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path: typeof window !== "undefined" ? window.location.pathname + window.location.search : path,
+        referrer: typeof document !== "undefined" ? document.referrer : "",
+      }),
+      keepalive: true,
+    }).catch(() => {
       /* ignore */
     });
   }, [path]);

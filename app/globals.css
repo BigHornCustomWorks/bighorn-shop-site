@@ -580,6 +580,56 @@ textarea { min-height: 140px; resize: vertical; }
   background: #fffdf8;
 }
 .mc-signs { margin-bottom: 28px; }
+.mc-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 22px;
+}
+.mc-stat-strip { margin: 8px 0 18px; }
+.mc-stat {
+  background: #fffdf8;
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+}
+button.mc-stat { font: inherit; color: inherit; }
+.mc-stat-label {
+  margin: 0 0 4px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--bronze);
+}
+.mc-stat-num {
+  font-family: Oswald, Impact, sans-serif;
+  font-size: 1.8rem;
+  margin: 0 0 4px;
+  letter-spacing: 0.04em;
+}
+.mc-traffic-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fffdf8;
+  border: 1px solid var(--rule);
+}
+.mc-traffic-table th,
+.mc-traffic-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.mc-traffic-table th {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+@media (max-width: 900px) {
+  .mc-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 900px) {
   .sign-estimator { grid-template-columns: 1fr; }
 }

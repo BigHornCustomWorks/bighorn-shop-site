@@ -134,9 +134,25 @@ export type ShopSettings = {
   shippingCombine: "highest" | "sum";
 };
 
+export type DayStat = {
+  date: string;
+  pageViews: number;
+  uniqueVisitors: number;
+};
+
+export type TrafficSources = {
+  facebook: number;
+  instagram: number;
+  google: number;
+  direct: number;
+  other: number;
+};
+
 export type ShopStats = {
   pageViews: number;
   uniqueVisitors: number;
+  days: DayStat[];
+  sources: TrafficSources;
 };
 
 export type ShopOrder = {

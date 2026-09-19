@@ -12,8 +12,10 @@ import { GalleryTab } from "@/components/GalleryTab";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
 import { SignsTab } from "@/components/SignsTab";
+import { TrafficTab } from "@/components/TrafficTab";
+import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
 
-type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "settings";
+type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "traffic" | "settings";
 
 const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   id: newId("prod"),
@@ -273,6 +275,35 @@ export function MasterClient() {
         </p>
       )}
       {blobNote ? <p className="note">{blobNote}</p> : null}
+      {(() => {
+        const days = store.stats?.days || [];
+        const today = days.find((d) => d.date === shopDay());
+        const week = sumDays(days, daysAgo(6));
+        return (
+          <div className="mc-stat-grid mc-stat-strip">
+            <button type="button" className="mc-stat" onClick={() => setTab("traffic")}>
+              <p className="mc-stat-label">Today</p>
+              <p className="mc-stat-num">{(today?.uniqueVisitors || 0).toLocaleString("en-US")}</p>
+              <p className="muted">unique · {(today?.pageViews || 0).toLocaleString("en-US")} views</p>
+            </button>
+            <button type="button" className="mc-stat" onClick={() => setTab("traffic")}>
+              <p className="mc-stat-label">Last 7 days</p>
+              <p className="mc-stat-num">{week.uniqueVisitors.toLocaleString("en-US")}</p>
+              <p className="muted">{week.pageViews.toLocaleString("en-US")} page views</p>
+            </button>
+            <button type="button" className="mc-stat" onClick={() => setTab("traffic")}>
+              <p className="mc-stat-label">All time</p>
+              <p className="mc-stat-num">{(store.stats?.uniqueVisitors || 0).toLocaleString("en-US")}</p>
+              <p className="muted">{(store.stats?.pageViews || 0).toLocaleString("en-US")} page views</p>
+            </button>
+            <button type="button" className="mc-stat" onClick={() => setTab("traffic")}>
+              <p className="mc-stat-label">From Facebook</p>
+              <p className="mc-stat-num">{(store.stats?.sources?.facebook || 0).toLocaleString("en-US")}</p>
+              <p className="muted">page views</p>
+            </button>
+          </div>
+        );
+      })()}
       <div className="mc-tabs">
         {(
           [
@@ -282,6 +313,7 @@ export function MasterClient() {
             ["gallery", "Gallery"],
             ["copy", "Site copy"],
             ["quotes", `Inbox${unread ? ` (${unread})` : ""}`],
+            ["traffic", "Traffic"],
             ["settings", "Settings"],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -595,6 +627,8 @@ export function MasterClient() {
         </div>
       ) : null}
 
+      {tab === "traffic" ? <TrafficTab stats={store.stats} /> : null}
+
       {tab === "settings" ? (
         <div className="form" style={{ maxWidth: 760 }}>
           <div className="banner">{store.site.shopFloorNotes}</div>
@@ -603,13 +637,17 @@ export function MasterClient() {
             <textarea value={store.site.shopFloorNotes} onChange={(e) => setStore({ ...store, site: { ...store.site, shopFloorNotes: e.target.value } })} />
           </label>
           <p>
-            Visitors: {(store.stats?.uniqueVisitors || 0).toLocaleString("en-US")} unique ·{" "}
-            {(store.stats?.pageViews || 0).toLocaleString("en-US")} page views
-          </p>
-          <p>
             Stripe env key: {envStripe ? "set" : "missing"} · Key in use:{" "}
             <strong>{keyMode || "unknown"}</strong> · Label: {store.settings.stripeMode}
           </p>
+          {keyMode === "test" ? (
+            <p className="note">
+              Stripe account can take live charges, but this site is still on <strong>test</strong> keys. Checkout
+              charges the Master Control price — you do not enter prices in the Stripe Dashboard. To go live, put the
+              live publishable and secret keys in the same keys file you used last time (pk_live_ / sk_live_), then tell
+              me. Real cards will fail until that swap.
+            </p>
+          ) : null}
           {keyMode && keyMode !== store.settings.stripeMode ? (
             <p className="err">
               The mode label says “{store.settings.stripeMode}” but the key actually in use is {keyMode}. The key is

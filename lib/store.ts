@@ -29,6 +29,7 @@ import type {
   ShopStats,
   ShopStore,
   SiteCopy,
+  TrafficSources,
 } from "./types";
 
 /** Where the store file used to live, before the name was made unguessable. */
@@ -237,11 +238,38 @@ function normalizeShippingOptions(src: Partial<SiteCopy>): ShippingOption[] {
   return seedStore().site.shippingOptions;
 }
 
+function normalizeSources(raw: unknown): TrafficSources {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<TrafficSources>;
+  return {
+    facebook: Math.max(0, asInt(src.facebook, 0)),
+    instagram: Math.max(0, asInt(src.instagram, 0)),
+    google: Math.max(0, asInt(src.google, 0)),
+    direct: Math.max(0, asInt(src.direct, 0)),
+    other: Math.max(0, asInt(src.other, 0)),
+  };
+}
+
 function normalizeStats(raw: unknown): ShopStats {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStats>;
+  const days = asArray<unknown>(src.days)
+    .map((row) => {
+      const d = (row && typeof row === "object" ? row : {}) as { date?: unknown; pageViews?: unknown; uniqueVisitors?: unknown };
+      const date = cleanStr(d.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+      return {
+        date,
+        pageViews: Math.max(0, asInt(d.pageViews, 0)),
+        uniqueVisitors: Math.max(0, asInt(d.uniqueVisitors, 0)),
+      };
+    })
+    .filter((d): d is NonNullable<typeof d> => Boolean(d))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-90);
   return {
     pageViews: Math.max(0, asInt(src.pageViews, 0)),
     uniqueVisitors: Math.max(0, asInt(src.uniqueVisitors, 0)),
+    days,
+    sources: normalizeSources(src.sources),
   };
 }
 
