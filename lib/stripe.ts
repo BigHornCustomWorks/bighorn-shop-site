@@ -275,7 +275,10 @@ export async function createSignCheckoutSession(
     },
   };
 
-  const options = signShippingOptions(store, quote.shippingCents);
+  const options =
+    quote.fulfillment === "pickup"
+      ? withPickup(store, [])
+      : signShippingOptions(store, quote.shippingCents);
   if (options.length) params.shipping_options = options;
   if (store.site.pickupEnabled !== false) {
     params.phone_number_collection = { enabled: true };

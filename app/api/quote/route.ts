@@ -37,6 +37,13 @@ export async function POST(req: Request) {
 
     const photo = form.get("photo");
     const photoUrl = await maybeUpload(photo instanceof File ? photo : null);
+    const sampleUrl = safeUrl(form.get("sampleUrl"));
+    const kind = cleanStr(form.get("kind")) === "sign" ? "sign" : "general";
+    const widthIn = Number(cleanStr(form.get("widthIn"))) || 0;
+    const heightIn = Number(cleanStr(form.get("heightIn"))) || 0;
+    const finishName = cleanStr(form.get("finishName"));
+    const fulfillment = cleanStr(form.get("fulfillment"));
+    const estimateLabel = cleanStr(form.get("estimateLabel"));
 
     const quote = {
       id: newId("quote"),
@@ -44,10 +51,17 @@ export async function POST(req: Request) {
       email,
       phone,
       need,
-      photoUrl,
+      photoUrl: photoUrl || sampleUrl,
       createdAt: new Date().toISOString(),
       read: false,
       emailed: false,
+      kind: kind as "sign" | "general",
+      widthIn,
+      heightIn,
+      finishName,
+      fulfillment,
+      estimateLabel,
+      sampleUrl,
     };
 
     const store = await readStore();

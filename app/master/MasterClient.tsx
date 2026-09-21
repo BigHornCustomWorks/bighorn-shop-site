@@ -1292,6 +1292,22 @@ function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
       <strong>{quote.name}</strong> · {quote.email} · {quote.phone || "no phone"}
       {!quote.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{quote.need}</p>
+      {quote.kind === "sign" ? (
+        <p className="muted">
+          Sign request
+          {quote.widthIn || quote.heightIn ? ` · ${quote.widthIn} × ${quote.heightIn} in` : ""}
+          {quote.finishName ? ` · ${quote.finishName}` : ""}
+          {quote.fulfillment ? ` · ${quote.fulfillment}` : ""}
+          {quote.estimateLabel ? ` · estimate ${quote.estimateLabel}` : ""}
+        </p>
+      ) : null}
+      {quote.sampleUrl ? (
+        <p>
+          <a href={quote.sampleUrl} rel="noreferrer">
+            Sample they picked
+          </a>
+        </p>
+      ) : null}
       {quote.photoUrl ? (
         <p>
           <a href={quote.photoUrl} rel="noreferrer">

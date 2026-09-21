@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { defaultMetalSigns, seedStore } from "./seed";
+import { defaultMetalSigns, defaultSignFinishes, seedStore } from "./seed";
 import {
   asArray,
   asCents,
@@ -28,6 +28,7 @@ import type {
   ShopSettings,
   ShopStats,
   ShopStore,
+  SignFinish,
   SiteCopy,
   TrafficSources,
 } from "./types";
@@ -161,6 +162,13 @@ function normalizeQuote(raw: unknown): Quote | null {
     createdAt: cleanStr(src.createdAt, new Date().toISOString()),
     read: Boolean(src.read),
     emailed: Boolean(src.emailed),
+    kind: src.kind === "sign" ? "sign" : "general",
+    widthIn: Math.max(0, asInt(src.widthIn, 0) || Number(src.widthIn) || 0),
+    heightIn: Math.max(0, asInt(src.heightIn, 0) || Number(src.heightIn) || 0),
+    finishName: cleanStr(src.finishName),
+    fulfillment: cleanStr(src.fulfillment),
+    estimateLabel: cleanStr(src.estimateLabel),
+    sampleUrl: safeUrl(src.sampleUrl),
   };
 }
 
@@ -411,12 +419,29 @@ function clampInch(value: unknown, fallback: number): number {
   return Math.max(0.25, Math.min(240, Math.round(n * 100) / 100));
 }
 
+function normalizeFinish(raw: unknown, i: number): SignFinish | null {
+  const src = (raw && typeof raw === "object" ? raw : {}) as Partial<SignFinish>;
+  const name = cleanStr(src.name);
+  if (!name) return null;
+  return {
+    id: cleanStr(src.id, `finish_${i + 1}`),
+    name,
+    extraCents: asCents(src.extraCents, 0),
+    extraKind: src.extraKind === "flat" ? "flat" : "per_sqft",
+    note: cleanStr(src.note),
+    visible: src.visible !== false,
+  };
+}
+
 function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
   const base = defaultMetalSigns();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<MetalSignsConfig>;
   const media = asArray<unknown>(src.media)
     .map((m) => safeUrl(m))
     .filter(Boolean);
+  const finishes = asArray<unknown>(src.finishes)
+    .map(normalizeFinish)
+    .filter((f): f is SignFinish => Boolean(f));
   return {
     visible: src.visible !== false,
     heading: cleanStr(src.heading, base.heading),
@@ -433,6 +458,7 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
     shippingBaseCents: asCents(src.shippingBaseCents, 0),
     shippingPerSqFtCents: asCents(src.shippingPerSqFtCents, 0),
     shippingMaxCents: asCents(src.shippingMaxCents, 0),
+    finishes: finishes.length ? finishes : defaultSignFinishes(),
     media: media.length ? media : base.media,
   };
 }

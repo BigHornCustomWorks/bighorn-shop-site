@@ -12,7 +12,10 @@ export async function POST(req: Request) {
     const store = await readStore();
 
     if (body.sign) {
-      const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn);
+      const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn, {
+        finishId: cleanStr(body.sign.finishId),
+        fulfillment: body.sign.pickup === true || body.sign.fulfillment === "pickup" ? "pickup" : "ship",
+      });
       if (!quote.ok) {
         return NextResponse.json({ error: quote.error }, { status: 400 });
       }

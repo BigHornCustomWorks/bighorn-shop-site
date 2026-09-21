@@ -1,4 +1,4 @@
-import type { GallerySection, MetalSignsConfig, Product, ShopCategory, ShopStore, SiteCopy } from "./types";
+import type { GallerySection, MetalSignsConfig, Product, ShopCategory, ShopStore, SignFinish, SiteCopy } from "./types";
 
 export function defaultSite(): SiteCopy {
   return {
@@ -51,12 +51,21 @@ export function defaultCategories(): ShopCategory[] {
   ];
 }
 
+export function defaultSignFinishes(): SignFinish[] {
+  return [
+    { id: "finish_bare", name: "Bare metal", extraCents: 0, extraKind: "per_sqft", note: "Raw plasma-cut steel", visible: true },
+    { id: "finish_painted", name: "Painted", extraCents: 0, extraKind: "per_sqft", note: "", visible: true },
+    { id: "finish_powder", name: "Powder coated", extraCents: 0, extraKind: "per_sqft", note: "", visible: true },
+    { id: "finish_rust", name: "Rust look", extraCents: 0, extraKind: "per_sqft", note: "", visible: true },
+  ];
+}
+
 export function defaultMetalSigns(): MetalSignsConfig {
   return {
     visible: true,
     heading: "CNC plasma-cut metal signs",
     lede: "Ready-made signs as Clint cuts them, plus custom sizes priced from the finished width and height.",
-    note: "Quoted as raw plasma-cut steel unless you ask for paint, powder, or mounting. Odd shapes and extra work still go through a custom quote.",
+    note: "Local pickup in Sheridan — no shipping charge. Odd shapes and extra work may still need a custom quote.",
     unit: "sqft",
     rateCents: 0,
     minCents: 0,
@@ -68,6 +77,7 @@ export function defaultMetalSigns(): MetalSignsConfig {
     shippingBaseCents: 0,
     shippingPerSqFtCents: 0,
     shippingMaxCents: 0,
+    finishes: defaultSignFinishes(),
     media: ["/gallery/gallery-cta-hero.jpg"],
   };
 }

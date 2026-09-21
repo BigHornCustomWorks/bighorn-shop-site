@@ -1,10 +1,13 @@
 import { formatUsd } from "./money";
-import type { MetalSignsConfig, SignUnit } from "./types";
+import type { MetalSignsConfig, SignFinish, SignUnit } from "./types";
+
+export type SignFulfillment = "pickup" | "ship";
 
 export type SignQuote =
   | {
       ok: true;
       cents: number;
+      finishCents: number;
       shippingCents: number;
       totalCents: number;
       widthIn: number;
@@ -13,11 +16,18 @@ export type SignQuote =
       areaLabel: string;
       rateLabel: string;
       shippingLabel: string;
+      finishName: string;
+      fulfillment: SignFulfillment;
       name: string;
       description: string;
       minApplied: boolean;
     }
   | { ok: false; error: string };
+
+export type SignEstimateOpts = {
+  finishId?: string;
+  fulfillment?: SignFulfillment;
+};
 
 export function asInch(value: unknown, fallback = 0): number {
   const n = typeof value === "number" ? value : Number(String(value ?? "").replace(/[^0-9.]/g, ""));
@@ -50,10 +60,22 @@ export function signShippingCents(cfg: MetalSignsConfig, widthIn: number, height
   return Math.max(0, cents);
 }
 
+export function visibleFinishes(cfg: MetalSignsConfig): SignFinish[] {
+  return (cfg.finishes || []).filter((f) => f.visible && f.name);
+}
+
+export function finishExtraCents(finish: SignFinish | undefined, widthIn: number, heightIn: number): number {
+  if (!finish || finish.extraCents <= 0) return 0;
+  if (finish.extraKind === "flat") return finish.extraCents;
+  const sqft = (Math.max(0, widthIn) * Math.max(0, heightIn)) / 144;
+  return Math.round(sqft * finish.extraCents);
+}
+
 export function estimateSign(
   cfg: MetalSignsConfig,
   widthRaw: unknown,
   heightRaw: unknown,
+  opts: SignEstimateOpts = {},
 ): SignQuote {
   if (!cfg.visible) {
     return { ok: false, error: "Metal signs are not listed right now." };
@@ -85,35 +107,45 @@ export function estimateSign(
   let cents = Math.round(area * cfg.rateCents);
   const minApplied = cfg.minCents > 0 && cents < cfg.minCents;
   if (minApplied) cents = cfg.minCents;
+
+  const finish = visibleFinishes(cfg).find((f) => f.id === opts.finishId) || visibleFinishes(cfg)[0];
+  const finishCents = finishExtraCents(finish, widthIn, heightIn);
+  cents += finishCents;
+
   if (cents < 50) {
     return { ok: false, error: "That size is too small to check out. Request a quote." };
   }
 
+  const fulfillment: SignFulfillment = opts.fulfillment === "pickup" ? "pickup" : "ship";
+  const ship = fulfillment === "pickup" ? 0 : signShippingCents(cfg, widthIn, heightIn);
   const areaLabel = `${area.toFixed(cfg.unit === "sqft" ? 3 : 1)} ${unit}`;
   const rateLabel = `${formatUsd(cfg.rateCents)} / ${unit}`;
   const size = `${inchLabel(widthIn)} × ${inchLabel(heightIn)} in`;
   const minNote = minApplied ? ` Minimum charge ${formatUsd(cfg.minCents)} applied.` : "";
-  const shippingCents = signShippingCents(cfg, widthIn, heightIn);
+  const finishName = finish?.name || "Bare metal";
   const shippingLabel =
-    shippingCents > 0
-      ? cfg.shippingPerSqFtCents > 0
-        ? `Shipping ${formatUsd(shippingCents)} (size-based)`
-        : `Shipping ${formatUsd(shippingCents)}`
-      : "Shipping at checkout";
+    fulfillment === "pickup"
+      ? "Local pickup — no shipping"
+      : ship > 0
+        ? `Shipping ${formatUsd(ship)}`
+        : "Shipping at checkout";
 
   return {
     ok: true,
     cents,
-    shippingCents,
-    totalCents: cents + shippingCents,
+    finishCents,
+    shippingCents: ship,
+    totalCents: cents + ship,
     widthIn,
     heightIn,
     area,
     areaLabel,
     rateLabel,
     shippingLabel,
-    name: `Custom metal sign (${size})`,
-    description: `${areaLabel} at ${rateLabel}.${minNote}`.slice(0, 400),
+    finishName,
+    fulfillment,
+    name: `Custom metal sign (${size}${finishName ? `, ${finishName}` : ""})`,
+    description: `${areaLabel} at ${rateLabel}. ${finishName}${finishCents ? ` + ${formatUsd(finishCents)}` : ""}.${minNote}`.slice(0, 400),
     minApplied,
   };
 }

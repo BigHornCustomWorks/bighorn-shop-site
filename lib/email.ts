@@ -9,9 +9,16 @@ function quoteBody(quote: Quote): string {
     `Email: ${quote.email}`,
     `Phone: ${quote.phone || "(none)"}`,
     "",
-    "What they need:",
+    quote.kind === "sign" ? "Custom metal sign request" : "What they need:",
     cleanMultiline(quote.need),
-    quote.photoUrl ? `\nPhoto: ${quote.photoUrl}` : "",
+    quote.widthIn || quote.heightIn
+      ? `Size: ${quote.widthIn} × ${quote.heightIn} in`
+      : "",
+    quote.finishName ? `Finish: ${quote.finishName}` : "",
+    quote.fulfillment ? `Fulfillment: ${quote.fulfillment}` : "",
+    quote.estimateLabel ? `Estimate shown: ${quote.estimateLabel}` : "",
+    quote.sampleUrl ? `Sample they picked: ${quote.sampleUrl}` : "",
+    quote.photoUrl ? `Photo: ${quote.photoUrl}` : "",
     "",
     `Submitted: ${quote.createdAt}`,
     "",

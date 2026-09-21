@@ -49,7 +49,7 @@ export default async function HomePage() {
             <span className="badge">Metal signs</span>
             <h2>Plasma-cut signs</h2>
             <p>
-              Ready-made pieces as Clint builds them — plus custom sizes with a price from the finished dimensions.
+              Ready-made pieces as Clint builds them, plus custom sizes. Local pickup in Sheridan — no shipping charge.
             </p>
             <span className="btn btn-spark">Shop metal signs →</span>
           </div>

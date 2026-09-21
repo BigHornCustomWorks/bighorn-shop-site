@@ -6,6 +6,7 @@ import { MoneyInput } from "./MoneyInput";
 import { compressImage } from "@/lib/compressImage";
 import { formatUsd } from "@/lib/money";
 import { estimateSign, inchLabel, unitLabel } from "@/lib/sign-price";
+import { newId } from "@/lib/sanitize";
 import { fileUploadKind } from "@/lib/video";
 import { maxForKind } from "@/lib/uploadLimits";
 import type { MetalSignsConfig, ShopStore } from "@/lib/types";
@@ -167,6 +168,98 @@ export function SignsTab({
               onChange={(e) => patch({ maxHeightIn: Number(e.target.value) || 0 })}
             />
           </label>
+          <p className="section-kicker" style={{ marginTop: 8 }}>
+            Finishes
+          </p>
+          <p className="note">
+            Extra can be per square foot or a flat add-on. $0 extra still shows as a choice (no extra). Bare metal is
+            usually $0.
+          </p>
+          {(signs.finishes || []).map((finish, i) => (
+            <div key={finish.id} className="row-3" style={{ alignItems: "end" }}>
+              <label>
+                Name
+                <input
+                  value={finish.name}
+                  onChange={(e) =>
+                    patch({
+                      finishes: signs.finishes.map((f, idx) =>
+                        idx === i ? { ...f, name: e.target.value } : f,
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Extra ({finish.extraKind === "flat" ? "flat" : "/ sq ft"})
+                <MoneyInput
+                  cents={finish.extraCents}
+                  onCents={(extraCents) =>
+                    patch({
+                      finishes: signs.finishes.map((f, idx) => (idx === i ? { ...f, extraCents } : f)),
+                    })
+                  }
+                />
+              </label>
+              <label>
+                How extra is charged
+                <select
+                  value={finish.extraKind}
+                  onChange={(e) =>
+                    patch({
+                      finishes: signs.finishes.map((f, idx) =>
+                        idx === i ? { ...f, extraKind: e.target.value === "flat" ? "flat" : "per_sqft" } : f,
+                      ),
+                    })
+                  }
+                >
+                  <option value="per_sqft">Per square foot</option>
+                  <option value="flat">Flat add-on</option>
+                </select>
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={finish.visible}
+                  onChange={(e) =>
+                    patch({
+                      finishes: signs.finishes.map((f, idx) =>
+                        idx === i ? { ...f, visible: e.target.checked } : f,
+                      ),
+                    })
+                  }
+                />
+                Show
+              </label>
+              <button
+                type="button"
+                onClick={() => patch({ finishes: signs.finishes.filter((_, idx) => idx !== i) })}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="btn"
+            onClick={() =>
+              patch({
+                finishes: [
+                  ...(signs.finishes || []),
+                  {
+                    id: newId("finish"),
+                    name: "",
+                    extraCents: 0,
+                    extraKind: "per_sqft",
+                    note: "",
+                    visible: true,
+                  },
+                ],
+              })
+            }
+          >
+            Add finish
+          </button>
         </div>
 
         <div className="sign-price-box">

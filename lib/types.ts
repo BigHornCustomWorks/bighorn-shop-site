@@ -7,6 +7,16 @@ export type ProductKind = "physical" | "digital" | "sign";
 
 export type SignUnit = "sqft" | "sqin";
 
+export type SignFinish = {
+  id: string;
+  name: string;
+  /** Extra cents. `per_sqft` is per square foot of finished sign; `flat` is a one-time add-on. */
+  extraCents: number;
+  extraKind: "per_sqft" | "flat";
+  note: string;
+  visible: boolean;
+};
+
 /** Shop-wide metal-sign estimator. Rate is set in Master Control; size is entered by the customer. */
 export type MetalSignsConfig = {
   visible: boolean;
@@ -33,6 +43,7 @@ export type MetalSignsConfig = {
   shippingPerSqFtCents: number;
   /** 0 = no cap. */
   shippingMaxCents: number;
+  finishes: SignFinish[];
   media: string[];
 };
 
@@ -81,6 +92,13 @@ export type Quote = {
   createdAt: string;
   read: boolean;
   emailed: boolean;
+  kind: "general" | "sign";
+  widthIn: number;
+  heightIn: number;
+  finishName: string;
+  fulfillment: string;
+  estimateLabel: string;
+  sampleUrl: string;
 };
 
 export type ShippingOption = {
