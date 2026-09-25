@@ -7,7 +7,16 @@ import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/
 import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
-import type { Product, ProductKind, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
+import type {
+  PackagePreset,
+  Product,
+  ProductKind,
+  Quote,
+  ShipAddress,
+  ShopCategory,
+  ShopOrder,
+  ShopStore,
+} from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -37,10 +46,29 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   stripePriceCents: 0,
   stripeTaxBehavior: "",
   shippingCents: 0,
+  weightOz: 0,
+  weightUnit: "oz",
+  packagePresetId: "",
+  lengthIn: 0,
+  widthIn: 0,
+  heightIn: 0,
+  boxWeightOz: 0,
   priceLabel: "",
   externalUrl: "",
   sortOrder: 99,
 });
+
+const SHIP_FROM_FIELDS: { key: keyof ShipAddress; label: string }[] = [
+  { key: "company", label: "Business name" },
+  { key: "name", label: "Contact name" },
+  { key: "street1", label: "Street" },
+  { key: "street2", label: "Suite / unit (optional)" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State (2 letters)" },
+  { key: "zip", label: "ZIP" },
+  { key: "phone", label: "Phone (UPS requires one)" },
+  { key: "email", label: "Email (optional)" },
+];
 
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("physical");
@@ -55,6 +83,8 @@ export function MasterClient() {
   const [error, setError] = useState("");
   const [stripeKeyDraft, setStripeKeyDraft] = useState("");
   const [envSmtp, setEnvSmtp] = useState(false);
+  const [shippoMode, setShippoMode] = useState("");
+  const [shipFromSource, setShipFromSource] = useState("");
   const [query, setQuery] = useState("");
   const [filterCat, setFilterCat] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -89,6 +119,8 @@ export function MasterClient() {
         setEnvStripe(Boolean(json.envStripe));
         setEnvResend(Boolean(json.envResend));
         setEnvSmtp(Boolean(json.envSmtp));
+        setShippoMode(json.shippoMode || "");
+        setShipFromSource(json.shipFromSource || "");
       })
       .catch(() => setError("Could not load Master Control."));
   }, []);
@@ -710,6 +742,57 @@ export function MasterClient() {
             Items left at 0 ship along free. If no item in the cart has a cost set, the shop-wide
             options above are used instead.
           </p>
+          <h3>Live shipping rates (Shippo)</h3>
+          <p>
+            Shippo key:{" "}
+            <strong>
+              {shippoMode === "test"
+                ? "TEST key (no real postage)"
+                : shippoMode === "live"
+                  ? "LIVE key (labels cost real money)"
+                  : shippoMode === "unknown"
+                    ? "set, but not a shippo_test_ / shippo_live_ key"
+                    : "not set (SHIPPO_API_KEY)"}
+            </strong>{" "}
+            · Ship-from:{" "}
+            <strong>
+              {shipFromSource === "settings"
+                ? "saved below"
+                : shipFromSource === "env"
+                  ? "from SHIP_FROM_* env vars"
+                  : "MISSING"}
+            </strong>
+          </p>
+          <p className="note">
+            Live USPS/UPS rates show in the cart only when the key is set, a ship-from address is on file, and
+            every item in the cart has an item weight and a box (a preset below, or its own size). Otherwise checkout uses the flat rates above,
+            exactly as before. Use the business address — leave these blank to use the SHIP_FROM_* env vars.
+            A saved address here wins over the env vars only when street, city, state and ZIP are all filled.
+          </p>
+          {SHIP_FROM_FIELDS.map(({ key, label }) => (
+            <label key={key}>
+              Ship-from {label.charAt(0).toLowerCase() + label.slice(1)}
+              <input
+                value={store.settings.shipFrom?.[key] || ""}
+                onChange={(e) =>
+                  setStore({
+                    ...store,
+                    settings: {
+                      ...store.settings,
+                      shipFrom: { ...store.settings.shipFrom, [key]: e.target.value },
+                    },
+                  })
+                }
+              />
+            </label>
+          ))}
+          <PresetsEditor
+            presets={store.settings.packagePresets || []}
+            allowanceOz={store.settings.packagingAllowanceOz}
+            onChange={(packagePresets, packagingAllowanceOz) =>
+              setStore({ ...store, settings: { ...store.settings, packagePresets, packagingAllowanceOz } })
+            }
+          />
           <label>
             <input
               type="checkbox"
@@ -982,6 +1065,7 @@ function ProductsTab({
         <ProductEditor
           product={open}
           categories={categories}
+          presets={store.settings.packagePresets || []}
           onChange={(next) => {
             setStore({
               ...store,
@@ -1008,15 +1092,209 @@ function ProductsTab({
   );
 }
 
+/** Decimal from a number input; blank or junk becomes 0 ("not set"). */
+function numIn(raw: string): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Item weight and box for live carrier rates. Weight is stored in ounces; the
+ * unit picker only changes how it is typed and shown. The box is a preset
+ * from Settings unless all three override dimensions are filled in.
+ */
+function PackageFields({
+  product,
+  presets,
+  onChange,
+}: {
+  product: Product;
+  presets: PackagePreset[];
+  onChange: (p: Product) => void;
+}) {
+  const unit = product.weightUnit === "lb" ? "lb" : "oz";
+  const shown = unit === "lb" ? Math.round((product.weightOz / 16) * 1000) / 1000 : product.weightOz;
+  const override = product.lengthIn > 0 && product.widthIn > 0 && product.heightIn > 0;
+  const preset = presets.find((p) => p.id === product.packagePresetId);
+  const boxReady = override || Boolean(preset && preset.lengthIn > 0 && preset.widthIn > 0 && preset.heightIn > 0);
+  const measured = product.weightOz > 0 && boxReady;
+  return (
+    <>
+      <label>
+        Item weight, no box ({unit})
+        <span style={{ display: "flex", gap: 6 }}>
+          <input
+            type="number"
+            min={0}
+            step="0.1"
+            value={shown || ""}
+            placeholder="0"
+            onChange={(e) => {
+              const v = numIn(e.target.value);
+              onChange({ ...product, weightOz: unit === "lb" ? Math.round(v * 16 * 100) / 100 : v });
+            }}
+          />
+          <select
+            value={unit}
+            onChange={(e) => onChange({ ...product, weightUnit: e.target.value === "lb" ? "lb" : "oz" })}
+          >
+            <option value="oz">oz</option>
+            <option value="lb">lb</option>
+          </select>
+        </span>
+      </label>
+      <label>
+        Ships in box
+        <select
+          value={product.packagePresetId}
+          onChange={(e) => onChange({ ...product, packagePresetId: e.target.value })}
+        >
+          <option value="">— pick a box preset —</option>
+          {presets.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.lengthIn}×{p.widthIn}×{p.heightIn} in, {p.emptyWeightOz} oz empty)
+            </option>
+          ))}
+        </select>
+        {!presets.length ? <span className="muted">Add box presets in Settings.</span> : null}
+      </label>
+      <label>
+        Own box size instead (optional) L × W × H in
+        <span style={{ display: "flex", gap: 6 }}>
+          {(["lengthIn", "widthIn", "heightIn"] as const).map((key) => (
+            <input
+              key={key}
+              type="number"
+              min={0}
+              step="0.1"
+              aria-label={key.replace("In", "")}
+              value={product[key] || ""}
+              placeholder={key.charAt(0).toUpperCase()}
+              onChange={(e) => onChange({ ...product, [key]: numIn(e.target.value) })}
+            />
+          ))}
+        </span>
+      </label>
+      {override ? (
+        <label>
+          Own box empty weight (oz)
+          <input
+            type="number"
+            min={0}
+            step="0.1"
+            value={product.boxWeightOz || ""}
+            placeholder="0"
+            onChange={(e) => onChange({ ...product, boxWeightOz: numIn(e.target.value) })}
+          />
+        </label>
+      ) : null}
+      <p className="muted" style={{ gridColumn: "1 / -1" }}>
+        {measured
+          ? `Live USPS/UPS rates on. Box: ${override ? "this product's own size" : preset?.name}.`
+          : "Needs an item weight and a box (preset or own size) for live rates — until then this item uses the flat shipping rates."}
+      </p>
+    </>
+  );
+}
+
+/** Reusable shipping boxes, edited in Settings. */
+function PresetsEditor({
+  presets,
+  allowanceOz,
+  onChange,
+}: {
+  presets: PackagePreset[];
+  allowanceOz: number;
+  onChange: (presets: PackagePreset[], allowanceOz: number) => void;
+}) {
+  const patch = (i: number, fields: Partial<PackagePreset>) =>
+    onChange(
+      presets.map((p, idx) => (idx === i ? { ...p, ...fields } : p)),
+      allowanceOz,
+    );
+  return (
+    <div>
+      <h3>Box presets</h3>
+      <p className="note">
+        Boxes you reuse. Each product picks one and adds its own item weight. Parcel weight = item weight + empty
+        box weight + the packaging allowance below.
+      </p>
+      {presets.map((p, i) => (
+        <div key={p.id} className="row-3" style={{ alignItems: "end", marginBottom: 8 }}>
+          <label>
+            Name
+            <input value={p.name} placeholder="Small flat box" onChange={(e) => patch(i, { name: e.target.value })} />
+          </label>
+          <label>
+            L × W × H (in)
+            <span style={{ display: "flex", gap: 6 }}>
+              {(["lengthIn", "widthIn", "heightIn"] as const).map((key) => (
+                <input
+                  key={key}
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  aria-label={key.replace("In", "")}
+                  value={p[key] || ""}
+                  onChange={(e) => patch(i, { [key]: numIn(e.target.value) })}
+                />
+              ))}
+            </span>
+          </label>
+          <label>
+            Empty weight (oz)
+            <span style={{ display: "flex", gap: 6 }}>
+              <input
+                type="number"
+                min={0}
+                step="0.1"
+                value={p.emptyWeightOz || ""}
+                onChange={(e) => patch(i, { emptyWeightOz: numIn(e.target.value) })}
+              />
+              <button type="button" onClick={() => onChange(presets.filter((_, idx) => idx !== i), allowanceOz)}>
+                Remove
+              </button>
+            </span>
+          </label>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() =>
+          onChange(
+            [...presets, { id: newId("box"), name: "", lengthIn: 0, widthIn: 0, heightIn: 0, emptyWeightOz: 0 }],
+            allowanceOz,
+          )
+        }
+      >
+        Add box preset
+      </button>
+      <label>
+        Packaging allowance per parcel (oz) — tape, filler, inserts
+        <input
+          type="number"
+          min={0}
+          step="0.1"
+          value={allowanceOz}
+          onChange={(e) => onChange(presets, numIn(e.target.value))}
+        />
+      </label>
+      <p className="note">A preset with no name is dropped when you save. Remember to click Save settings.</p>
+    </div>
+  );
+}
+
 function ProductEditor({
   product,
   categories,
+  presets,
   onChange,
   onMove,
   onUpload,
 }: {
   product: Product;
   categories: ShopCategory[];
+  presets: PackagePreset[];
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
@@ -1110,6 +1388,7 @@ function ProductEditor({
             />
           </label>
         )}
+        {product.kind === "digital" ? null : <PackageFields product={product} presets={presets} onChange={onChange} />}
         <label>
           Visible on site
           <select
@@ -1190,6 +1469,62 @@ function OrderRow({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [noteBad, setNoteBad] = useState(false);
+  const [labelBusy, setLabelBusy] = useState(false);
+  const [labelNote, setLabelNote] = useState("");
+  const [labelBad, setLabelBad] = useState(false);
+  const [quote, setQuote] = useState<{
+    shipmentId: string;
+    rateId: string;
+    carrier: string;
+    service: string;
+    oldCents: number;
+    newCents: number;
+    sameService: boolean;
+    reason: string;
+  } | null>(null);
+
+  const canBuyLabel = order.paymentStatus === "paid" && Boolean(order.rateId && order.rateShipmentId) && !order.labelUrl;
+
+  async function generateLabel(confirm?: { shipmentId: string; rateId: string }) {
+    setLabelBusy(true);
+    setLabelNote("");
+    setLabelBad(false);
+    try {
+      const res = await fetch("/api/master/order-label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, confirm }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.needsConfirm && json.quote) {
+        setQuote(json.quote);
+        return;
+      }
+      if (!res.ok || !json.ok) {
+        setLabelBad(true);
+        setLabelNote(json.error || "Could not buy the label.");
+        return;
+      }
+      setQuote(null);
+      if (json.order) {
+        onShipped(json.order);
+        if (json.order.trackingNumber) setTracking(json.order.trackingNumber);
+        if (json.order.trackingCarrier) setCarrier(json.order.trackingCarrier);
+      }
+      setLabelBad(Boolean(json.storageWarning));
+      setLabelNote(
+        json.storageWarning ||
+          (json.already
+            ? "This order already had a label — nothing new was bought."
+            : "Label bought. Print it, then use “Mark shipped & email tracking” below when it goes out."),
+      );
+    } catch {
+      setLabelBad(true);
+      setLabelNote("Could not reach the server. Refresh before trying again.");
+    } finally {
+      setLabelBusy(false);
+    }
+  }
 
   async function markShipped() {
     if (!tracking.trim()) {
@@ -1244,6 +1579,59 @@ function OrderRow({
             : ""}
         {order.createdAt} · {order.emailed ? "email sent to the shop inbox" : "email failed — still saved here"}
       </p>
+
+      {order.labelUrl ? (
+        <p>
+          <strong>Label:</strong> {order.labelCarrier} {order.labelService}
+          {order.labelCents ? ` (${formatUsd(order.labelCents)})` : ""} · Tracking {order.trackingNumber || "—"} ·{" "}
+          <a href={order.labelUrl} target="_blank" rel="noopener noreferrer">
+            Open label PDF
+          </a>
+          {order.labelTrackingUrl ? (
+            <>
+              {" "}·{" "}
+              <a href={order.labelTrackingUrl} target="_blank" rel="noopener noreferrer">
+                Tracking page
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      {canBuyLabel ? (
+        <div>
+          {quote ? (
+            <div className="banner">
+              <p>
+                {quote.reason} New price: <strong>{formatUsd(quote.newCents)}</strong> for {quote.carrier}{" "}
+                {quote.service} (customer paid {formatUsd(quote.oldCents)}
+                {quote.newCents !== quote.oldCents
+                  ? `, ${quote.newCents > quote.oldCents ? "+" : "−"}${formatUsd(Math.abs(quote.newCents - quote.oldCents))}`
+                  : ", no change"}
+                ).
+                {!quote.sameService ? " The original service is not offered for this address — this is the closest match." : ""}
+              </p>
+              <button
+                type="button"
+                disabled={labelBusy}
+                onClick={() => generateLabel({ shipmentId: quote.shipmentId, rateId: quote.rateId })}
+              >
+                {labelBusy ? "Buying…" : `Buy label at ${formatUsd(quote.newCents)}`}
+              </button>{" "}
+              <button type="button" disabled={labelBusy} onClick={() => setQuote(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button type="button" disabled={labelBusy} onClick={() => generateLabel()}>
+              {labelBusy ? "Working…" : `Generate shipping label (${order.rateCarrier} ${order.rateService})`}
+            </button>
+          )}
+          {order.labelStatus === "error" && order.labelError && !labelNote ? (
+            <p className="err">Last try failed: {order.labelError}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {labelNote ? <p className={labelBad ? "err" : "ok"}>{labelNote}</p> : null}
 
       {order.shippedAt ? (
         <p className="muted">

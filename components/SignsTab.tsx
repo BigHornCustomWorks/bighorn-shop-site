@@ -9,7 +9,8 @@ import { estimateSign, inchLabel, unitLabel } from "@/lib/sign-price";
 import { newId } from "@/lib/sanitize";
 import { fileUploadKind } from "@/lib/video";
 import { maxForKind } from "@/lib/uploadLimits";
-import type { MetalSignsConfig, ShopStore } from "@/lib/types";
+import { signMetalOz, signParcel } from "@/lib/shipping";
+import type { MetalSignsConfig, ShopStore, SignPackConfig } from "@/lib/types";
 
 export function SignsTab({
   store,
@@ -108,8 +109,8 @@ export function SignsTab({
           </p>
           <p className="note">
             Postage = base + (square feet × extra). A 12×12 is 1 sq ft; a 24×24 is 4 sq ft. Leave all at $0 to use the
-            shop-wide rate. Live USPS quotes need the customer’s ZIP before Stripe — we can add that later with a
-            carrier account. Size-based postage works now because we already know the sign dimensions.
+            shop-wide rate. When live Shippo rates are switched on (Settings), the customer enters a ZIP and pays the
+            real USPS/UPS price for the packed sign instead — these size-based amounts are then only the fallback.
           </p>
           <div className="row-3">
             <label>
@@ -134,6 +135,7 @@ export function SignsTab({
               />
             </label>
           </div>
+          <SignPackEditor pack={signs.pack} onChange={(pack) => patch({ pack })} />
           <div className="row-3">
             <label>
               Min width (in)
@@ -287,6 +289,7 @@ export function SignsTab({
                 Sign {formatUsd(quote.cents)} · {quote.shippingLabel}
               </p>
               <p>{quote.rateLabel}</p>
+              <PackPreview config={signs} widthIn={quote.widthIn} heightIn={quote.heightIn} />
             </>
           ) : (
             <>
@@ -312,6 +315,121 @@ export function SignsTab({
         <button className="btn btn-bronze" type="button" onClick={() => save(store)}>
           Save metal signs
         </button>
+      </div>
+    </div>
+  );
+}
+
+function PackPreview({ config, widthIn, heightIn }: { config: MetalSignsConfig; widthIn: number; heightIn: number }) {
+  const parcel = signParcel(config, widthIn, heightIn);
+  if (!parcel) return null;
+  const metalLb = signMetalOz(config.pack, widthIn, heightIn) / 16;
+  return (
+    <p className="muted">
+      Live-rate parcel: {parcel.length} × {parcel.width} × {parcel.height} in, {(parcel.weight / 16).toFixed(2)} lb
+      ({metalLb.toFixed(2)} lb of {config.pack.material} at {config.pack.thicknessIn} in).
+    </p>
+  );
+}
+
+/**
+ * How a custom sign is weighed and packed for live carrier rates:
+ * weight = width × height × thickness × density, in a flat pack of sign size
+ * plus a margin, with a thin depth, plus cardboard and a packaging allowance.
+ */
+function SignPackEditor({ pack, onChange }: { pack: SignPackConfig; onChange: (p: SignPackConfig) => void }) {
+  const [newThickness, setNewThickness] = useState("");
+  const set = (fields: Partial<SignPackConfig>) => onChange({ ...pack, ...fields });
+  const dec = (raw: string) => {
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  return (
+    <div>
+      <p className="section-kicker" style={{ marginTop: 8 }}>
+        Weight &amp; packing for live rates
+      </p>
+      <p className="note">
+        Sign weight = width × height × thickness × density. It ships flat in cardboard: sign size plus the margin
+        on every side, at the depth below.
+      </p>
+      <div className="row-3">
+        <label>
+          Material
+          <select value={pack.material} onChange={(e) => set({ material: e.target.value === "aluminum" ? "aluminum" : "steel" })}>
+            <option value="steel">Steel</option>
+            <option value="aluminum">Aluminum</option>
+          </select>
+        </label>
+        <label>
+          Thickness (in)
+          <select value={String(pack.thicknessIn)} onChange={(e) => set({ thicknessIn: dec(e.target.value) })}>
+            {pack.thicknessOptionsIn.map((t) => (
+              <option key={t} value={String(t)}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Add a thickness option (in)
+          <span style={{ display: "flex", gap: 6 }}>
+            <input inputMode="decimal" value={newThickness} placeholder="0.090" onChange={(e) => setNewThickness(e.target.value)} />
+            <button
+              type="button"
+              onClick={() => {
+                const t = dec(newThickness);
+                if (t > 0 && t <= 2 && !pack.thicknessOptionsIn.includes(t)) {
+                  set({ thicknessOptionsIn: [...pack.thicknessOptionsIn, t].sort((a, b) => a - b) });
+                }
+                setNewThickness("");
+              }}
+            >
+              Add
+            </button>
+          </span>
+        </label>
+      </div>
+      <p className="muted">
+        Options:{" "}
+        {pack.thicknessOptionsIn.map((t) => (
+          <button
+            key={t}
+            type="button"
+            className="btn-ghost"
+            disabled={t === pack.thicknessIn || pack.thicknessOptionsIn.length <= 1}
+            title={t === pack.thicknessIn ? "In use" : "Remove this option"}
+            onClick={() => set({ thicknessOptionsIn: pack.thicknessOptionsIn.filter((x) => x !== t) })}
+          >
+            {t} ✕
+          </button>
+        ))}
+      </p>
+      <div className="row-3">
+        <label>
+          Steel density (lb / cu in)
+          <input type="number" step="any" min={0} value={pack.steelDensityLbPerIn3} onChange={(e) => set({ steelDensityLbPerIn3: dec(e.target.value) })} />
+        </label>
+        <label>
+          Aluminum density (lb / cu in)
+          <input type="number" step="any" min={0} value={pack.aluminumDensityLbPerIn3} onChange={(e) => set({ aluminumDensityLbPerIn3: dec(e.target.value) })} />
+        </label>
+        <label>
+          Margin around sign (in)
+          <input type="number" step="any" min={0} value={pack.marginIn} onChange={(e) => set({ marginIn: dec(e.target.value) })} />
+        </label>
+        <label>
+          Flat-pack depth (in)
+          <input type="number" step="any" min={0} value={pack.depthIn} onChange={(e) => set({ depthIn: dec(e.target.value) })} />
+        </label>
+        <label>
+          Cardboard weight (oz / sq ft, both faces counted)
+          <input type="number" step="any" min={0} value={pack.cardboardOzPerSqFt} onChange={(e) => set({ cardboardOzPerSqFt: dec(e.target.value) })} />
+        </label>
+        <label>
+          Packaging allowance (oz)
+          <input type="number" step="any" min={0} value={pack.allowanceOz} onChange={(e) => set({ allowanceOz: dec(e.target.value) })} />
+        </label>
       </div>
     </div>
   );

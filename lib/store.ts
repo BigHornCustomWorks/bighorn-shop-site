@@ -12,6 +12,12 @@ import {
   safeSlug,
   safeUrl,
 } from "./sanitize";
+import {
+  DEFAULT_PACKAGING_ALLOWANCE_OZ,
+  normalizePreset,
+  normalizeShipAddress,
+  normalizeSignPack,
+} from "./shipping";
 import { splitMedia } from "./video";
 import type {
   FooterLink,
@@ -80,6 +86,16 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
   };
 }
 
+/**
+ * Weights and box sizes need decimals (3.5 oz, 10.25 in), which asInt would
+ * round away. Anything missing, negative, or absurd becomes 0 = "not set".
+ */
+function measure(value: unknown, max: number): number {
+  const n = typeof value === "number" ? value : Number(String(value ?? "").trim());
+  if (!Number.isFinite(n) || n <= 0 || n > max) return 0;
+  return Math.round(n * 100) / 100;
+}
+
 function normalizeProduct(raw: unknown, i: number): Product | null {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<Product>;
   const name = cleanStr(src.name);
@@ -116,6 +132,13 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripePriceCents: asCents(src.stripePriceCents, 0),
     stripeTaxBehavior: cleanStr(src.stripeTaxBehavior),
     shippingCents: asCents(src.shippingCents, 0),
+    weightOz: measure(src.weightOz, 2400),
+    weightUnit: src.weightUnit === "lb" ? "lb" : "oz",
+    packagePresetId: cleanStr(src.packagePresetId),
+    lengthIn: measure(src.lengthIn, 120),
+    widthIn: measure(src.widthIn, 120),
+    heightIn: measure(src.heightIn, 120),
+    boxWeightOz: measure(src.boxWeightOz, 800),
     priceLabel: cleanStr(src.priceLabel),
     externalUrl: safeUrl(src.externalUrl),
   };
@@ -144,6 +167,24 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     customerNotified: Boolean(src.customerNotified),
     emailed: Boolean(src.emailed),
     read: Boolean(src.read),
+    paymentStatus: cleanStr(src.paymentStatus),
+    shipTo: normalizeShipAddress(src.shipTo),
+    rateId: cleanStr(src.rateId),
+    rateShipmentId: cleanStr(src.rateShipmentId),
+    rateCarrier: cleanStr(src.rateCarrier),
+    rateService: cleanStr(src.rateService),
+    rateServiceToken: cleanStr(src.rateServiceToken),
+    rateCents: asCents(src.rateCents, 0),
+    labelRateId: cleanStr(src.labelRateId),
+    labelStatus: ["buying", "bought", "error"].includes(cleanStr(src.labelStatus)) ? cleanStr(src.labelStatus) : "",
+    labelStartedAt: cleanStr(src.labelStartedAt),
+    labelError: cleanStr(src.labelError),
+    labelUrl: safeUrl(src.labelUrl),
+    labelTrackingUrl: safeUrl(src.labelTrackingUrl),
+    labelCarrier: cleanStr(src.labelCarrier),
+    labelService: cleanStr(src.labelService),
+    labelCents: asCents(src.labelCents, 0),
+    labelBoughtAt: cleanStr(src.labelBoughtAt),
   };
 }
 
@@ -294,6 +335,13 @@ function normalizeSettings(raw: unknown): ShopSettings {
     catalogMode,
     taxEnabled: src.taxEnabled === true,
     shippingCombine: src.shippingCombine === "sum" ? "sum" : "highest",
+    shipFrom: normalizeShipAddress(src.shipFrom),
+    packagePresets: asArray<unknown>(src.packagePresets)
+      .map(normalizePreset)
+      .filter((p): p is NonNullable<ReturnType<typeof normalizePreset>> => Boolean(p))
+      .slice(0, 30),
+    packagingAllowanceOz:
+      src.packagingAllowanceOz === 0 ? 0 : measure(src.packagingAllowanceOz, 800) || DEFAULT_PACKAGING_ALLOWANCE_OZ,
   };
 }
 
@@ -460,6 +508,7 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
     shippingMaxCents: asCents(src.shippingMaxCents, 0),
     finishes: finishes.length ? finishes : defaultSignFinishes(),
     media: media.length ? media : base.media,
+    pack: normalizeSignPack(src.pack),
   };
 }
 
