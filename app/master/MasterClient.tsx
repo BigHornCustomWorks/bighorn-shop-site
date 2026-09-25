@@ -1190,6 +1190,34 @@ function OrderRow({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [noteBad, setNoteBad] = useState(false);
+  const paid = order.paymentStatus === "paid";
+  const stripeUrl = order.paymentIntentId
+    ? `https://dashboard.stripe.com/${order.sessionId.startsWith("cs_test_") ? "test/" : ""}payments/${order.paymentIntentId}`
+    : "";
+
+  async function resendNotice() {
+    setBusy(true);
+    setNote("");
+    const res = await fetch("/api/master/order-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setNoteBad(true);
+      setNote(json.error || "Could not resend that.");
+      return;
+    }
+    onShipped({ emailed: Boolean(json.ok), notifyError: json.ok ? "" : json.error || "" });
+    setNoteBad(!json.ok);
+    setNote(
+      json.ok
+        ? `Shop notification sent (via ${json.via}).`
+        : `Shop notification still not delivered: ${json.error || "unknown reason"}`,
+    );
+  }
 
   async function markShipped() {
     if (!tracking.trim()) {
@@ -1227,7 +1255,15 @@ function OrderRow({
 
   return (
     <div className="quote-item">
-      <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
+      <strong className={paid ? "ok" : "err"}>{paid ? "PAID" : `PAYMENT ${order.paymentStatus || "UNKNOWN"}`.toUpperCase()}</strong>{" "}
+      · <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} ·{" "}
+      {order.email ? <a href={`mailto:${order.email}`}>{order.email}</a> : "no email"}
+      {order.phone ? (
+        <>
+          {" "}
+          · <a href={`tel:${order.phone}`}>{order.phone}</a>
+        </>
+      ) : null}
       {!order.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       {order.address ? <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p> : null}
@@ -1242,8 +1278,27 @@ function OrderRow({
           : order.sessionId.startsWith("cs_live_")
             ? "Live payment. "
             : ""}
-        {order.createdAt} · {order.emailed ? "email sent to the shop inbox" : "email failed — still saved here"}
+        {order.createdAt}
+        {stripeUrl ? (
+          <>
+            {" "}
+            ·{" "}
+            <a href={stripeUrl} target="_blank" rel="noreferrer">
+              View in Stripe
+            </a>
+          </>
+        ) : null}
+        {order.emailed ? " · shop notification email sent" : null}
       </p>
+      {!order.emailed ? (
+        <p className="err">
+          Shop notification email not delivered (order is still valid).{" "}
+          {order.notifyError ? `Reason: ${order.notifyError}` : "Reason was not recorded for this order."}{" "}
+          <button type="button" onClick={resendNotice} disabled={busy}>
+            {busy ? "Sending…" : "Resend notification"}
+          </button>
+        </p>
+      ) : null}
 
       {order.shippedAt ? (
         <p className="muted">

@@ -143,6 +143,12 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     shippedAt: cleanStr(src.shippedAt),
     customerNotified: Boolean(src.customerNotified),
     emailed: Boolean(src.emailed),
+    notifyError: cleanStr(src.notifyError),
+    phone: cleanStr(src.phone),
+    paymentIntentId: cleanStr(src.paymentIntentId),
+    // Rows saved before this field existed came only from completed Stripe
+    // Checkout sessions, so treat those as paid rather than unknown.
+    paymentStatus: cleanStr(src.paymentStatus, /^cs_(live|test)_/.test(sessionId) ? "paid" : ""),
     read: Boolean(src.read),
   };
 }

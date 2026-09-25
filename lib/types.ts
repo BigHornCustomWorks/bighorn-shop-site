@@ -203,7 +203,16 @@ export type ShopOrder = {
   shippedAt: string;
   /** Whether the customer was successfully emailed the tracking number. */
   customerNotified: boolean;
+  /** Whether the shop (owner) notification email was delivered. */
   emailed: boolean;
+  /** Why the shop notification failed, when it did. Empty when it went out. */
+  notifyError: string;
+  /** Buyer phone from Stripe Checkout, when collected. */
+  phone: string;
+  /** Stripe PaymentIntent id (pi_...), for the Dashboard link. */
+  paymentIntentId: string;
+  /** Stripe Checkout payment_status at the time the order was saved ("paid", "unpaid", ...). */
+  paymentStatus: string;
   read: boolean;
 };
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { sendOrderEmail } from "@/lib/email";
+import { sendOrderEmail, type SendResult } from "@/lib/email";
 import { formatUsd } from "@/lib/money";
 import { newId } from "@/lib/sanitize";
 import { readStore, writeStore } from "@/lib/store";
@@ -32,6 +32,8 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const raw = event.data.object as Stripe.Checkout.Session;
+    let orderId = "";
+    let notice: Parameters<typeof sendOrderEmail>[0];
     try {
       const session = await stripe.checkout.sessions.retrieve(raw.id, {
         expand: ["line_items", "shipping_cost.shipping_rate"],
@@ -64,6 +66,10 @@ export async function POST(req: Request) {
         extra.customer_details?.name ||
         "";
       const email = session.customer_details?.email || session.customer_email || "";
+      const phone = session.customer_details?.phone || "";
+      const paymentIntentId =
+        typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || "";
+      const paymentStatus = session.payment_status || "";
       const amountCents = session.amount_total || 0;
       const address = addressLines(ship || null);
       const shippingRate = session.shipping_cost?.shipping_rate;
@@ -71,6 +77,20 @@ export async function POST(req: Request) {
         shippingRate && typeof shippingRate !== "string" ? shippingRate.display_name || "" : "";
       const shippingCents = session.shipping_cost?.amount_total || 0;
       const taxCents = session.total_details?.amount_tax || 0;
+      notice = {
+        email,
+        name,
+        phone,
+        amountLabel: formatUsd(amountCents),
+        items,
+        address,
+        sessionId: session.id,
+        paymentIntentId,
+        paid: paymentStatus === "paid",
+        shippingLabel,
+        shippingLabelCost: formatUsd(shippingCents),
+        taxLabel: formatUsd(taxCents),
+      };
       // Stripe retries this webhook on any timeout or non-2xx. Claim the
       // order row FIRST so a retry sees it and stops, instead of sending a
       // second copy of the same order to the shop inbox.
@@ -79,17 +99,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      const orderId = newId("order");
+      orderId = newId("order");
       latest.orders = [
         {
           id: orderId,
           createdAt: new Date().toISOString(),
           email,
           name,
+          phone,
           amountCents,
           items,
           address,
           sessionId: session.id,
+          paymentIntentId,
+          paymentStatus,
           shippingLabel,
           shippingCents,
           taxCents,
@@ -98,40 +121,50 @@ export async function POST(req: Request) {
           shippedAt: "",
           customerNotified: false,
           emailed: false,
+          notifyError: "",
           read: false,
         },
         ...latest.orders,
       ].slice(0, 400);
       const reserved = await writeStore(latest);
       if (!reserved.ok) {
-        // Not fatal — the email below still reaches the shop — but the order
-        // list and the retry guard above are both unreliable until Blob is on.
-        console.error("order row not persisted", reserved.persisted, session.id);
-      }
-
-      const emailed = await sendOrderEmail({
-        email,
-        name,
-        amountLabel: formatUsd(amountCents),
-        items,
-        address,
-        sessionId: session.id,
-        paid: session.payment_status === "paid",
-        shippingLabel,
-        shippingLabelCost: formatUsd(shippingCents),
-        taxLabel: formatUsd(taxCents),
-      });
-
-      if (emailed) {
-        const after = await readStore();
-        const row = after.orders.find((o) => o.id === orderId);
-        if (row && !row.emailed) {
-          row.emailed = true;
-          await writeStore(after);
-        }
+        // The order is not durably saved. Tell the shop anyway, then answer
+        // 500 so Stripe retries; the guard above stops a duplicate row once
+        // storage works again (the shop may get this email more than once).
+        console.error("order row not persisted", reserved.persisted, reserved.error, event.id, session.id);
+        await sendOrderEmail({
+          ...notice,
+          warning: "This order could NOT be saved to Master Control (storage error). Stripe will retry, so this email may repeat.",
+        }).catch(() => undefined);
+        return NextResponse.json({ error: "order not saved" }, { status: 500 });
       }
     } catch (err) {
-      console.error("order notify", err instanceof Error ? err.message : err);
+      console.error("order not saved", event.id, raw.id, err instanceof Error ? err.message : err);
+      return NextResponse.json({ error: "order not saved" }, { status: 500 });
+    }
+
+    // The order row is saved. Anything from here on only affects the shop
+    // notification, so the webhook still answers 200 and Stripe does not retry.
+    let sent: SendResult;
+    try {
+      sent = await sendOrderEmail(notice);
+    } catch (err) {
+      sent = { ok: false, via: "", error: err instanceof Error ? err.message : "notify threw" };
+    }
+    if (!sent.ok) console.error("order notify failed", event.id, raw.id, sent.error);
+
+    try {
+      const after = await readStore();
+      const row = after.orders.find((o) => o.id === orderId);
+      if (row) {
+        row.emailed = sent.ok;
+        row.notifyError = sent.ok ? "" : sent.error;
+        await writeStore(after);
+      } else {
+        console.error("order row missing when recording notify result", orderId, sent.ok);
+      }
+    } catch (err) {
+      console.error("notify result not recorded", orderId, err instanceof Error ? err.message : err);
     }
   }
 
