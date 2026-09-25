@@ -79,10 +79,22 @@ function formOrigin(): string {
   return cleanStr(process.env.NEXT_PUBLIC_SITE_URL, "https://bighorncustomworks.com").replace(/\/$/, "");
 }
 
+/** Outcome of one notification attempt, so callers can store the real reason. */
+export type SendResult = { ok: boolean; via: "smtp" | "resend" | "formsubmit" | ""; error: string };
+
+function errText(err: unknown): string {
+  return (err instanceof Error ? err.message : String(err || "unknown error")).slice(0, 300);
+}
+
 async function formSubmit(to: string, fields: Record<string, string>): Promise<boolean> {
+  return (await formSubmitResult(to, fields)).ok;
+}
+
+async function formSubmitResult(to: string, fields: Record<string, string>): Promise<{ ok: boolean; error: string }> {
   const origin = formOrigin();
   try {
     const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(to)}`, {
+      signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -100,10 +112,12 @@ async function formSubmit(to: string, fields: Record<string, string>): Promise<b
     const ok = json.success === true || json.success === "true";
     if (!ok) {
       console.error("formsubmit", json.message || res.status);
+      return { ok: false, error: `HTTP ${res.status} ${json.message || ""}`.trim().slice(0, 300) };
     }
-    return ok;
-  } catch {
-    return false;
+    return { ok: true, error: "" };
+  } catch (err) {
+    console.error("formsubmit", errText(err));
+    return { ok: false, error: errText(err) };
   }
 }
 
@@ -134,9 +148,12 @@ export async function sendPlainEmail(opts: {
   text: string;
   replyTo?: string;
   to?: string;
-}): Promise<boolean> {
+}): Promise<SendResult> {
   const to = cleanStr(opts.to) || shopInbox();
   const replyTo = cleanStr(opts.replyTo);
+  // Every transport that was tried and why it failed, so the order row can
+  // show the real reason instead of a bare "failed".
+  const errors: string[] = [];
 
   const user = cleanStr(process.env.SMTP_USER);
   const pass = cleanStr(process.env.SMTP_PASS);
@@ -148,6 +165,9 @@ export async function sendPlainEmail(opts: {
         port: Number(process.env.SMTP_PORT || 465),
         secure: true,
         auth: { user, pass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
       });
       await transporter.sendMail({
         from: `Big Horn Custom Works <${user}>`,
@@ -156,16 +176,20 @@ export async function sendPlainEmail(opts: {
         subject: opts.subject,
         text: opts.text,
       });
-      return true;
-    } catch {
-      /* fall through */
+      return { ok: true, via: "smtp", error: "" };
+    } catch (err) {
+      console.error("smtp send failed:", errText(err));
+      errors.push(`SMTP: ${errText(err)}`);
     }
+  } else {
+    errors.push("SMTP: not configured (SMTP_USER/SMTP_PASS unset)");
   }
 
   const resendKey = cleanStr(process.env.RESEND_API_KEY);
   if (resendKey) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
+        signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Authorization: `Bearer ${resendKey}`,
@@ -179,19 +203,28 @@ export async function sendPlainEmail(opts: {
           text: opts.text,
         }),
       });
-      if (res.ok) return true;
-    } catch {
-      /* fall through */
+      if (res.ok) return { ok: true, via: "resend", error: "" };
+      const detail = (await res.text().catch(() => "")).slice(0, 300);
+      console.error("resend send failed:", res.status, detail);
+      errors.push(`Resend: HTTP ${res.status} ${detail}`.trim());
+    } catch (err) {
+      console.error("resend send failed:", errText(err));
+      errors.push(`Resend: ${errText(err)}`);
     }
+  } else {
+    errors.push("Resend: not configured (RESEND_API_KEY unset)");
   }
 
-  return formSubmit(to, {
+  const form = await formSubmitResult(to, {
     name: "Catalog order",
     email: replyTo || to,
     message: opts.text,
     _replyto: replyTo,
     _subject: opts.subject,
   });
+  if (form.ok) return { ok: true, via: "formsubmit", error: "" };
+  errors.push(`FormSubmit: ${form.error}`);
+  return { ok: false, via: "", error: errors.join(" | ").slice(0, 900) };
 }
 
 /**
@@ -278,25 +311,39 @@ export async function sendShippedEmail(detail: {
   });
 }
 
+/** Stripe Dashboard link for a payment; test-mode sessions get the /test/ path. */
+export function stripePaymentUrl(paymentIntentId: string, sessionId: string): string {
+  if (!paymentIntentId) return "";
+  const test = sessionId.startsWith("cs_test_") ? "test/" : "";
+  return `https://dashboard.stripe.com/${test}payments/${paymentIntentId}`;
+}
+
 export async function sendOrderEmail(detail: {
   email: string;
   name: string;
+  phone?: string;
   amountLabel: string;
   items: string;
   address: string;
   sessionId: string;
+  paymentIntentId?: string;
   paid: boolean;
   shippingLabel?: string;
   shippingLabelCost?: string;
   taxLabel?: string;
-}): Promise<boolean> {
+  /** Extra line at the top, e.g. when the order row could not be saved. */
+  warning?: string;
+}): Promise<SendResult> {
+  const stripeUrl = stripePaymentUrl(detail.paymentIntentId || "", detail.sessionId);
   const text = [
     "New catalog order — Big Horn Custom Works",
     "",
+    ...(detail.warning ? [`WARNING: ${detail.warning}`, ""] : []),
     `Paid: ${detail.paid ? "yes (Stripe)" : "no"}`,
     `Total: ${detail.amountLabel}`,
     `Customer: ${detail.name || "(none)"}`,
     `Email: ${detail.email || "(none)"}`,
+    `Phone: ${detail.phone || "(none)"}`,
     "",
     "Items:",
     detail.items || "(none listed)",
@@ -308,6 +355,8 @@ export async function sendOrderEmail(detail: {
     "",
     detail.address ? `Ship to:\n${detail.address}` : "No shipping address (digital or not collected).",
     "",
+    `Stripe payment: ${detail.paymentIntentId || "(not recorded)"}`,
+    stripeUrl ? `View in Stripe: ${stripeUrl}` : "",
     `Stripe session: ${detail.sessionId}`,
     "",
     "This is the Sheridan shop inbox. Stripe also shows the payment in the Dashboard.",
