@@ -26,7 +26,7 @@ npm run start   # serve the build
 | --- | --- |
 | `app/` | Routes. Public: `/`, `/shop`, `/shop/[slug]`, `/cart`, `/custom`, `/contact`, `/about`, `/privacy`, `/terms` |
 | `app/master/` | Master Control admin UI (`MasterClient.tsx`) |
-| `app/api/` | `checkout`, `quote`, `visit`, `webhook/stripe`, `master/{login,logout,store,upload}` |
+| `app/api/` | `checkout`, `quote`, `visit`, `shipping/rates`, `webhook/stripe`, `master/{login,logout,store,upload,order-ship,order-label}` |
 | `lib/store.ts` | Reads/writes the store document — products, categories, quotes, site copy, settings, stats, orders |
 | `lib/auth.ts` | HMAC-signed master session cookie (`bhcw_master`) |
 | `lib/sanitize.ts` | Strips HTML/JS from admin-entered fields |
@@ -62,8 +62,39 @@ cart has one, it overrides the shop-wide rates for that order; items left at
 items combine — `highest` (default, one box) or `sum` (each needs its own).
 
 Shipping defaults to a single $14.99 flat rate when nothing is configured,
-so the shop can never quietly ship for free. There is no live carrier rate
-lookup: Stripe Checkout only shows rates defined up front.
+so the shop can never quietly ship for free.
+
+### Live carrier rates (Shippo)
+
+`lib/shipping.ts` talks to Shippo's REST API (no SDK). Live rates turn on
+only when `SHIPPO_API_KEY` is set, a ship-from address exists (Master Control
+Settings, else `SHIP_FROM_*` env), and the parcel can be computed:
+
+- Catalog items: item weight + a box preset from Settings (or the product's
+  own L×W×H and empty box weight). Parcel weight = item weight + empty box
+  weight + the packaging allowance. Several units stack into one parcel.
+- Custom signs: width × height × thickness × density (steel 0.284, aluminum
+  0.0975 lb/in³ by default, editable in the Signs tab), in a flat pack of
+  sign size + margin (default 2 in) at a thin depth, plus cardboard weight
+  and a packaging allowance.
+
+The cart / sign estimator asks for a ZIP and `/api/shipping/rates` returns
+USPS/UPS rates. The browser sends back only the shipment and rate ids;
+`/api/checkout` re-fetches the rate by id from Shippo, checks its shipment is
+for this exact parcel and ship-from ZIP and under Shippo's 7-day limit, and
+passes Shippo's amount to Stripe as the one paid `shipping_option` (pickup
+still offered). Rate/shipment ids ride in session metadata and on the order.
+Any missing config, missing measurement, or API error falls back to the flat
+rates above.
+
+Master Control shows "Generate shipping label" on paid orders with a live
+rate (`/api/master/order-label`, `isMaster()`-gated). It buys the checkout
+rate when the quote was for the full Stripe address and is fresh; otherwise
+it re-rates and shows the price difference for confirmation. A saved label, a
+2-minute "buying" lock, and a Shippo lookup of existing transactions on every
+rate tied to the order guard against double purchase. Buying a label never
+emails the customer; the existing tracking button still does that.
+Unit tests: `npm test` (mocked Shippo, Node 22.6+).
 
 After buying a label, Clint pastes the tracking number into the order in
 Master Control and it emails the customer a tracking link (POST
@@ -97,7 +128,8 @@ limited to 4.5 MB. All limits live in `lib/uploadLimits.ts`.
 Names live in `.env.example`; real values in gitignored `.env.local`.
 `MASTER_CONTROL_PASSWORD`, `MASTER_SESSION_SECRET`, `STRIPE_SECRET_KEY`,
 `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`, `BLOB_READ_WRITE_TOKEN`,
-`RESEND_API_KEY`, `SMTP_*`, `QUOTE_TO_EMAIL`, `NEXT_PUBLIC_SITE_URL`.
+`RESEND_API_KEY`, `SMTP_*`, `QUOTE_TO_EMAIL`, `NEXT_PUBLIC_SITE_URL`,
+`SHIPPO_API_KEY`, `SHIP_FROM_*`.
 
 Never commit or echo secret values.
 

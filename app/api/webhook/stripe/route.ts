@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { sendOrderEmail } from "@/lib/email";
 import { formatUsd } from "@/lib/money";
 import { newId } from "@/lib/sanitize";
+import { emptyShipAddress, normalizeShipAddress } from "@/lib/shipping";
 import { readStore, writeStore } from "@/lib/store";
 import { stripeClient } from "@/lib/stripe";
 
@@ -71,6 +72,24 @@ export async function POST(req: Request) {
         shippingRate && typeof shippingRate !== "string" ? shippingRate.display_name || "" : "";
       const shippingCents = session.shipping_cost?.amount_total || 0;
       const taxCents = session.total_details?.amount_tax || 0;
+      // Live carrier rate: only recorded when the customer kept it on the
+      // Stripe page (they may have switched to pickup instead).
+      const chosenRateMeta =
+        shippingRate && typeof shippingRate !== "string" ? shippingRate.metadata || {} : {};
+      const liveChosen = Boolean(meta.shipRateId) && chosenRateMeta.shippo_rate_id === meta.shipRateId;
+      const shipTo = ship
+        ? normalizeShipAddress({
+            name,
+            street1: ship.line1,
+            street2: ship.line2,
+            city: ship.city,
+            state: ship.state,
+            zip: ship.postal_code,
+            country: ship.country,
+            phone: session.customer_details?.phone || "",
+            email,
+          })
+        : emptyShipAddress();
       // Stripe retries this webhook on any timeout or non-2xx. Claim the
       // order row FIRST so a retry sees it and stops, instead of sending a
       // second copy of the same order to the shop inbox.
@@ -99,6 +118,24 @@ export async function POST(req: Request) {
           customerNotified: false,
           emailed: false,
           read: false,
+          paymentStatus: session.payment_status || "",
+          shipTo,
+          rateId: liveChosen ? meta.shipRateId || "" : "",
+          rateShipmentId: liveChosen ? meta.shipShipmentId || "" : "",
+          rateCarrier: liveChosen ? meta.shipCarrier || "" : "",
+          rateService: liveChosen ? meta.shipService || "" : "",
+          rateServiceToken: liveChosen ? meta.shipServiceToken || "" : "",
+          rateCents: liveChosen ? shippingCents : 0,
+          labelRateId: "",
+          labelStatus: "",
+          labelStartedAt: "",
+          labelError: "",
+          labelUrl: "",
+          labelTrackingUrl: "",
+          labelCarrier: "",
+          labelService: "",
+          labelCents: 0,
+          labelBoughtAt: "",
         },
         ...latest.orders,
       ].slice(0, 400);

@@ -1,3 +1,4 @@
+import { DEFAULT_PACKAGING_ALLOWANCE_OZ, defaultSignPack, emptyShipAddress } from "./shipping";
 import type { GallerySection, MetalSignsConfig, Product, ShopCategory, ShopStore, SignFinish, SiteCopy } from "./types";
 
 export function defaultSite(): SiteCopy {
@@ -79,6 +80,7 @@ export function defaultMetalSigns(): MetalSignsConfig {
     shippingMaxCents: 0,
     finishes: defaultSignFinishes(),
     media: ["/gallery/gallery-cta-hero.jpg"],
+    pack: defaultSignPack(),
   };
 }
 
@@ -111,6 +113,13 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      weightOz: 0,
+      weightUnit: "oz",
+      packagePresetId: "",
+      lengthIn: 0,
+      widthIn: 0,
+      heightIn: 0,
+      boxWeightOz: 0,
       priceLabel: "",
       externalUrl: "",
       sortOrder: 1,
@@ -148,6 +157,13 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      weightOz: 0,
+      weightUnit: "oz",
+      packagePresetId: "",
+      lengthIn: 0,
+      widthIn: 0,
+      heightIn: 0,
+      boxWeightOz: 0,
       priceLabel: "",
       externalUrl: "",
       sortOrder: 2,
@@ -181,6 +197,13 @@ export function defaultProducts(): Product[] {
       stripePriceCents: 0,
       stripeTaxBehavior: "",
       shippingCents: 0,
+      weightOz: 0,
+      weightUnit: "oz",
+      packagePresetId: "",
+      lengthIn: 0,
+      widthIn: 0,
+      heightIn: 0,
+      boxWeightOz: 0,
       priceLabel: "",
       externalUrl: "",
       sortOrder: 3,
@@ -247,6 +270,9 @@ export function seedStore(): ShopStore {
       catalogMode: "",
       taxEnabled: false,
       shippingCombine: "highest",
+      shipFrom: emptyShipAddress(),
+      packagePresets: [],
+      packagingAllowanceOz: DEFAULT_PACKAGING_ALLOWANCE_OZ,
     },
     stats: { pageViews: 0, uniqueVisitors: 0, days: [], sources: { facebook: 0, instagram: 0, google: 0, direct: 0, other: 0 } },
     updatedAt: "",

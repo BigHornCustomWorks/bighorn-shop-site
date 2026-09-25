@@ -45,6 +45,26 @@ export type MetalSignsConfig = {
   shippingMaxCents: number;
   finishes: SignFinish[];
   media: string[];
+  pack: SignPackConfig;
+};
+
+/** How a custom sign is packed and weighed for live carrier rates. */
+export type SignPackConfig = {
+  material: "steel" | "aluminum";
+  /** lb per cubic inch. Defaults: steel 0.284, aluminum 0.0975. */
+  steelDensityLbPerIn3: number;
+  aluminumDensityLbPerIn3: number;
+  /** Thicknesses offered in the admin picker, in inches. */
+  thicknessOptionsIn: number[];
+  thicknessIn: number;
+  /** Flat pack = sign size plus this margin on every side. */
+  marginIn: number;
+  /** Flat pack depth. */
+  depthIn: number;
+  /** Corrugated board weight per square foot, counted on both faces of the pack. */
+  cardboardOzPerSqFt: number;
+  /** Tape, corner guards, filler. */
+  allowanceOz: number;
 };
 
 export type ShopCategory = {
@@ -76,6 +96,20 @@ export type Product = {
   stripeTaxBehavior: string;
   /** What it costs to ship this item. 0 means fall back to the shop-wide rates. */
   shippingCents: number;
+  /**
+   * Live carrier rates. weightOz is the item alone (no box), always stored in
+   * ounces; weightUnit only remembers how Clint prefers to type it. The box
+   * comes from a package preset in Settings unless all three override
+   * dimensions are filled in, in which case boxWeightOz is that box's empty
+   * weight. 0 item weight or no box = "not measured" → flat shipping.
+   */
+  weightOz: number;
+  weightUnit: "oz" | "lb";
+  packagePresetId: string;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  boxWeightOz: number;
   /** Shown instead of currency when set (e.g. From $49/mo, Coming soon). */
   priceLabel: string;
   /** If set, product is a link-out (no cart) — CTA goes here. */
@@ -149,6 +183,30 @@ export type SiteCopy = {
   shopFloorNotes: string;
 };
 
+/** A postal address for carrier rates and labels. Empty strings when unknown. */
+export type ShipAddress = {
+  name: string;
+  company: string;
+  street1: string;
+  street2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+  email: string;
+};
+
+/** A reusable shipping box. */
+export type PackagePreset = {
+  id: string;
+  name: string;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  emptyWeightOz: number;
+};
+
 export type ShopSettings = {
   stripeSecretKey: string;
   stripeMode: "test" | "live";
@@ -162,6 +220,14 @@ export type ShopSettings = {
    * together. "sum" charges every item, for goods that need their own box.
    */
   shippingCombine: "highest" | "sum";
+  /**
+   * Business ship-from address for live rates and labels. Blank fields fall
+   * back to the SHIP_FROM_* env vars. Never a home address.
+   */
+  shipFrom: ShipAddress;
+  packagePresets: PackagePreset[];
+  /** Added once per parcel for tape, filler, inserts. Ounces. */
+  packagingAllowanceOz: number;
 };
 
 export type DayStat = {
@@ -205,6 +271,29 @@ export type ShopOrder = {
   customerNotified: boolean;
   emailed: boolean;
   read: boolean;
+  /** Stripe payment_status at checkout completion ("paid", "unpaid", …). "" on older orders. */
+  paymentStatus: string;
+  /** Structured copy of the Stripe shipping address, for buying the label. */
+  shipTo: ShipAddress;
+  /** Shippo rate the customer paid for. Empty when flat shipping or pickup was used. */
+  rateId: string;
+  rateShipmentId: string;
+  rateCarrier: string;
+  rateService: string;
+  rateServiceToken: string;
+  rateCents: number;
+  /** Rate a re-rate quoted (awaiting confirm) or the rate the label was bought on. */
+  labelRateId: string;
+  /** "" | "buying" | "bought" | "error" */
+  labelStatus: string;
+  labelStartedAt: string;
+  labelError: string;
+  labelUrl: string;
+  labelTrackingUrl: string;
+  labelCarrier: string;
+  labelService: string;
+  labelCents: number;
+  labelBoughtAt: string;
 };
 
 
