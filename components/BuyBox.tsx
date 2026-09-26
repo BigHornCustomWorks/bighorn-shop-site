@@ -6,15 +6,22 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
+import { listedVariants, lowestVariantPrice, variantPriceSpread, variantUnitPrice } from "@/lib/variant-price";
 
 export function BuyBox({ product }: { product: Product }) {
   const { add } = useCart();
   const router = useRouter();
-  const [variant, setVariant] = useState(product.variants[0]?.name || "");
+  const options = listedVariants(product);
+  const [variant, setVariant] = useState(options[0]?.name || "");
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const priceText = product.priceLabel || formatUsd(product.priceCents);
+  const unitPrice = variantUnitPrice(product, variant);
+  const priceText =
+    product.priceLabel ||
+    (variantPriceSpread(product) && !variant
+      ? `From ${formatUsd(lowestVariantPrice(product))}`
+      : formatUsd(unitPrice));
   const external = (product.externalUrl || "").trim();
   const comingSoon = /coming soon/i.test(product.priceLabel || "") || /coming soon/i.test(product.digitalNote || "");
   const linkOut = Boolean(external);
@@ -25,7 +32,7 @@ export function BuyBox({ product }: { product: Product }) {
         productId: product.id,
         slug: product.slug,
         name: product.name,
-        priceCents: product.priceCents,
+        priceCents: unitPrice,
         photo: product.photos[0] || product.media[0] || "",
         variant,
       },
@@ -116,13 +123,14 @@ export function BuyBox({ product }: { product: Product }) {
   return (
     <div>
       <p className="price">{priceText}</p>
-      {product.variants.length ? (
+      {options.length ? (
         <label>
-          Color
+          Size / finish
           <select value={variant} onChange={(e) => setVariant(e.target.value)}>
-            {product.variants.map((v) => (
+            {options.map((v) => (
               <option key={v.id} value={v.name}>
                 {v.name}
+                {v.priceCents > 0 || variantPriceSpread(product) ? ` — ${formatUsd(variantUnitPrice(product, v.name))}` : ""}
               </option>
             ))}
           </select>

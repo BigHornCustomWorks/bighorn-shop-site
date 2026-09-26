@@ -77,6 +77,7 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
   return {
     id: safeSlug(src.id, `v${i + 1}`),
     name: cleanStr(src.name, `Option ${i + 1}`),
+    priceCents: asCents(src.priceCents, 0),
   };
 }
 
@@ -107,7 +108,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
         ? "Digital item. After Stripe payment, Clint emails the file or download link. No shipping."
         : "",
     ),
-    variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 24),
+    variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 48),
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
     sortOrder: asInt(src.sortOrder, i + 1),

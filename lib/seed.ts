@@ -135,10 +135,10 @@ export function defaultProducts(): Product[] {
       kind: "physical",
       digitalNote: "",
       variants: [
-        { id: "black", name: "Black" },
-        { id: "blue", name: "Blue" },
-        { id: "red", name: "Red" },
-        { id: "gray", name: "Gray" },
+        { id: "black", name: "Black", priceCents: 0 },
+        { id: "blue", name: "Blue", priceCents: 0 },
+        { id: "red", name: "Red", priceCents: 0 },
+        { id: "gray", name: "Gray", priceCents: 0 },
       ],
       variantNote:
         "If they pick a color other than black, ONLY the top is that color. Rubber bottom stays black. Note: Clint can print on demand within 24 hours if inventory is low.",

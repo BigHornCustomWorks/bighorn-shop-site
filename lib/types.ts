@@ -1,6 +1,8 @@
 export type ProductVariant = {
   id: string;
   name: string;
+  /** 0 = use the product’s base price. */
+  priceCents: number;
 };
 
 export type ProductKind = "physical" | "digital" | "sign";

@@ -1210,25 +1210,14 @@ function ProductEditor({
         Description
         <textarea value={product.description} onChange={(e) => onChange({ ...product, description: e.target.value })} />
       </label>
+      <VariantRows product={product} onChange={onChange} />
       <label>
-        Variants (comma separated)
-        <input
-          value={product.variants.map((v) => v.name).join(", ")}
-          onChange={(e) =>
-            onChange({
-              ...product,
-              variants: e.target.value
-                .split(",")
-                .map((name) => name.trim())
-                .filter(Boolean)
-                .map((name) => ({ id: safeSlug(name), name })),
-            })
-          }
+        Variant note (shown under the options)
+        <textarea
+          value={product.variantNote}
+          onChange={(e) => onChange({ ...product, variantNote: e.target.value })}
+          placeholder="e.g. Painted versions are sealed for outdoor use."
         />
-      </label>
-      <label>
-        Variant note
-        <textarea value={product.variantNote} onChange={(e) => onChange({ ...product, variantNote: e.target.value })} />
       </label>
       {product.kind === "digital" ? (
         <label>
@@ -1246,6 +1235,96 @@ function ProductEditor({
         onUpload={async (file) => onUpload(file)}
       />
     </form>
+  );
+}
+
+function VariantRows({ product, onChange }: { product: Product; onChange: (p: Product) => void }) {
+  const [sizes, setSizes] = useState("12 in\n18 in\n24 in");
+  const [finishes, setFinishes] = useState("Unpainted\nPainted");
+
+  function patchAt(i: number, fields: Partial<(typeof product.variants)[0]>) {
+    onChange({
+      ...product,
+      variants: product.variants.map((v, idx) => (idx === i ? { ...v, ...fields } : v)),
+    });
+  }
+
+  function buildCombos() {
+    const sizeList = sizes.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    const finishList = finishes.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!sizeList.length) return;
+    const names = finishList.length
+      ? sizeList.flatMap((s) => finishList.map((f) => `${s} · ${f}`))
+      : sizeList;
+    const byName = new Map(product.variants.map((v) => [v.name.toLowerCase(), v]));
+    onChange({
+      ...product,
+      variants: names.map((name) => {
+        const prev = byName.get(name.toLowerCase());
+        return prev || { id: newId("var"), name, priceCents: product.priceCents };
+      }),
+    });
+  }
+
+  return (
+    <div>
+      <p>
+        <strong>Variants</strong>
+      </p>
+      <p className="note">
+        Each row is one option the customer picks — size, painted vs unpainted, or both. Set a price on every row.
+        Price 0 uses the product price above. The old comma box ate commas as you typed; this list does not.
+      </p>
+      {product.variants.map((v, i) => (
+        <div className="row" key={v.id || `v${i}`} style={{ alignItems: "end" }}>
+          <label>
+            Name
+            <input value={v.name} onChange={(e) => patchAt(i, { name: e.target.value })} placeholder="12 in · Painted" />
+          </label>
+          <label>
+            Price ({formatUsd(v.priceCents > 0 ? v.priceCents : product.priceCents)})
+            <MoneyInput cents={v.priceCents} onCents={(priceCents) => patchAt(i, { priceCents })} />
+          </label>
+          <button
+            type="button"
+            onClick={() => onChange({ ...product, variants: product.variants.filter((_, idx) => idx !== i) })}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={() =>
+            onChange({
+              ...product,
+              variants: [...product.variants, { id: newId("var"), name: "", priceCents: product.priceCents }],
+            })
+          }
+        >
+          Add variant
+        </button>
+      </div>
+      <details style={{ marginTop: 12 }}>
+        <summary>Build sizes × painted / unpainted</summary>
+        <p className="note">One size per line, one finish per line. Creates every combination. Matching names keep their prices.</p>
+        <div className="row">
+          <label>
+            Sizes
+            <textarea value={sizes} onChange={(e) => setSizes(e.target.value)} />
+          </label>
+          <label>
+            Finishes
+            <textarea value={finishes} onChange={(e) => setFinishes(e.target.value)} />
+          </label>
+        </div>
+        <button type="button" className="btn" onClick={buildCombos}>
+          Create combinations
+        </button>
+      </details>
+    </div>
   );
 }
 

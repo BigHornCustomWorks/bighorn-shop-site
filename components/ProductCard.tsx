@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
 import { firstPhoto } from "@/lib/video";
+import { lowestVariantPrice, variantPriceSpread } from "@/lib/variant-price";
 
 export function ProductCard({ product }: { product: Product }) {
   const photo = firstPhoto(product) || "/logo.png";
@@ -19,7 +20,12 @@ export function ProductCard({ product }: { product: Product }) {
           {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
         </p>
         <h3>{product.name}</h3>
-        <p className="price">{product.priceLabel || formatUsd(product.priceCents)}</p>
+        <p className="price">
+          {product.priceLabel ||
+            (variantPriceSpread(product)
+              ? `From ${formatUsd(lowestVariantPrice(product))}`
+              : formatUsd(lowestVariantPrice(product) || product.priceCents))}
+        </p>
         <p className="muted card-blurb">
           {blurb}
           {product.description.length > 72 ? "…" : ""}
