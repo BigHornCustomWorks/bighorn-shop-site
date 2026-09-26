@@ -189,6 +189,10 @@ button, input, textarea, select { font: inherit; }
   background: var(--bronze);
   color: #fff;
 }
+.btn-danger {
+  background: #8a2a22;
+  color: #f6efe4;
+}
 .btn-wide { width: 100%; }
 
 .grid-3, .grid-2, .grid-catalog {

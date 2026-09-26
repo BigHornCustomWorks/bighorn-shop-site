@@ -1045,6 +1045,17 @@ function ProductsTab({
             });
           }}
           onUpload={(file) => uploadTo(open.id, file)}
+          onRemove={async () => {
+            const label = open.name.trim() || "this untitled product";
+            if (!window.confirm(`Remove "${label}" from the shop? It will leave the public site.`)) return;
+            const next = {
+              ...store,
+              products: store.products.filter((p) => p.id !== open.id),
+            };
+            setOpenId(null);
+            setStore(next);
+            await save(next);
+          }}
         />
       ) : (
         <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
@@ -1068,6 +1079,7 @@ function ProductEditor({
   onChange,
   onMove,
   onUpload,
+  onRemove,
 }: {
   product: Product;
   categories: ShopCategory[];
@@ -1076,6 +1088,7 @@ function ProductEditor({
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
+  onRemove: () => void;
 }) {
   const media = orderedMedia(product);
   const shipChoice = shippingChoice(product, shippingOptions);
@@ -1273,6 +1286,12 @@ function ProductEditor({
         onChange={(next) => onChange({ ...product, media: next })}
         onUpload={async (file) => onUpload(file)}
       />
+      <div className="hero-actions" style={{ marginTop: 18 }}>
+        <button type="button" className="btn btn-danger" onClick={onRemove}>
+          Remove this product
+        </button>
+      </div>
+      <p className="note">Removes it from Physical, Signs, and the public shop. You will be asked to confirm.</p>
     </form>
   );
 }
