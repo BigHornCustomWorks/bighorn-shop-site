@@ -42,6 +42,35 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   sortOrder: 99,
 });
 
+function uniqueSlug(base: string, products: Product[]): string {
+  const root = safeSlug(base) || "copy";
+  const used = new Set(products.map((p) => p.slug));
+  if (!used.has(root)) return root;
+  let n = 2;
+  while (used.has(`${root}-${n}`)) n += 1;
+  return `${root}-${n}`;
+}
+
+function cloneProduct(source: Product, products: Product[]): Product {
+  const name = source.name.trim() ? `Copy of ${source.name.trim()}` : "Copy";
+  return {
+    ...source,
+    id: newId("prod"),
+    name,
+    slug: uniqueSlug(`${source.slug || name}-copy`, products),
+    variants: (source.variants || []).map((v) => ({
+      ...v,
+      id: newId("var") + Math.random().toString(36).slice(2, 6),
+    })),
+    stripeProductId: "",
+    stripePriceId: "",
+    stripePriceCents: 0,
+    stripeTaxBehavior: "",
+    sortOrder: products.length + 1,
+    visible: false,
+  };
+}
+
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("physical");
   const [signsPanel, setSignsPanel] = useState<"premade" | "custom">("premade");
@@ -1056,6 +1085,11 @@ function ProductsTab({
             setStore(next);
             await save(next);
           }}
+          onClone={() => {
+            const copy = cloneProduct(open, store.products);
+            setStore({ ...store, products: [...store.products, copy] });
+            setOpenId(copy.id);
+          }}
         />
       ) : (
         <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
@@ -1080,6 +1114,7 @@ function ProductEditor({
   onMove,
   onUpload,
   onRemove,
+  onClone,
 }: {
   product: Product;
   categories: ShopCategory[];
@@ -1089,6 +1124,7 @@ function ProductEditor({
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
   onRemove: () => void;
+  onClone: () => void;
 }) {
   const media = orderedMedia(product);
   const shipChoice = shippingChoice(product, shippingOptions);
@@ -1287,11 +1323,17 @@ function ProductEditor({
         onUpload={async (file) => onUpload(file)}
       />
       <div className="hero-actions" style={{ marginTop: 18 }}>
+        <button type="button" className="btn" onClick={onClone}>
+          Clone this product
+        </button>
         <button type="button" className="btn btn-danger" onClick={onRemove}>
           Remove this product
         </button>
       </div>
-      <p className="note">Removes it from Physical, Signs, and the public shop. You will be asked to confirm.</p>
+      <p className="note">
+        Clone copies sizes, finishes, prices, and shipping. The copy starts hidden so it is not on the public shop until
+        you rename it, swap the photos, set Visible, and Save products.
+      </p>
     </form>
   );
 }
