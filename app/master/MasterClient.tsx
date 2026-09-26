@@ -282,6 +282,7 @@ export function MasterClient() {
     setStore,
     save,
     uploadTo,
+    uploadFile,
     query,
     setQuery,
     filterCat,
@@ -857,6 +858,7 @@ function ProductsTab({
   setStore,
   save,
   uploadTo,
+  uploadFile,
   query,
   setQuery,
   filterCat,
@@ -877,6 +879,7 @@ function ProductsTab({
   setStore: (s: ShopStore) => void;
   save: (s: ShopStore) => Promise<void>;
   uploadTo: (id: string, file: File) => Promise<void>;
+  uploadFile: (file: File, kind: string) => Promise<string>;
   query: string;
   setQuery: (v: string) => void;
   filterCat: string;
