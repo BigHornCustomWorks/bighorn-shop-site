@@ -44,6 +44,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
 
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("physical");
+  const [signsPanel, setSignsPanel] = useState<"premade" | "custom">("premade");
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
   const [storageDurable, setStorageDurable] = useState(true);
@@ -325,6 +326,7 @@ export function MasterClient() {
               setTab(id);
               setOpenId(null);
               setFilterCat("all");
+              if (id === "signs") setSignsPanel("premade");
             }}
           >
             {label}
@@ -352,10 +354,48 @@ export function MasterClient() {
       ) : null}
 
       {tab === "signs" ? (
-        <>
-          <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
-          <ProductsTab kind="sign" heading="Fixed-size sign SKUs" kicker="Optional catalog" {...productTabProps} />
-        </>
+        <div>
+          <div className="mc-section-head">
+            <p className="section-kicker">Metal signs</p>
+            <h2>Signs shop</h2>
+            <p className="note">
+              Premade pieces (jack-o-lanterns, plaques, yard ornaments) are listed here once and show on /signs.
+              Custom size, rate, and finishes are the other section — not Physical products.
+            </p>
+          </div>
+          <div className="mc-subtabs">
+            <button
+              type="button"
+              className={signsPanel === "premade" ? "on" : ""}
+              onClick={() => {
+                setSignsPanel("premade");
+                setOpenId(null);
+              }}
+            >
+              Premade signs
+            </button>
+            <button
+              type="button"
+              className={signsPanel === "custom" ? "on" : ""}
+              onClick={() => {
+                setSignsPanel("custom");
+                setOpenId(null);
+              }}
+            >
+              Custom size &amp; rate
+            </button>
+          </div>
+          {signsPanel === "premade" ? (
+            <ProductsTab
+              kind="sign"
+              heading="Premade signs"
+              kicker="Ready to buy on /signs"
+              {...productTabProps}
+            />
+          ) : (
+            <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
+          )}
+        </div>
       ) : null}
 
       {tab === "gallery" ? (
@@ -847,7 +887,7 @@ function ProductsTab({
   }
 
   const addLabel =
-    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add sign SKU" : "Add physical product";
+    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add premade sign" : "Add physical product";
 
   return (
     <div>
@@ -856,7 +896,7 @@ function ProductsTab({
         <h2>{heading}</h2>
         <p className="note">
           {kind === "sign"
-            ? "Optional ready-to-order signs with a fixed price. Custom sizes use the rate above, not these SKUs."
+            ? "List jack-o-lanterns, plaques, and other finished pieces here. Use variants for sizes and painted vs unpainted. They appear in Premade signs on /signs — not in Physical."
             : "Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder."}
         </p>
       </div>
@@ -1104,11 +1144,10 @@ function ProductEditor({
           >
             <option value="physical">Physical (ships)</option>
             <option value="digital">Digital (no shipping)</option>
-            <option value="sign">Metal sign SKU (shows on /signs)</option>
+            <option value="sign">Premade metal sign (shows on /signs)</option>
           </select>
           <span className="note">
-            Premade signs listed on Physical should stay Physical. Metal sign SKU moves the item to the Metal signs tab
-            and the /signs page.
+            Premade signs belong in Metal signs → Premade signs, not Physical. This type puts the item on /signs.
           </span>
         </label>
         <label>

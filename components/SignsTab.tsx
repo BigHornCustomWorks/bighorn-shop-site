@@ -51,11 +51,11 @@ export function SignsTab({
   return (
     <div className="mc-signs">
       <div className="mc-section-head">
-        <p className="section-kicker">Metal signs</p>
-        <h2>Rate, photos, and the public estimator</h2>
+        <p className="section-kicker">Custom size &amp; rate</p>
+        <h2>Estimator, finishes, and sample photos</h2>
         <p className="note">
-          This is the door customers use on /signs. Set a cost per square foot or square inch. They enter a size, see
-          the price, and pay that amount on Stripe. The server recalculates — they cannot send their own total.
+          This is for made-to-order sizes on /signs. Premade pieces (fixed sizes, painted vs unpainted) are in the
+          Premade signs section, not here. Set $/sq ft or $/sq in; the customer’s size is recalculated on the server.
         </p>
       </div>
 
