@@ -107,6 +107,7 @@ export function defaultProducts(): Product[] {
       variants: [],
       variantNote: "",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,
@@ -145,6 +146,7 @@ export function defaultProducts(): Product[] {
       variantNote:
         "If they pick a color other than black, ONLY the top is that color. Rubber bottom stays black. Note: Clint can print on demand within 24 hours if inventory is low.",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,
@@ -179,6 +181,7 @@ export function defaultProducts(): Product[] {
       variants: [],
       variantNote: "",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,

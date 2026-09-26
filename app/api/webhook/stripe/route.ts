@@ -80,6 +80,15 @@ export async function POST(req: Request) {
       }
 
       const orderId = newId("order");
+      const stockNote = meta.items || "";
+      for (const part of stockNote.split(",").filter(Boolean)) {
+        const match = part.match(/^([^:]+):.*x(\d+)$/);
+        if (!match) continue;
+        const qty = Number(match[2]) || 1;
+        const product = latest.products.find((p) => p.slug === match[1]);
+        if (!product || product.onHand == null || product.onHand <= 0) continue;
+        product.onHand = Math.max(0, product.onHand - qty);
+      }
       latest.orders = [
         {
           id: orderId,

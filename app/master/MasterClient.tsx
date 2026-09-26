@@ -34,6 +34,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   variants: [],
   variantNote: "",
   visible: true,
+  onHand: null,
   stripeProductId: "",
   stripePriceId: "",
   stripePriceCents: 0,
@@ -72,6 +73,7 @@ function cloneProduct(source: Product, products: Product[]): Product {
     stripeTaxBehavior: "",
     sortOrder: products.length + 1,
     visible: true,
+    onHand: source.onHand == null ? null : 0,
   };
 }
 
@@ -1093,6 +1095,7 @@ function ProductsTab({
             setStore(next);
             await save(next);
           }}
+          onSave={() => save(store)}
           onClone={async () => {
             const copy = cloneProduct(open, store.products);
             const next = { ...store, products: [...store.products, copy] };
@@ -1125,6 +1128,7 @@ function ProductEditor({
   onUpload,
   onRemove,
   onClone,
+  onSave,
 }: {
   product: Product;
   categories: ShopCategory[];
@@ -1135,6 +1139,7 @@ function ProductEditor({
   onUpload: (file: File) => void;
   onRemove: () => void;
   onClone: () => void;
+  onSave: () => void;
 }) {
   const media = orderedMedia(product);
   const shipChoice = shippingChoice(product, shippingOptions);
@@ -1153,6 +1158,11 @@ function ProductEditor({
           under that tab after you finish. Stay here to keep editing — the form will not reset.
         </p>
       ) : null}
+      <div className="hero-actions" style={{ marginBottom: 12 }}>
+        <button type="button" className="btn btn-bronze" onClick={onSave}>
+          Save item
+        </button>
+      </div>
       <div className="row">
         <label>
           Name
@@ -1286,6 +1296,20 @@ function ProductEditor({
           </>
         )}
         <label>
+          Ready to ship
+          <input
+            type="number"
+            min={0}
+            value={product.onHand ?? ""}
+            placeholder="blank = hide count"
+            onChange={(e) => {
+              const raw = e.target.value;
+              onChange({ ...product, onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+            }}
+          />
+          <span className="note">Blank hides the count. 0 shows Made to order and still lets them buy. A number is how many you have ready.</span>
+        </label>
+        <label>
           Visible on site
           <select
             value={product.visible ? "yes" : "no"}
@@ -1337,6 +1361,9 @@ function ProductEditor({
         onUpload={async (file) => onUpload(file)}
       />
       <div className="hero-actions" style={{ marginTop: 18 }}>
+        <button type="button" className="btn btn-bronze" onClick={onSave}>
+          Save item
+        </button>
         <button type="button" className="btn" onClick={onClone}>
           Clone this product
         </button>
@@ -1345,8 +1372,8 @@ function ProductEditor({
         </button>
       </div>
       <p className="note">
-        Clone copies sizes, finishes, prices, and shipping, saves it, and puts it on the shop as the next letter
-        (221 becomes 221b). Rename it and swap the photos for the new face. Hide it if you are not ready.
+        Clone already saves and lists the copy (221 becomes 221b). Use Save item after you rename it or change photos.
+        Faces that share a number (221, 221b, 221c) show as one picture on the category page.
       </p>
     </form>
   );

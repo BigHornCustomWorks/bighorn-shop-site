@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
+import { stockLabel } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread, variantUnitPrice } from "@/lib/variant-price";
 
 export function BuyBox({ product }: { product: Product }) {
@@ -135,6 +136,11 @@ export function BuyBox({ product }: { product: Product }) {
   return (
     <div className="buy-box">
       <p className="price">{priceText}</p>
+      {stockLabel(product) ? (
+        <p className="note">
+          {stockLabel(product)}. You can still order it when none are ready — Clint builds that one for you.
+        </p>
+      ) : null}
       {options.length ? (
         <label className="buy-variant">
           Choose size / finish

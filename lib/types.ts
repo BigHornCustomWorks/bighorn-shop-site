@@ -72,6 +72,11 @@ export type Product = {
   variants: ProductVariant[];
   variantNote: string;
   visible: boolean;
+  /**
+   * Premade pieces on hand. null = don't show a count.
+   * 0 = made to order (still for sale). Above 0 = ready to ship.
+   */
+  onHand: number | null;
   sortOrder: number;
   stripeProductId: string;
   stripePriceId: string;

@@ -2,12 +2,14 @@ import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
 import { firstPhoto } from "@/lib/video";
+import { stockLabel } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread } from "@/lib/variant-price";
 
 export function ProductCard({ product }: { product: Product }) {
   const photo = firstPhoto(product) || "/logo.png";
   const blurb = product.description.slice(0, 72);
   const options = listedVariants(product);
+  const stock = stockLabel(product);
   return (
     <Link className="product-card" href={`/shop/${product.slug}`}>
       <div className="product-card-media">
@@ -28,6 +30,7 @@ export function ProductCard({ product }: { product: Product }) {
               ? `From ${formatUsd(lowestVariantPrice(product))}`
               : formatUsd(lowestVariantPrice(product) || product.priceCents))}
         </p>
+        {stock ? <p className="muted card-blurb">{stock}</p> : null}
         {options.length > 1 ? (
           <p className="muted card-blurb">{options.length} sizes / finishes — pick on the next page</p>
         ) : options.length === 1 ? (

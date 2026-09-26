@@ -81,6 +81,13 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
   };
 }
 
+function onHandCount(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.round(n));
+}
+
 function assignMissingSkus(products: Product[]): Product[] {
   const used = new Set(products.map((p) => p.sku.toLowerCase()).filter(Boolean));
   let max = 220;
@@ -130,6 +137,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 48),
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
+    onHand: onHandCount(src.onHand),
     sortOrder: asInt(src.sortOrder, i + 1),
     stripeProductId: cleanStr(src.stripeProductId),
     stripePriceId: cleanStr(src.stripePriceId),
