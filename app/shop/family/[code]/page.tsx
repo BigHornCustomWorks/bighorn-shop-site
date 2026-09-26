@@ -32,7 +32,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ code: s
       </p>
       <div className="grid-catalog">
         {members.map((p) => (
-          <ProductCard key={p.id} product={p} />
+          <ProductCard key={p.id} product={p} showOptions />
         ))}
       </div>
     </div>

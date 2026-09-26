@@ -248,6 +248,9 @@ p { margin: 0 0 12px; }
   box-shadow: var(--shadow);
 }
 .product-card { text-decoration: none; display: flex; flex-direction: column; }
+.face-thumbs { display: flex; gap: 6px; margin-top: 8px; }
+.face-thumbs img { width: 48px; height: 48px; object-fit: cover; border: 1px solid var(--rule); }
+.face-options { margin: 6px 0 0; padding-left: 18px; color: var(--steel); font-size: 0.85rem; }
 .product-card-media { position: relative; }
 .product-card img {
   width: 100%;

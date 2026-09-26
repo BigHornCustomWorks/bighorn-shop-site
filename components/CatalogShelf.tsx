@@ -29,9 +29,14 @@ function FamilyCard({ stem, members }: { stem: string; members: Product[] }) {
         <img src={photo} alt="" />
       </div>
       <div className="pad">
-        <p className="card-meta">Item {stem} · {members.length} faces</p>
+        <p className="card-meta">Item {stem}</p>
         <h3>{title}</h3>
-        <p className="muted card-blurb">Pick a face on the next page.</p>
+        <p className="muted card-blurb">{members.length} faces — click to choose a face and a size</p>
+        <div className="face-thumbs">
+          {members.slice(0, 4).map((member) => (
+            <img key={member.id} src={firstPhoto(member) || "/logo.png"} alt={member.sku} />
+          ))}
+        </div>
       </div>
     </Link>
   );

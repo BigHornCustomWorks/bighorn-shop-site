@@ -5,7 +5,7 @@ import { firstPhoto } from "@/lib/video";
 import { stockLabel } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread } from "@/lib/variant-price";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, showOptions = false }: { product: Product; showOptions?: boolean }) {
   const photo = firstPhoto(product) || "/logo.png";
   const blurb = product.description.slice(0, 72);
   const options = listedVariants(product);
@@ -31,7 +31,16 @@ export function ProductCard({ product }: { product: Product }) {
               : formatUsd(lowestVariantPrice(product) || product.priceCents))}
         </p>
         {stock ? <p className="muted card-blurb">{stock}</p> : null}
-        {options.length > 1 ? (
+        {showOptions && options.length ? (
+          <ul className="face-options">
+            {options.map((v) => (
+              <li key={v.id}>
+                {v.name}
+                {v.onHand == null ? "" : v.onHand <= 0 ? " — made to order" : ` — ${v.onHand} ready`}
+              </li>
+            ))}
+          </ul>
+        ) : options.length > 1 ? (
           <p className="muted card-blurb">{options.length} sizes / finishes — pick on the next page</p>
         ) : options.length === 1 ? (
           <p className="muted card-blurb">{options[0].name}</p>
