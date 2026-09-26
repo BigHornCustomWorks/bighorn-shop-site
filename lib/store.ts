@@ -12,7 +12,7 @@ import {
   safeSlug,
   safeUrl,
 } from "./sanitize";
-import { splitMedia } from "./video";
+import { firstPhoto, splitMedia } from "./video";
 import type {
   FooterLink,
   GalleryPhoto,
@@ -665,6 +665,47 @@ export function shopFilterCategories(store: ShopStore): ShopCategory[] {
   return (store.categories || []).filter((c) =>
     visible.some((p) => p.category.toLowerCase() === c.name.toLowerCase()),
   );
+}
+
+export type CategoryDoor = {
+  slug: string;
+  name: string;
+  count: number;
+  photo: string;
+};
+
+export function physicalCategoryDoors(store: ShopStore): CategoryDoor[] {
+  const products = visibleProducts(store).filter((p) => p.kind === "physical");
+  const order = new Map((store.categories || []).map((c, i) => [c.name.toLowerCase(), c.sortOrder || i + 1]));
+  const buckets = new Map<string, CategoryDoor>();
+  for (const p of products) {
+    const name = p.category || "Other";
+    const slug = categorySlug(name);
+    const photo = firstPhoto(p) || "/logo.png";
+    const existing = buckets.get(slug);
+    if (existing) {
+      existing.count += 1;
+      if (!existing.photo || existing.photo === "/logo.png") existing.photo = photo;
+    } else {
+      buckets.set(slug, { slug, name, count: 1, photo });
+    }
+  }
+  return [...buckets.values()].sort((a, b) => {
+    const ao = order.get(a.name.toLowerCase()) ?? 999;
+    const bo = order.get(b.name.toLowerCase()) ?? 999;
+    if (ao !== bo) return ao - bo;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function physicalProductsInCategory(store: ShopStore, slug: string): { name: string; products: Product[] } | null {
+  const want = safeSlug(slug);
+  if (!want || want === "all") return null;
+  const products = visibleProducts(store).filter(
+    (p) => p.kind === "physical" && categorySlug(p.category) === want,
+  );
+  if (!products.length) return null;
+  return { name: products[0].category || "Physical", products };
 }
 
 export function productBySlug(store: ShopStore, slug: string): Product | undefined {

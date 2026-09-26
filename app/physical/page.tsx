@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ShopBrowser } from "@/components/ShopBrowser";
-import { readStore, shopFilterCategories, visibleProducts } from "@/lib/store";
+import { physicalCategoryDoors, readStore } from "@/lib/store";
+import { isVideoSrc } from "@/lib/video";
 
 export default async function PhysicalPage() {
   const store = await readStore();
-  const products = visibleProducts(store).filter((p) => p.kind === "physical");
-  const categories = shopFilterCategories({ ...store, products });
+  const doors = physicalCategoryDoors(store);
+  const signPhoto =
+    (store.metalSigns.media || []).find((src) => src && !isVideoSrc(src)) || "/gallery/gallery-cta-hero.jpg";
 
   return (
     <div className="wrap">
@@ -15,26 +16,43 @@ export default async function PhysicalPage() {
         </Link>
       </p>
       <p className="section-kicker">Physical products</p>
-      <h1>Mill accessories &amp; fab goods</h1>
-      <p className="lede">{store.site.shippingNote}</p>
+      <h1>Pick a line</h1>
+      <p className="lede">
+        Mill accessories, dogs, and other shop goods are in their own rooms — not one mixed pile. Metal signs live on
+        the Signs page.
+      </p>
+
+      {doors.length ? (
+        <div className="cat-doors">
+          {doors.map((d) => (
+            <Link key={d.slug} className="cat-door" href={`/physical/${d.slug}`}>
+              <img className="bg" src={d.photo} alt="" />
+              <div className="shade" />
+              <div className="content">
+                <span className="badge">
+                  {d.count} {d.count === 1 ? "item" : "items"}
+                </span>
+                <h2>{d.name}</h2>
+                <span className="btn btn-bronze">Open {d.name} →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p>Nothing listed yet. Categories you add in Master Control show up here once they have a visible product.</p>
+      )}
+
       <Link className="gallery-cta signs-cta physical-signs-cta" href="/signs">
         <div className="gallery-cta-media">
-          <img
-            src={
-              (store.metalSigns.media || []).find((src) => src && !/\.(mp4|webm|mov)(\?|$)/i.test(src)) ||
-              "/gallery/gallery-cta-hero.jpg"
-            }
-            alt=""
-          />
+          <img src={signPhoto} alt="" />
         </div>
         <div className="gallery-cta-panel">
           <span className="badge">Metal signs</span>
           <h2>{store.metalSigns.heading || "CNC plasma-cut signs"}</h2>
-          <p>Ready-made signs and custom sizes. Local pickup in Sheridan — no shipping charge.</p>
+          <p>Premade signs and custom sizes. Local pickup in Sheridan — no shipping charge.</p>
           <span className="btn btn-spark">Shop metal signs →</span>
         </div>
       </Link>
-      <ShopBrowser products={products} categories={categories} />
     </div>
   );
 }

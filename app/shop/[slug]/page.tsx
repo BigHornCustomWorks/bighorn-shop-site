@@ -23,7 +23,16 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         >
           {product.kind === "digital" ? "Digital" : product.kind === "sign" ? "Signs" : "Physical"}
         </Link>
-        <Link className="back-link" href={`/shop?category=${cat}`}>
+        <Link
+          className="back-link"
+          href={
+            product.kind === "digital"
+              ? "/digital"
+              : product.kind === "sign"
+                ? "/signs"
+                : `/physical/${cat}`
+          }
+        >
           {product.category}
         </Link>
       </p>
