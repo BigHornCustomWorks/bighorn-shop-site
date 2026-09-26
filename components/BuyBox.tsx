@@ -12,14 +12,16 @@ export function BuyBox({ product }: { product: Product }) {
   const { add } = useCart();
   const router = useRouter();
   const options = listedVariants(product);
-  const [variant, setVariant] = useState(options[0]?.name || "");
+  const needsPick = options.length > 1;
+  const [variant, setVariant] = useState(needsPick ? "" : options[0]?.name || "");
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const picked = Boolean(variant);
   const unitPrice = variantUnitPrice(product, variant);
   const priceText =
     product.priceLabel ||
-    (variantPriceSpread(product) && !variant
+    (variantPriceSpread(product) && !picked
       ? `From ${formatUsd(lowestVariantPrice(product))}`
       : formatUsd(unitPrice));
   const external = (product.externalUrl || "").trim();
@@ -27,6 +29,10 @@ export function BuyBox({ product }: { product: Product }) {
   const linkOut = Boolean(external);
 
   function addToCart() {
+    if (needsPick && !picked) {
+      setError("Pick a size / finish first.");
+      return;
+    }
     add(
       {
         productId: product.id,
@@ -42,6 +48,10 @@ export function BuyBox({ product }: { product: Product }) {
   }
 
   async function buyNow() {
+    if (needsPick && !picked) {
+      setError("Pick a size / finish first.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -61,7 +71,7 @@ export function BuyBox({ product }: { product: Product }) {
     }
   }
 
-  if (product.kind === "sign" && product.priceCents <= 0 && !linkOut) {
+  if (product.kind === "sign" && product.priceCents <= 0 && !options.length && !linkOut) {
     return (
       <div>
         <p className="price">{priceText === formatUsd(0) ? "Size-based" : priceText}</p>
@@ -121,16 +131,23 @@ export function BuyBox({ product }: { product: Product }) {
   }
 
   return (
-    <div>
+    <div className="buy-box">
       <p className="price">{priceText}</p>
       {options.length ? (
-        <label>
-          Size / finish
-          <select value={variant} onChange={(e) => setVariant(e.target.value)}>
+        <label className="buy-variant">
+          Choose size / finish
+          <select
+            value={variant}
+            required={needsPick}
+            onChange={(e) => {
+              setVariant(e.target.value);
+              setError("");
+            }}
+          >
+            {needsPick ? <option value="">Select an option…</option> : null}
             {options.map((v) => (
-              <option key={v.id} value={v.name}>
-                {v.name}
-                {v.priceCents > 0 || variantPriceSpread(product) ? ` — ${formatUsd(variantUnitPrice(product, v.name))}` : ""}
+              <option key={v.id + v.name} value={v.name}>
+                {v.name} — {formatUsd(variantUnitPrice(product, v.name))}
               </option>
             ))}
           </select>

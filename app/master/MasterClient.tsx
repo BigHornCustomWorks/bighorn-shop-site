@@ -1319,7 +1319,7 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
       ...product,
       variants: names.map((name) => {
         const prev = byName.get(name.toLowerCase());
-        return prev || { id: newId("var"), name, priceCents: product.priceCents };
+        return prev || { id: newId("var") + Math.random().toString(36).slice(2, 6), name, priceCents: product.priceCents };
       }),
     });
   }
@@ -1331,10 +1331,11 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
       </p>
       <p className="note">
         Each row is one option the customer picks — size, painted vs unpainted, or both. Set a price on every row.
-        Price 0 uses the product price above. The old comma box ate commas as you typed; this list does not.
+        Price 0 uses the product price above. Click <strong>Save products</strong> after you add rows or the public
+        page will still show the old list.
       </p>
       {product.variants.map((v, i) => (
-        <div className="row" key={v.id || `v${i}`} style={{ alignItems: "end" }}>
+        <div className="row" key={`${v.id}-${i}`} style={{ alignItems: "end" }}>
           <label>
             Name
             <input value={v.name} onChange={(e) => patchAt(i, { name: e.target.value })} placeholder="12 in · Painted" />
@@ -1358,7 +1359,10 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
           onClick={() =>
             onChange({
               ...product,
-              variants: [...product.variants, { id: newId("var"), name: "", priceCents: product.priceCents }],
+              variants: [
+                ...product.variants,
+                { id: newId("var") + Math.random().toString(36).slice(2, 6), name: "", priceCents: product.priceCents },
+              ],
             })
           }
         >
