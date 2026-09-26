@@ -366,21 +366,44 @@ p { margin: 0 0 12px; }
 }
 .mc-media-item {
   position: relative;
-  width: 88px;
+  width: 110px;
   border: 1px solid var(--rule);
   background: #1b2830;
   padding: 0;
   cursor: grab;
 }
+.mc-media-item.drop {
+  outline: 2px solid var(--bronze);
+}
 .mc-media-item img {
-  width: 88px;
-  height: 88px;
+  width: 110px;
+  height: 110px;
   object-fit: cover;
   display: block;
+  pointer-events: none;
 }
 .mc-media-item .thumb-video {
-  width: 88px;
-  height: 88px;
+  width: 110px;
+  height: 110px;
+}
+.mc-media-move {
+  display: flex;
+  width: 100%;
+}
+.mc-media-move button {
+  flex: 1;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: #fffdf8;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.mc-media-move button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .mc-media-remove {
   position: absolute;

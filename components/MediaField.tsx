@@ -17,7 +17,16 @@ export function MediaField({
   const [paste, setPaste] = useState("");
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function move(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || to >= urls.length) return;
+    const next = [...urls];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
+  }
 
   async function send(files: FileList | File[] | null) {
     const list = files ? Array.from(files) : [];
@@ -37,30 +46,44 @@ export function MediaField({
 
   return (
     <div className="mc-media-field">
-      <p className="note">Photos and videos in one list. Drag to set the order they show.</p>
+      <p className="note">
+        First photo is the card image and the first shot on the product page. Use the arrows or drag to reorder. Save
+        products when the order looks right.
+      </p>
       <div className="mc-media-list">
         {urls.map((url, i) => (
           <div
             key={`${url}-${i}`}
-            className="mc-media-item"
+            className={hover === i && drag != null && drag !== i ? "mc-media-item drop" : "mc-media-item"}
             draggable
-            onDragStart={() => setDrag(i)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (drag == null || drag === i) return;
-              const next = [...urls];
-              const [item] = next.splice(drag, 1);
-              next.splice(i, 0, item);
-              onChange(next);
+            onDragStart={(e) => {
+              setDrag(i);
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(i));
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setHover(i);
+            }}
+            onDragLeave={() => setHover(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              const from = drag ?? Number(e.dataTransfer.getData("text/plain"));
+              move(from, i);
               setDrag(null);
+              setHover(null);
+            }}
+            onDragEnd={() => {
+              setDrag(null);
+              setHover(null);
             }}
           >
             {isVideoSrc(url) ? (
-              <span className="thumb-video" title={url}>
+              <span className="thumb-video" title={url} draggable={false}>
                 ▶
               </span>
             ) : (
-              <img src={url} alt="" />
+              <img src={url} alt="" draggable={false} />
             )}
             <button
               type="button"
@@ -70,7 +93,20 @@ export function MediaField({
             >
               ×
             </button>
-            <span className="mc-media-order">{i + 1}</span>
+            <span className="mc-media-order">{i === 0 ? "1 · main" : i + 1}</span>
+            <div className="mc-media-move">
+              <button type="button" title="Move earlier" disabled={i === 0} onClick={() => move(i, i - 1)}>
+                ‹
+              </button>
+              <button
+                type="button"
+                title="Move later"
+                disabled={i === urls.length - 1}
+                onClick={() => move(i, i + 1)}
+              >
+                ›
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -90,7 +126,8 @@ export function MediaField({
       >
         <strong>{busy ? busyLabel || "Uploading…" : "Drop photos or videos here"}</strong>
         <span className="muted">or click to choose files — they upload as soon as you pick them</span>
-        <input className="mc-drop-input"
+        <input
+          className="mc-drop-input"
           type="file"
           multiple
           accept="image/*,video/mp4,video/webm,video/quicktime,video/*"
