@@ -78,6 +78,7 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
     id: safeSlug(src.id, `v${i + 1}`),
     name: cleanStr(src.name, `Option ${i + 1}`),
     priceCents: asCents(src.priceCents, 0),
+    onHand: onHandCount(src.onHand),
   };
 }
 

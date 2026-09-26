@@ -3,6 +3,8 @@ export type ProductVariant = {
   name: string;
   /** 0 = use the product’s base price. */
   priceCents: number;
+  /** null = don't show a count. 0 = made to order. Above 0 = ready. */
+  onHand: number | null;
 };
 
 export type ProductKind = "physical" | "digital" | "sign";

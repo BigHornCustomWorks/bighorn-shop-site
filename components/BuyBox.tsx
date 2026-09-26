@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
-import { stockLabel } from "@/lib/stock";
+import { stockLabel, stockText } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread, variantUnitPrice } from "@/lib/variant-price";
 
 export function BuyBox({ product }: { product: Product }) {
@@ -136,11 +136,15 @@ export function BuyBox({ product }: { product: Product }) {
   return (
     <div className="buy-box">
       <p className="price">{priceText}</p>
-      {stockLabel(product) ? (
-        <p className="note">
-          {stockLabel(product)}. You can still order it when none are ready — Clint builds that one for you.
-        </p>
-      ) : null}
+      {(() => {
+        const pickedVariant = options.find((v) => v.name === variant);
+        const line = pickedVariant ? stockText(pickedVariant.onHand) : stockLabel(product);
+        return line ? (
+          <p className="note">
+            {line}. You can still order it when none are ready — Clint builds that one for you.
+          </p>
+        ) : null;
+      })()}
       {options.length ? (
         <label className="buy-variant">
           Choose size / finish
@@ -156,6 +160,7 @@ export function BuyBox({ product }: { product: Product }) {
             {options.map((v) => (
               <option key={v.id + v.name} value={v.name}>
                 {v.name} — {formatUsd(variantUnitPrice(product, v.name))}
+                {stockText(v.onHand) ? ` — ${stockText(v.onHand)}` : ""}
               </option>
             ))}
           </select>

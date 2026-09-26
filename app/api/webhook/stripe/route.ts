@@ -82,11 +82,20 @@ export async function POST(req: Request) {
       const orderId = newId("order");
       const stockNote = meta.items || "";
       for (const part of stockNote.split(",").filter(Boolean)) {
-        const match = part.match(/^([^:]+):.*x(\d+)$/);
+        const match = part.match(/^([^:]+):(.*)x(\d+)$/);
         if (!match) continue;
-        const qty = Number(match[2]) || 1;
+        const qty = Number(match[3]) || 1;
+        const variantName = match[2];
         const product = latest.products.find((p) => p.slug === match[1]);
-        if (!product || product.onHand == null || product.onHand <= 0) continue;
+        if (!product) continue;
+        const variant = product.variants.find(
+          (v) => v.name === variantName || v.name.toLowerCase() === variantName.toLowerCase(),
+        );
+        if (variant && variant.onHand != null && variant.onHand > 0) {
+          variant.onHand = Math.max(0, variant.onHand - qty);
+          continue;
+        }
+        if (product.onHand == null || product.onHand <= 0) continue;
         product.onHand = Math.max(0, product.onHand - qty);
       }
       latest.orders = [

@@ -66,6 +66,7 @@ function cloneProduct(source: Product, products: Product[]): Product {
     variants: (source.variants || []).map((v) => ({
       ...v,
       id: newId("var") + Math.random().toString(36).slice(2, 6),
+      onHand: null,
     })),
     stripeProductId: "",
     stripePriceId: "",
@@ -1402,7 +1403,7 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
       ...product,
       variants: names.map((name) => {
         const prev = byName.get(name.toLowerCase());
-        return prev || { id: newId("var") + Math.random().toString(36).slice(2, 6), name, priceCents: product.priceCents };
+        return prev || { id: newId("var") + Math.random().toString(36).slice(2, 6), name, priceCents: product.priceCents, onHand: null };
       }),
     });
   }
@@ -1414,8 +1415,8 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
       </p>
       <p className="note">
         Each row is one option the customer picks — size, painted vs unpainted, or both. Set a price on every row.
-        Price 0 uses the product price above. Click <strong>Save products</strong> after you add rows or the public
-        page will still show the old list.
+        On hand is how many of that size you already made. Blank hides the count. 0 means made to order, and they can
+        still buy it. Price 0 uses the product price above. Click Save item after you change rows.
       </p>
       {product.variants.map((v, i) => (
         <div className="row" key={`${v.id}-${i}`} style={{ alignItems: "end" }}>
@@ -1426,6 +1427,19 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
           <label>
             Price ({formatUsd(v.priceCents > 0 ? v.priceCents : product.priceCents)})
             <MoneyInput cents={v.priceCents} onCents={(priceCents) => patchAt(i, { priceCents })} />
+          </label>
+          <label>
+            On hand
+            <input
+              type="number"
+              min={0}
+              value={v.onHand ?? ""}
+              placeholder="blank"
+              onChange={(e) => {
+                const raw = e.target.value;
+                patchAt(i, { onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+              }}
+            />
           </label>
           <button
             type="button"
@@ -1444,7 +1458,7 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
               ...product,
               variants: [
                 ...product.variants,
-                { id: newId("var") + Math.random().toString(36).slice(2, 6), name: "", priceCents: product.priceCents },
+                { id: newId("var") + Math.random().toString(36).slice(2, 6), name: "", priceCents: product.priceCents, onHand: null },
               ],
             })
           }
