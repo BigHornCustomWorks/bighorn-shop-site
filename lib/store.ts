@@ -125,6 +125,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     priceCents: asCents(src.priceCents, 0),
     description: cleanMultiline(src.description),
     media,
+    groupCover: safeUrl(src.groupCover),
     photos,
     videos,
     category: cleanStr(src.category, "Mill accessories"),

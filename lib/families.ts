@@ -1,5 +1,6 @@
 import type { Product } from "./types";
 import { skuStem } from "./sku";
+import { firstPhoto } from "./video";
 
 export type ShelfEntry =
   | { kind: "one"; product: Product }
@@ -14,6 +15,14 @@ function familyCode(sku: string): string | null {
 export function familyLead(members: Product[]): Product {
   const base = members.find((p) => p.sku.trim().toLowerCase() === skuStem(p.sku).toLowerCase());
   return base || members[0];
+}
+
+export function familyCover(members: Product[]): string {
+  const lead = familyLead(members);
+  if (lead.groupCover) return lead.groupCover;
+  const other = members.find((p) => p.groupCover);
+  if (other?.groupCover) return other.groupCover;
+  return firstPhoto(lead) || "/logo.png";
 }
 
 export function shelfEntries(products: Product[]): ShelfEntry[] {

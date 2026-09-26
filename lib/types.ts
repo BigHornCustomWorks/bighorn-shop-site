@@ -66,6 +66,8 @@ export type Product = {
   priceCents: number;
   description: string;
   media: string[];
+  /** Picture for the group card (228, 228b, 228c). Faces keep their own photos. */
+  groupCover: string;
   photos: string[];
   videos: string[];
   category: string;

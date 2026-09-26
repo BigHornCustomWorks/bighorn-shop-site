@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { ProductCard } from "./ProductCard";
-import { familyLead, type ShelfEntry } from "@/lib/families";
+import { familyCover, familyLead, type ShelfEntry } from "@/lib/families";
 import { firstPhoto } from "@/lib/video";
 
 export function CatalogShelf({ entries }: { entries: ShelfEntry[] }) {
@@ -21,7 +21,7 @@ export function CatalogShelf({ entries }: { entries: ShelfEntry[] }) {
 
 function FamilyCard({ stem, members }: { stem: string; members: Product[] }) {
   const lead = familyLead(members);
-  const photo = firstPhoto(lead) || "/logo.png";
+  const photo = familyCover(members);
   const title = lead.name.replace(/^Copy of\s+/i, "");
   return (
     <Link className="product-card" href={`/shop/family/${stem}`}>

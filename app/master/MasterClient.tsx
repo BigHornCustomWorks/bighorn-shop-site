@@ -26,6 +26,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   priceCents: 0,
   description: "",
   media: [],
+  groupCover: "",
   photos: [],
   videos: [],
   category: kind === "digital" ? "Digital" : kind === "sign" ? "Metal signs" : "Mill accessories",
@@ -72,6 +73,7 @@ function cloneProduct(source: Product, products: Product[]): Product {
     stripePriceId: "",
     stripePriceCents: 0,
     stripeTaxBehavior: "",
+    groupCover: "",
     sortOrder: products.length + 1,
     visible: true,
     onHand: source.onHand == null ? null : 0,
@@ -1085,6 +1087,10 @@ function ProductsTab({
             });
           }}
           onUpload={(file) => uploadTo(open.id, file)}
+          onUploadCover={async (file) => {
+            const toSend = await compressImage(file);
+            return uploadFile(toSend, "photo");
+          }}
           onRemove={async () => {
             const label = open.name.trim() || "this untitled product";
             if (!window.confirm(`Remove "${label}" from the shop? It will leave the public site.`)) return;
@@ -1127,6 +1133,7 @@ function ProductEditor({
   onChange,
   onMove,
   onUpload,
+  onUploadCover,
   onRemove,
   onClone,
   onSave,
@@ -1138,6 +1145,7 @@ function ProductEditor({
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
+  onUploadCover: (file: File) => Promise<string>;
   onRemove: () => void;
   onClone: () => void;
   onSave: () => void;
@@ -1186,6 +1194,37 @@ function ProductEditor({
             placeholder="221"
           />
         </label>
+      </div>
+      <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+        <p className="section-kicker">Group card photo</p>
+        <p className="note">
+          This is the one picture on the Signs page for the whole item number (228, 228b, 228c). Set it on the main
+          item, the one with no letter. Each face inside still uses its own photos.
+        </p>
+        {product.groupCover ? (
+          <img src={product.groupCover} alt="" style={{ width: 160, height: 160, objectFit: "cover" }} />
+        ) : (
+          <p className="muted">No group photo yet. The card uses this item’s first photo.</p>
+        )}
+        <label>
+          Upload group photo
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              const url = await onUploadCover(file);
+              if (url) onChange({ ...product, groupCover: url });
+            }}
+          />
+        </label>
+        {product.groupCover ? (
+          <button type="button" className="btn" onClick={() => onChange({ ...product, groupCover: "" })}>
+            Remove group photo
+          </button>
+        ) : null}
       </div>
       <div className="row-3">
         <label>
