@@ -7,7 +7,7 @@ import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/
 import { newId, safeSlug } from "@/lib/sanitize";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
-import type { Product, ProductKind, Quote, ShopCategory, ShopOrder, ShopStore } from "@/lib/types";
+import type { Product, ProductKind, Quote, ShopCategory, ShopOrder, ShopStore, ShippingOption } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -820,7 +820,7 @@ function ProductsTab({
     if (!q) return true;
     return `${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q);
   });
-  const open = store.products.find((p) => p.id === openId && p.kind === kind);
+  const open = store.products.find((p) => p.id === openId);
 
   function reorderCats(from: number, to: number) {
     if (from === to || from < 0 || to < 0) return;
@@ -900,6 +900,9 @@ function ProductsTab({
         <input
           value={newCat}
           onChange={(e) => setNewCat(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.preventDefault();
+          }}
           placeholder="New category (Office, Tools…)"
         />
         <button
@@ -982,6 +985,8 @@ function ProductsTab({
         <ProductEditor
           product={open}
           categories={categories}
+          shippingOptions={store.site.shippingOptions || []}
+          tabKind={kind}
           onChange={(next) => {
             setStore({
               ...store,
@@ -1008,23 +1013,47 @@ function ProductsTab({
   );
 }
 
+function shippingChoice(product: Product, options: ShippingOption[]): string {
+  if (product.shippingCents <= 0) return "shop";
+  const matches = options.filter((o) => o.amountCents === product.shippingCents);
+  if (matches.length === 1) return matches[0].id;
+  return "custom";
+}
+
 function ProductEditor({
   product,
   categories,
+  shippingOptions,
+  tabKind,
   onChange,
   onMove,
   onUpload,
 }: {
   product: Product;
   categories: ShopCategory[];
+  shippingOptions: ShippingOption[];
+  tabKind: ProductKind;
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
 }) {
   const media = orderedMedia(product);
+  const shipChoice = shippingChoice(product, shippingOptions);
 
   return (
-    <div className="admin-product">
+    <form
+      className="admin-product"
+      onSubmit={(e) => {
+        e.preventDefault();
+      }}
+    >
+      {product.kind !== tabKind ? (
+        <p className="err">
+          This item is now typed as{" "}
+          {product.kind === "sign" ? "Metal sign" : product.kind === "digital" ? "Digital" : "Physical"}. It will show
+          under that tab after you finish. Stay here to keep editing — the form will not reset.
+        </p>
+      ) : null}
       <div className="row">
         <label>
           Name
@@ -1075,8 +1104,12 @@ function ProductEditor({
           >
             <option value="physical">Physical (ships)</option>
             <option value="digital">Digital (no shipping)</option>
-            <option value="sign">Metal sign (ships)</option>
+            <option value="sign">Metal sign SKU (shows on /signs)</option>
           </select>
+          <span className="note">
+            Premade signs listed on Physical should stay Physical. Metal sign SKU moves the item to the Metal signs tab
+            and the /signs page.
+          </span>
         </label>
         <label>
           Price (USD)
@@ -1102,13 +1135,53 @@ function ProductEditor({
           />
         </label>
         {product.kind === "digital" ? null : (
-          <label>
-            Shipping for this item (USD, 0 = use the shop rate)
-            <MoneyInput
-              cents={product.shippingCents}
-              onCents={(shippingCents) => onChange({ ...product, shippingCents })}
-            />
-          </label>
+          <>
+            <label>
+              Shipping
+              <select
+                value={shipChoice}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "shop") {
+                    onChange({ ...product, shippingCents: 0 });
+                    return;
+                  }
+                  if (v === "custom") {
+                    onChange({
+                      ...product,
+                      shippingCents: product.shippingCents > 0 ? product.shippingCents : 100,
+                    });
+                    return;
+                  }
+                  const opt = shippingOptions.find((o) => o.id === v);
+                  onChange({ ...product, shippingCents: opt ? opt.amountCents : 0 });
+                }}
+              >
+                <option value="shop">Shop rates (pickup + options in Site copy)</option>
+                {shippingOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label} ({formatUsd(opt.amountCents)})
+                  </option>
+                ))}
+                <option value="custom">Custom amount</option>
+              </select>
+            </label>
+            {shipChoice === "custom" ? (
+              <label>
+                Custom shipping (USD)
+                <MoneyInput
+                  cents={product.shippingCents}
+                  onCents={(shippingCents) => onChange({ ...product, shippingCents })}
+                />
+              </label>
+            ) : (
+              <p className="note">
+                {shipChoice === "shop"
+                  ? "Customer picks local pickup (no shipping) or a Site copy rate at checkout."
+                  : "This item uses that named rate. Local pickup is still offered at $0."}
+              </p>
+            )}
+          </>
         )}
         <label>
           Visible on site
@@ -1172,7 +1245,7 @@ function ProductEditor({
         onChange={(next) => onChange({ ...product, media: next })}
         onUpload={async (file) => onUpload(file)}
       />
-    </div>
+    </form>
   );
 }
 
