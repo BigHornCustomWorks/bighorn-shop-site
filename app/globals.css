@@ -338,6 +338,14 @@ p { margin: 0 0 12px; }
   background: var(--ink);
   color: #f6efe4;
 }
+.mc-cat-x {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--rule);
+  background: #fff;
+  color: #8a2a22;
+  cursor: pointer;
+}
 .mc-product-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

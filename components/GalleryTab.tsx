@@ -74,7 +74,18 @@ export function GalleryTab({ store, setStore, save, uploadFile }: Props) {
             >
               Section down
             </button>
-            <button className="btn" type="button" onClick={() => update(gallery.filter((_, i) => i !== si))}>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                const count = section.photos.length;
+                const ok = window.confirm(
+                  `Delete the “${section.title}” gallery section${count ? ` and its ${count} photo${count === 1 ? "" : "s"}` : ""}? This cannot be undone.`,
+                );
+                if (!ok) return;
+                update(gallery.filter((_, i) => i !== si));
+              }}
+            >
               Delete section
             </button>
           </div>

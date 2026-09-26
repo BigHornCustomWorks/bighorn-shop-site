@@ -967,8 +967,13 @@ function ProductsTab({
             </button>
             <button
               type="button"
+              className="mc-cat-x"
               title="Remove category"
               onClick={() => {
+                const ok = window.confirm(
+                  `Remove the “${c.name}” category? The products stay. They are not deleted.`,
+                );
+                if (!ok) return;
                 const next = categories.filter((x) => x.id !== c.id);
                 setStore({ ...store, categories: next.map((x, n) => ({ ...x, sortOrder: n + 1 })) });
                 if (filterCat === c.name) setFilterCat("all");
