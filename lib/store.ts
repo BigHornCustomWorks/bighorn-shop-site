@@ -81,6 +81,24 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
   };
 }
 
+function assignMissingSkus(products: Product[]): Product[] {
+  const used = new Set(products.map((p) => p.sku.toLowerCase()).filter(Boolean));
+  let max = 220;
+  for (const product of products) {
+    const stem = product.sku.match(/^(\d+)/)?.[1] || "";
+    const n = Number(stem);
+    if (stem && String(n) === stem && n > max) max = n;
+  }
+  return products.map((product) => {
+    if (product.sku) return product;
+    let next = max + 1;
+    while (used.has(String(next))) next += 1;
+    max = next;
+    used.add(String(next));
+    return { ...product, sku: String(next) };
+  });
+}
+
 function normalizeProduct(raw: unknown, i: number): Product | null {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<Product>;
   const name = cleanStr(src.name);
@@ -95,6 +113,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     id: cleanStr(src.id, newId("prod")),
     slug: safeSlug(src.slug, safeSlug(name, `part-${i + 1}`)),
     name,
+    sku: cleanStr(src.sku).replace(/\s+/g, ""),
     priceCents: asCents(src.priceCents, 0),
     description: cleanMultiline(src.description),
     media,
@@ -467,11 +486,13 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
 export function normalizeStore(raw: unknown): ShopStore {
   const base = seedStore();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStore>;
-  const products = asArray<unknown>(src.products)
-    .map(normalizeProduct)
-    .filter((p): p is Product => Boolean(p))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  const finalProducts = products.length ? products : base.products;
+  const products = assignMissingSkus(
+    asArray<unknown>(src.products)
+      .map(normalizeProduct)
+      .filter((p): p is Product => Boolean(p))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  );
+  const finalProducts = products.length ? products : assignMissingSkus(base.products);
   return {
     products: finalProducts,
     categories: mergeCategories(src.categories, finalProducts),

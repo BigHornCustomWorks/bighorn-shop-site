@@ -5,6 +5,7 @@ import { compressImage } from "@/lib/compressImage";
 import { formatUsd } from "@/lib/money";
 import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/uploadLimits";
 import { newId, safeSlug } from "@/lib/sanitize";
+import { nextCloneCode, nextProductCode } from "@/lib/sku";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
 import type { Product, ProductKind, Quote, ShopCategory, ShopOrder, ShopStore, ShippingOption } from "@/lib/types";
@@ -21,6 +22,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   id: newId("prod"),
   slug: "",
   name: "",
+  sku: "",
   priceCents: 0,
   description: "",
   media: [],
@@ -53,11 +55,13 @@ function uniqueSlug(base: string, products: Product[]): string {
 
 function cloneProduct(source: Product, products: Product[]): Product {
   const name = source.name.trim() ? `Copy of ${source.name.trim()}` : "Copy";
+  const sku = nextCloneCode(source.sku || nextProductCode(products), products);
   return {
     ...source,
     id: newId("prod"),
     name,
-    slug: uniqueSlug(`${source.slug || name}-copy`, products),
+    sku,
+    slug: uniqueSlug(sku, products),
     variants: (source.variants || []).map((v) => ({
       ...v,
       id: newId("var") + Math.random().toString(36).slice(2, 6),
@@ -67,7 +71,7 @@ function cloneProduct(source: Product, products: Product[]): Product {
     stripePriceCents: 0,
     stripeTaxBehavior: "",
     sortOrder: products.length + 1,
-    visible: false,
+    visible: true,
   };
 }
 
@@ -1009,6 +1013,8 @@ function ProductsTab({
           type="button"
           onClick={() => {
             const p = emptyProduct(kind);
+            p.sku = nextProductCode(store.products);
+            p.slug = uniqueSlug(p.sku, store.products);
             p.sortOrder = store.products.length + 1;
             if (filterCat !== "all") p.category = filterCat;
             setStore({ ...store, products: [...store.products, p] });
@@ -1040,8 +1046,10 @@ function ProductsTab({
             <img src={firstPhoto(product) || "/logo.png"} alt="" />
             <div className="pad">
               <p className="card-meta">
+                {product.sku ? `Item ${product.sku} · ` : ""}
                 {product.category}
                 {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
+                {product.visible ? "" : " · Hidden"}
               </p>
               <h3>{product.name || "Untitled"}</h3>
               <p className="price">{formatUsd(product.priceCents)}</p>
@@ -1085,10 +1093,12 @@ function ProductsTab({
             setStore(next);
             await save(next);
           }}
-          onClone={() => {
+          onClone={async () => {
             const copy = cloneProduct(open, store.products);
-            setStore({ ...store, products: [...store.products, copy] });
+            const next = { ...store, products: [...store.products, copy] };
+            setStore(next);
             setOpenId(copy.id);
+            await save(next);
           }}
         />
       ) : (
@@ -1158,8 +1168,12 @@ function ProductEditor({
           />
         </label>
         <label>
-          Slug
-          <input value={product.slug} onChange={(e) => onChange({ ...product, slug: e.target.value })} />
+          Item code
+          <input
+            value={product.sku}
+            onChange={(e) => onChange({ ...product, sku: e.target.value.replace(/\s+/g, "") })}
+            placeholder="221"
+          />
         </label>
       </div>
       <div className="row-3">
@@ -1331,8 +1345,8 @@ function ProductEditor({
         </button>
       </div>
       <p className="note">
-        Clone copies sizes, finishes, prices, and shipping. The copy starts hidden so it is not on the public shop until
-        you rename it, swap the photos, set Visible, and Save products.
+        Clone copies sizes, finishes, prices, and shipping, saves it, and puts it on the shop as the next letter
+        (221 becomes 221b). Rename it and swap the photos for the new face. Hide it if you are not ready.
       </p>
     </form>
   );

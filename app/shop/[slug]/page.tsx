@@ -40,6 +40,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <ProductGallery media={product.media} name={product.name} />
         <div>
           <p className="section-kicker">
+            {product.sku ? `Item ${product.sku} · ` : ""}
             {product.category}
             {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
           </p>

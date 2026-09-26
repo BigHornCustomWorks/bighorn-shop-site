@@ -129,7 +129,8 @@ export async function createCheckoutSession(
 
   const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map((item) => {
     const variant = cleanStr(item.variant);
-    const name = variant ? `${item.product.name} (${variant})` : item.product.name;
+    const code = item.product.sku ? `Item ${item.product.sku} — ` : "";
+    const name = `${code}${variant ? `${item.product.name} (${variant})` : item.product.name}`;
     const unitAmount = variantUnitPrice(item.product, variant);
     const images = (item.product.photos.length ? item.product.photos : item.product.media)
       .map(safeUrl)

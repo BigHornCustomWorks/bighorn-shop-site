@@ -59,6 +59,8 @@ export type Product = {
   id: string;
   slug: string;
   name: string;
+  /** Shop item code. Originals are numbers (221). Clones add a letter (221b). */
+  sku: string;
   priceCents: number;
   description: string;
   media: string[];

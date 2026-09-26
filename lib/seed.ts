@@ -88,6 +88,7 @@ export function defaultProducts(): Product[] {
       id: "prod_way_covers",
       slug: "baffled-y-and-z-way-covers",
       name: "Baffled Y and Z way covers",
+      sku: "",
       priceCents: 16000,
       description:
         "For Precision Matthews PM-728 / PM-728VT. Custom-engineered Y and Z axis way covers designed to shield critical machine surfaces from chips and dust across three sides. Glass-reinforced TPU, 3D printed, heat and abrasion resistant. Set includes custom mounting brackets and hardware that attach to existing machine holes. No extra drilling.",
@@ -119,6 +120,7 @@ export function defaultProducts(): Product[] {
       id: "prod_t_slot",
       slug: "t-slot-covers",
       name: "T-Slot covers",
+      sku: "",
       priceCents: 3999,
       description:
         "For Precision Matthews PM-728VT bed T-slots. Dual-material 3D printed: hard outer shell that resists hot chips and abrasion, softer flexible layer that snaps in. Keeps chips, coolant, and debris out of the T-slots. Easy to install and remove.",
@@ -156,6 +158,7 @@ export function defaultProducts(): Product[] {
       id: "prod_spindle",
       slug: "sliding-spindle-lock",
       name: "Sliding Spindle lock",
+      sku: "",
       priceCents: 13499,
       description:
         "For Precision Matthews PM-728VT. Replaces the stock spindle lock with a sliding mechanism. Locks the spindle with one motion. Solid steel. Hardware included. No mill modifications.",

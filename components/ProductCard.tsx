@@ -17,6 +17,7 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="pad">
         <p className="card-meta">
+          {product.sku ? `Item ${product.sku} · ` : ""}
           {product.category}
           {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
         </p>
