@@ -10,6 +10,7 @@ export type CartLine = {
   photo: string;
   variant: string;
   quantity: number;
+  shopHref?: string;
 };
 
 type CartCtx = {

@@ -41,6 +41,8 @@ export function BuyBox({ product }: { product: Product }) {
         priceCents: unitPrice,
         photo: product.photos[0] || product.media[0] || "",
         variant,
+        shopHref:
+          product.kind === "sign" ? "/signs" : product.kind === "digital" ? "/digital" : "/physical",
       },
       qty,
     );
