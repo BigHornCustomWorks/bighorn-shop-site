@@ -89,6 +89,14 @@ export type Product = {
   stripeTaxBehavior: string;
   /** What it costs to ship this item. 0 means fall back to the shop-wide rates. */
   shippingCents: number;
+  /** Item weight in ounces, no box. Kept so the shipping preview is not erased by a live-site save. */
+  weightOz?: number;
+  weightUnit?: "oz" | "lb";
+  packagePresetId?: string;
+  lengthIn?: number;
+  widthIn?: number;
+  heightIn?: number;
+  boxWeightOz?: number;
   /** Shown instead of currency when set (e.g. From $49/mo, Coming soon). */
   priceLabel: string;
   /** If set, product is a link-out (no cart) — CTA goes here. */
@@ -175,6 +183,10 @@ export type ShopSettings = {
    * together. "sum" charges every item, for goods that need their own box.
    */
   shippingCombine: "highest" | "sum";
+  /** Kept so a live-site save does not wipe the preview's ship-from address. */
+  shipFrom?: Record<string, string>;
+  packagePresets?: Array<Record<string, unknown>>;
+  packagingAllowanceOz?: number;
 };
 
 export type DayStat = {

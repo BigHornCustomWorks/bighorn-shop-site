@@ -146,6 +146,13 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     stripePriceCents: asCents(src.stripePriceCents, 0),
     stripeTaxBehavior: cleanStr(src.stripeTaxBehavior),
     shippingCents: asCents(src.shippingCents, 0),
+    weightOz: keepMeasure(src.weightOz, 2400),
+    weightUnit: src.weightUnit === "lb" ? "lb" : "oz",
+    packagePresetId: cleanStr(src.packagePresetId),
+    lengthIn: keepMeasure(src.lengthIn, 120),
+    widthIn: keepMeasure(src.widthIn, 120),
+    heightIn: keepMeasure(src.heightIn, 120),
+    boxWeightOz: keepMeasure(src.boxWeightOz, 800),
     priceLabel: cleanStr(src.priceLabel),
     externalUrl: safeUrl(src.externalUrl),
   };
@@ -324,7 +331,27 @@ function normalizeSettings(raw: unknown): ShopSettings {
     catalogMode,
     taxEnabled: src.taxEnabled === true,
     shippingCombine: src.shippingCombine === "sum" ? "sum" : "highest",
+    shipFrom: keepShipFrom(src.shipFrom),
+    packagePresets: asArray<unknown>(src.packagePresets).filter((p) => p && typeof p === "object").slice(0, 30) as Array<
+      Record<string, unknown>
+    >,
+    packagingAllowanceOz:
+      src.packagingAllowanceOz === 0 ? 0 : keepMeasure(src.packagingAllowanceOz, 800) || 2,
   };
+}
+
+function keepMeasure(value: unknown, max: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0 || n > max) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function keepShipFrom(raw: unknown): Record<string, string> {
+  const src = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const keys = ["name", "company", "street1", "street2", "city", "state", "zip", "country", "phone", "email"];
+  const out: Record<string, string> = {};
+  for (const key of keys) out[key] = src[key] == null ? "" : String(src[key]).trim();
+  return out;
 }
 
 function normalizeCategory(raw: unknown, i: number): ShopCategory | null {
