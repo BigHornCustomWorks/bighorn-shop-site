@@ -5,6 +5,7 @@ import { compressImage } from "@/lib/compressImage";
 import { formatUsd } from "@/lib/money";
 import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/uploadLimits";
 import { newId, safeSlug } from "@/lib/sanitize";
+import { nextCloneCode, nextProductCode } from "@/lib/sku";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
 import { CARRIERS } from "@/lib/tracking";
 import type {
@@ -16,6 +17,7 @@ import type {
   ShopCategory,
   ShopOrder,
   ShopStore,
+  ShippingOption,
 } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
 import { MediaField } from "@/components/MediaField";
@@ -30,9 +32,11 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   id: newId("prod"),
   slug: "",
   name: "",
+  sku: "",
   priceCents: 0,
   description: "",
   media: [],
+  groupCover: "",
   photos: [],
   videos: [],
   category: kind === "digital" ? "Digital" : kind === "sign" ? "Metal signs" : "Mill accessories",
@@ -41,6 +45,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   variants: [],
   variantNote: "",
   visible: true,
+  onHand: null,
   stripeProductId: "",
   stripePriceId: "",
   stripePriceCents: 0,
@@ -70,8 +75,43 @@ const SHIP_FROM_FIELDS: { key: keyof ShipAddress; label: string }[] = [
   { key: "email", label: "Email (optional)" },
 ];
 
+function uniqueSlug(base: string, products: Product[]): string {
+  const root = safeSlug(base) || "copy";
+  const used = new Set(products.map((p) => p.slug));
+  if (!used.has(root)) return root;
+  let n = 2;
+  while (used.has(`${root}-${n}`)) n += 1;
+  return `${root}-${n}`;
+}
+
+function cloneProduct(source: Product, products: Product[]): Product {
+  const name = source.name.trim() ? `Copy of ${source.name.trim()}` : "Copy";
+  const sku = nextCloneCode(source.sku || nextProductCode(products), products);
+  return {
+    ...source,
+    id: newId("prod"),
+    name,
+    sku,
+    slug: uniqueSlug(sku, products),
+    variants: (source.variants || []).map((v) => ({
+      ...v,
+      id: newId("var") + Math.random().toString(36).slice(2, 6),
+      onHand: null,
+    })),
+    stripeProductId: "",
+    stripePriceId: "",
+    stripePriceCents: 0,
+    stripeTaxBehavior: "",
+    groupCover: "",
+    sortOrder: products.length + 1,
+    visible: true,
+    onHand: source.onHand == null ? null : 0,
+  };
+}
+
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("physical");
+  const [signsPanel, setSignsPanel] = useState<"premade" | "custom">("premade");
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
   const [storageDurable, setStorageDurable] = useState(true);
@@ -275,6 +315,7 @@ export function MasterClient() {
     setStore,
     save,
     uploadTo,
+    uploadFile,
     query,
     setQuery,
     filterCat,
@@ -357,6 +398,7 @@ export function MasterClient() {
               setTab(id);
               setOpenId(null);
               setFilterCat("all");
+              if (id === "signs") setSignsPanel("premade");
             }}
           >
             {label}
@@ -384,10 +426,48 @@ export function MasterClient() {
       ) : null}
 
       {tab === "signs" ? (
-        <>
-          <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
-          <ProductsTab kind="sign" heading="Fixed-size sign SKUs" kicker="Optional catalog" {...productTabProps} />
-        </>
+        <div>
+          <div className="mc-section-head">
+            <p className="section-kicker">Metal signs</p>
+            <h2>Signs shop</h2>
+            <p className="note">
+              Premade pieces (jack-o-lanterns, plaques, yard ornaments) are listed here once and show on /signs.
+              Custom size, rate, and finishes are the other section — not Physical products.
+            </p>
+          </div>
+          <div className="mc-subtabs">
+            <button
+              type="button"
+              className={signsPanel === "premade" ? "on" : ""}
+              onClick={() => {
+                setSignsPanel("premade");
+                setOpenId(null);
+              }}
+            >
+              Premade signs
+            </button>
+            <button
+              type="button"
+              className={signsPanel === "custom" ? "on" : ""}
+              onClick={() => {
+                setSignsPanel("custom");
+                setOpenId(null);
+              }}
+            >
+              Custom size &amp; rate
+            </button>
+          </div>
+          {signsPanel === "premade" ? (
+            <ProductsTab
+              kind="sign"
+              heading="Premade signs"
+              kicker="Ready to buy on /signs"
+              {...productTabProps}
+            />
+          ) : (
+            <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
+          )}
+        </div>
       ) : null}
 
       {tab === "gallery" ? (
@@ -862,6 +942,7 @@ function ProductsTab({
   setStore,
   save,
   uploadTo,
+  uploadFile,
   query,
   setQuery,
   filterCat,
@@ -882,6 +963,7 @@ function ProductsTab({
   setStore: (s: ShopStore) => void;
   save: (s: ShopStore) => Promise<void>;
   uploadTo: (id: string, file: File) => Promise<void>;
+  uploadFile: (file: File, kind: string) => Promise<string>;
   query: string;
   setQuery: (v: string) => void;
   filterCat: string;
@@ -903,7 +985,7 @@ function ProductsTab({
     if (!q) return true;
     return `${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q);
   });
-  const open = store.products.find((p) => p.id === openId && p.kind === kind);
+  const open = store.products.find((p) => p.id === openId);
 
   function reorderCats(from: number, to: number) {
     if (from === to || from < 0 || to < 0) return;
@@ -930,7 +1012,7 @@ function ProductsTab({
   }
 
   const addLabel =
-    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add sign SKU" : "Add physical product";
+    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add premade sign" : "Add physical product";
 
   return (
     <div>
@@ -939,7 +1021,7 @@ function ProductsTab({
         <h2>{heading}</h2>
         <p className="note">
           {kind === "sign"
-            ? "Optional ready-to-order signs with a fixed price. Custom sizes use the rate above, not these SKUs."
+            ? "List jack-o-lanterns, plaques, and other finished pieces here. Use variants for sizes and painted vs unpainted. They appear in Premade signs on /signs — not in Physical."
             : "Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder."}
         </p>
       </div>
@@ -969,8 +1051,13 @@ function ProductsTab({
             </button>
             <button
               type="button"
+              className="mc-cat-x"
               title="Remove category"
               onClick={() => {
+                const ok = window.confirm(
+                  `Remove the “${c.name}” category? The products stay. They are not deleted.`,
+                );
+                if (!ok) return;
                 const next = categories.filter((x) => x.id !== c.id);
                 setStore({ ...store, categories: next.map((x, n) => ({ ...x, sortOrder: n + 1 })) });
                 if (filterCat === c.name) setFilterCat("all");
@@ -983,6 +1070,9 @@ function ProductsTab({
         <input
           value={newCat}
           onChange={(e) => setNewCat(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.preventDefault();
+          }}
           placeholder="New category (Office, Tools…)"
         />
         <button
@@ -1020,6 +1110,8 @@ function ProductsTab({
           type="button"
           onClick={() => {
             const p = emptyProduct(kind);
+            p.sku = nextProductCode(store.products);
+            p.slug = uniqueSlug(p.sku, store.products);
             p.sortOrder = store.products.length + 1;
             if (filterCat !== "all") p.category = filterCat;
             setStore({ ...store, products: [...store.products, p] });
@@ -1051,8 +1143,10 @@ function ProductsTab({
             <img src={firstPhoto(product) || "/logo.png"} alt="" />
             <div className="pad">
               <p className="card-meta">
+                {product.sku ? `Item ${product.sku} · ` : ""}
                 {product.category}
                 {product.kind === "digital" ? " · Digital" : product.kind === "sign" ? " · Metal sign" : ""}
+                {product.visible ? "" : " · Hidden"}
               </p>
               <h3>{product.name || "Untitled"}</h3>
               <p className="price">{formatUsd(product.priceCents)}</p>
@@ -1066,6 +1160,8 @@ function ProductsTab({
           product={open}
           categories={categories}
           presets={store.settings.packagePresets || []}
+          shippingOptions={store.site.shippingOptions || []}
+          tabKind={kind}
           onChange={(next) => {
             setStore({
               ...store,
@@ -1084,6 +1180,29 @@ function ProductsTab({
             });
           }}
           onUpload={(file) => uploadTo(open.id, file)}
+          onUploadCover={async (file) => {
+            const toSend = await compressImage(file);
+            return uploadFile(toSend, "photo");
+          }}
+          onRemove={async () => {
+            const label = open.name.trim() || "this untitled product";
+            if (!window.confirm(`Remove "${label}" from the shop? It will leave the public site.`)) return;
+            const next = {
+              ...store,
+              products: store.products.filter((p) => p.id !== open.id),
+            };
+            setOpenId(null);
+            setStore(next);
+            await save(next);
+          }}
+          onSave={() => save(store)}
+          onClone={async () => {
+            const copy = cloneProduct(open, store.products);
+            const next = { ...store, products: [...store.products, copy] };
+            setStore(next);
+            setOpenId(copy.id);
+            await save(next);
+          }}
         />
       ) : (
         <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
@@ -1284,25 +1403,62 @@ function PresetsEditor({
   );
 }
 
+function shippingChoice(product: Product, options: ShippingOption[]): string {
+  if (product.shippingCents <= 0) return "shop";
+  const matches = options.filter((o) => o.amountCents === product.shippingCents);
+  if (matches.length === 1) return matches[0].id;
+  return "custom";
+}
+
 function ProductEditor({
   product,
   categories,
   presets,
+  shippingOptions,
+  tabKind,
   onChange,
   onMove,
   onUpload,
+  onUploadCover,
+  onRemove,
+  onClone,
+  onSave,
 }: {
   product: Product;
   categories: ShopCategory[];
   presets: PackagePreset[];
+  shippingOptions: ShippingOption[];
+  tabKind: ProductKind;
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
+  onUploadCover: (file: File) => Promise<string>;
+  onRemove: () => void;
+  onClone: () => void;
+  onSave: () => void;
 }) {
   const media = orderedMedia(product);
+  const shipChoice = shippingChoice(product, shippingOptions);
 
   return (
-    <div className="admin-product">
+    <form
+      className="admin-product"
+      onSubmit={(e) => {
+        e.preventDefault();
+      }}
+    >
+      {product.kind !== tabKind ? (
+        <p className="err">
+          This item is now typed as{" "}
+          {product.kind === "sign" ? "Metal sign" : product.kind === "digital" ? "Digital" : "Physical"}. It will show
+          under that tab after you finish. Stay here to keep editing — the form will not reset.
+        </p>
+      ) : null}
+      <div className="hero-actions" style={{ marginBottom: 12 }}>
+        <button type="button" className="btn btn-bronze" onClick={onSave}>
+          Save item
+        </button>
+      </div>
       <div className="row">
         <label>
           Name
@@ -1318,9 +1474,44 @@ function ProductEditor({
           />
         </label>
         <label>
-          Slug
-          <input value={product.slug} onChange={(e) => onChange({ ...product, slug: e.target.value })} />
+          Item code
+          <input
+            value={product.sku}
+            onChange={(e) => onChange({ ...product, sku: e.target.value.replace(/\s+/g, "") })}
+            placeholder="221"
+          />
         </label>
+      </div>
+      <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+        <p className="section-kicker">Group card photo</p>
+        <p className="note">
+          This is the one picture on the Signs page for the whole item number (228, 228b, 228c). Set it on the main
+          item, the one with no letter. Each face inside still uses its own photos.
+        </p>
+        {product.groupCover ? (
+          <img src={product.groupCover} alt="" style={{ width: 160, height: 160, objectFit: "cover" }} />
+        ) : (
+          <p className="muted">No group photo yet. The card uses this item’s first photo.</p>
+        )}
+        <label>
+          Upload group photo
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              const url = await onUploadCover(file);
+              if (url) onChange({ ...product, groupCover: url });
+            }}
+          />
+        </label>
+        {product.groupCover ? (
+          <button type="button" className="btn" onClick={() => onChange({ ...product, groupCover: "" })}>
+            Remove group photo
+          </button>
+        ) : null}
       </div>
       <div className="row-3">
         <label>
@@ -1353,8 +1544,11 @@ function ProductEditor({
           >
             <option value="physical">Physical (ships)</option>
             <option value="digital">Digital (no shipping)</option>
-            <option value="sign">Metal sign (ships)</option>
+            <option value="sign">Premade metal sign (shows on /signs)</option>
           </select>
+          <span className="note">
+            Premade signs belong in Metal signs → Premade signs, not Physical. This type puts the item on /signs.
+          </span>
         </label>
         <label>
           Price (USD)
@@ -1380,15 +1574,69 @@ function ProductEditor({
           />
         </label>
         {product.kind === "digital" ? null : (
-          <label>
-            Shipping for this item (USD, 0 = use the shop rate)
-            <MoneyInput
-              cents={product.shippingCents}
-              onCents={(shippingCents) => onChange({ ...product, shippingCents })}
-            />
-          </label>
+          <>
+            <label>
+              Shipping
+              <select
+                value={shipChoice}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "shop") {
+                    onChange({ ...product, shippingCents: 0 });
+                    return;
+                  }
+                  if (v === "custom") {
+                    onChange({
+                      ...product,
+                      shippingCents: product.shippingCents > 0 ? product.shippingCents : 100,
+                    });
+                    return;
+                  }
+                  const opt = shippingOptions.find((o) => o.id === v);
+                  onChange({ ...product, shippingCents: opt ? opt.amountCents : 0 });
+                }}
+              >
+                <option value="shop">Shop rates (pickup + options in Site copy)</option>
+                {shippingOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label} ({formatUsd(opt.amountCents)})
+                  </option>
+                ))}
+                <option value="custom">Custom amount</option>
+              </select>
+            </label>
+            {shipChoice === "custom" ? (
+              <label>
+                Custom shipping (USD)
+                <MoneyInput
+                  cents={product.shippingCents}
+                  onCents={(shippingCents) => onChange({ ...product, shippingCents })}
+                />
+              </label>
+            ) : (
+              <p className="note">
+                {shipChoice === "shop"
+                  ? "Customer picks local pickup (no shipping) or a Site copy rate at checkout."
+                  : "This item uses that named rate. Local pickup is still offered at $0."}
+              </p>
+            )}
+          </>
         )}
         {product.kind === "digital" ? null : <PackageFields product={product} presets={presets} onChange={onChange} />}
+        <label>
+          Ready to ship
+          <input
+            type="number"
+            min={0}
+            value={product.onHand ?? ""}
+            placeholder="blank = hide count"
+            onChange={(e) => {
+              const raw = e.target.value;
+              onChange({ ...product, onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+            }}
+          />
+          <span className="note">Blank hides the count. 0 shows Made to order and still lets them buy. A number is how many you have ready.</span>
+        </label>
         <label>
           Visible on site
           <select
@@ -1416,25 +1664,14 @@ function ProductEditor({
         Description
         <textarea value={product.description} onChange={(e) => onChange({ ...product, description: e.target.value })} />
       </label>
+      <VariantRows product={product} onChange={onChange} />
       <label>
-        Variants (comma separated)
-        <input
-          value={product.variants.map((v) => v.name).join(", ")}
-          onChange={(e) =>
-            onChange({
-              ...product,
-              variants: e.target.value
-                .split(",")
-                .map((name) => name.trim())
-                .filter(Boolean)
-                .map((name) => ({ id: safeSlug(name), name })),
-            })
-          }
+        Variant note (shown under the options)
+        <textarea
+          value={product.variantNote}
+          onChange={(e) => onChange({ ...product, variantNote: e.target.value })}
+          placeholder="e.g. Painted versions are sealed for outdoor use."
         />
-      </label>
-      <label>
-        Variant note
-        <textarea value={product.variantNote} onChange={(e) => onChange({ ...product, variantNote: e.target.value })} />
       </label>
       {product.kind === "digital" ? (
         <label>
@@ -1451,6 +1688,128 @@ function ProductEditor({
         onChange={(next) => onChange({ ...product, media: next })}
         onUpload={async (file) => onUpload(file)}
       />
+      <div className="hero-actions" style={{ marginTop: 18 }}>
+        <button type="button" className="btn btn-bronze" onClick={onSave}>
+          Save item
+        </button>
+        <button type="button" className="btn" onClick={onClone}>
+          Clone this product
+        </button>
+        <button type="button" className="btn btn-danger" onClick={onRemove}>
+          Remove this product
+        </button>
+      </div>
+      <p className="note">
+        Clone already saves and lists the copy (221 becomes 221b). Use Save item after you rename it or change photos.
+        Faces that share a number (221, 221b, 221c) show as one picture on the category page.
+      </p>
+    </form>
+  );
+}
+
+function VariantRows({ product, onChange }: { product: Product; onChange: (p: Product) => void }) {
+  const [sizes, setSizes] = useState("12 in\n18 in\n24 in");
+  const [finishes, setFinishes] = useState("Unpainted\nPainted");
+
+  function patchAt(i: number, fields: Partial<(typeof product.variants)[0]>) {
+    onChange({
+      ...product,
+      variants: product.variants.map((v, idx) => (idx === i ? { ...v, ...fields } : v)),
+    });
+  }
+
+  function buildCombos() {
+    const sizeList = sizes.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    const finishList = finishes.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+    if (!sizeList.length) return;
+    const names = finishList.length
+      ? sizeList.flatMap((s) => finishList.map((f) => `${s} · ${f}`))
+      : sizeList;
+    const byName = new Map(product.variants.map((v) => [v.name.toLowerCase(), v]));
+    onChange({
+      ...product,
+      variants: names.map((name) => {
+        const prev = byName.get(name.toLowerCase());
+        return prev || { id: newId("var") + Math.random().toString(36).slice(2, 6), name, priceCents: product.priceCents, onHand: null };
+      }),
+    });
+  }
+
+  return (
+    <div>
+      <p>
+        <strong>Variants</strong>
+      </p>
+      <p className="note">
+        Each row is one option the customer picks — size, painted vs unpainted, or both. Set a price on every row.
+        On hand is how many of that size you already made. Blank hides the count. 0 means made to order, and they can
+        still buy it. Price 0 uses the product price above. Click Save item after you change rows.
+      </p>
+      {product.variants.map((v, i) => (
+        <div className="row" key={`${v.id}-${i}`} style={{ alignItems: "end" }}>
+          <label>
+            Name
+            <input value={v.name} onChange={(e) => patchAt(i, { name: e.target.value })} placeholder="12 in · Painted" />
+          </label>
+          <label>
+            Price ({formatUsd(v.priceCents > 0 ? v.priceCents : product.priceCents)})
+            <MoneyInput cents={v.priceCents} onCents={(priceCents) => patchAt(i, { priceCents })} />
+          </label>
+          <label>
+            On hand
+            <input
+              type="number"
+              min={0}
+              value={v.onHand ?? ""}
+              placeholder="blank"
+              onChange={(e) => {
+                const raw = e.target.value;
+                patchAt(i, { onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => onChange({ ...product, variants: product.variants.filter((_, idx) => idx !== i) })}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn"
+          onClick={() =>
+            onChange({
+              ...product,
+              variants: [
+                ...product.variants,
+                { id: newId("var") + Math.random().toString(36).slice(2, 6), name: "", priceCents: product.priceCents, onHand: null },
+              ],
+            })
+          }
+        >
+          Add variant
+        </button>
+      </div>
+      <details style={{ marginTop: 12 }}>
+        <summary>Build sizes × painted / unpainted</summary>
+        <p className="note">One size per line, one finish per line. Creates every combination. Matching names keep their prices.</p>
+        <div className="row">
+          <label>
+            Sizes
+            <textarea value={sizes} onChange={(e) => setSizes(e.target.value)} />
+          </label>
+          <label>
+            Finishes
+            <textarea value={finishes} onChange={(e) => setFinishes(e.target.value)} />
+          </label>
+        </div>
+        <button type="button" className="btn" onClick={buildCombos}>
+          Create combinations
+        </button>
+      </details>
     </div>
   );
 }

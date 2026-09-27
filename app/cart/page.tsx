@@ -174,7 +174,10 @@ export default function CartPage() {
       <h1>Your cart</h1>
       {!lines.length ? (
         <p>
-          Cart is empty. <Link href="/shop">Shop parts</Link>
+          Cart is empty.{" "}
+          <Link href="/physical">Continue shopping</Link>
+          {" · "}
+          <Link href="/signs">Signs</Link>
         </p>
       ) : (
         <>
@@ -184,6 +187,11 @@ export default function CartPage() {
                 <strong>{line.name}</strong>
                 {line.variant ? <span className="muted"> · {line.variant}</span> : null}
                 <div className="price">{formatUsd(line.priceCents)}</div>
+                {line.slug ? (
+                  <p className="muted">
+                    <Link href={`/shop/${line.slug}`}>Add another size / finish of this item</Link>
+                  </p>
+                ) : null}
               </div>
               <div>
                 <input
@@ -295,9 +303,20 @@ export default function CartPage() {
           ) : (
             <p className="note">Shipping from Sheridan, WY is confirmed at checkout. Stripe handles the card and receipt.</p>
           )}
-          <button className="btn" type="button" onClick={checkout} disabled={busy || needsRate}>
-            {busy ? "Opening Stripe…" : needsRate ? "Enter your ZIP to see shipping" : "Checkout with Stripe"}
-          </button>
+          <div className="hero-actions">
+            <button className="btn btn-bronze" type="button" onClick={checkout} disabled={busy || needsRate}>
+              {busy ? "Opening Stripe…" : needsRate ? "Enter your ZIP to see shipping" : "Checkout with Stripe"}
+            </button>
+            <Link className="btn" href={lines.find((l) => l.shopHref)?.shopHref || "/physical"}>
+              Continue shopping
+            </Link>
+            <Link className="btn" href="/signs">
+              Order more signs
+            </Link>
+            <Link className="btn" href="/physical">
+              More physical products
+            </Link>
+          </div>
           {error ? <p className="err">{error}</p> : null}
         </>
       )}

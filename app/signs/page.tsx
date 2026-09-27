@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { CatalogShelf } from "@/components/CatalogShelf";
 import { PickupBanner } from "@/components/PickupBanner";
-import { ProductCard } from "@/components/ProductCard";
 import { SignsCustom } from "@/components/SignsCustom";
+import { shelfEntries } from "@/lib/families";
 import { readStore, visibleProducts } from "@/lib/store";
 
 export default async function SignsPage() {
@@ -27,18 +28,14 @@ export default async function SignsPage() {
       {signs.note ? <p className="note">{signs.note}</p> : null}
 
       <section style={{ marginTop: 28 }}>
-        <p className="section-kicker">Ready to ship</p>
-        <h2>Pre-made signs</h2>
+        <p className="section-kicker">Premade signs</p>
+        <h2>Ready to buy</h2>
         <p className="muted">
           Pieces Clint has already cut — buy as listed. Local pickup is free of shipping. New photos land here as he
           makes them.
         </p>
         {catalog.length ? (
-          <div className="grid-catalog">
-            {catalog.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          <CatalogShelf entries={shelfEntries(catalog)} />
         ) : (
           <div className="card">
             <p className="muted">Nothing listed yet. Request a custom sign below.</p>

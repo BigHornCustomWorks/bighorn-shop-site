@@ -18,7 +18,7 @@ import {
   normalizeShipAddress,
   normalizeSignPack,
 } from "./shipping";
-import { splitMedia } from "./video";
+import { firstPhoto, splitMedia } from "./video";
 import type {
   FooterLink,
   GalleryPhoto,
@@ -83,6 +83,8 @@ function normalizeVariant(raw: unknown, i: number): ProductVariant {
   return {
     id: safeSlug(src.id, `v${i + 1}`),
     name: cleanStr(src.name, `Option ${i + 1}`),
+    priceCents: asCents(src.priceCents, 0),
+    onHand: onHandCount(src.onHand),
   };
 }
 
@@ -94,6 +96,31 @@ function measure(value: unknown, max: number): number {
   const n = typeof value === "number" ? value : Number(String(value ?? "").trim());
   if (!Number.isFinite(n) || n <= 0 || n > max) return 0;
   return Math.round(n * 100) / 100;
+}
+
+function onHandCount(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.round(n));
+}
+
+function assignMissingSkus(products: Product[]): Product[] {
+  const used = new Set(products.map((p) => p.sku.toLowerCase()).filter(Boolean));
+  let max = 220;
+  for (const product of products) {
+    const stem = product.sku.match(/^(\d+)/)?.[1] || "";
+    const n = Number(stem);
+    if (stem && String(n) === stem && n > max) max = n;
+  }
+  return products.map((product) => {
+    if (product.sku) return product;
+    let next = max + 1;
+    while (used.has(String(next))) next += 1;
+    max = next;
+    used.add(String(next));
+    return { ...product, sku: String(next) };
+  });
 }
 
 function normalizeProduct(raw: unknown, i: number): Product | null {
@@ -110,9 +137,11 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     id: cleanStr(src.id, newId("prod")),
     slug: safeSlug(src.slug, safeSlug(name, `part-${i + 1}`)),
     name,
+    sku: cleanStr(src.sku).replace(/\s+/g, ""),
     priceCents: asCents(src.priceCents, 0),
     description: cleanMultiline(src.description),
     media,
+    groupCover: safeUrl(src.groupCover),
     photos,
     videos,
     category: cleanStr(src.category, "Mill accessories"),
@@ -123,9 +152,10 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
         ? "Digital item. After Stripe payment, Clint emails the file or download link. No shipping."
         : "",
     ),
-    variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 24),
+    variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 48),
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
+    onHand: onHandCount(src.onHand),
     sortOrder: asInt(src.sortOrder, i + 1),
     stripeProductId: cleanStr(src.stripeProductId),
     stripePriceId: cleanStr(src.stripePriceId),
@@ -516,11 +546,13 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
 export function normalizeStore(raw: unknown): ShopStore {
   const base = seedStore();
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopStore>;
-  const products = asArray<unknown>(src.products)
-    .map(normalizeProduct)
-    .filter((p): p is Product => Boolean(p))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  const finalProducts = products.length ? products : base.products;
+  const products = assignMissingSkus(
+    asArray<unknown>(src.products)
+      .map(normalizeProduct)
+      .filter((p): p is Product => Boolean(p))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  );
+  const finalProducts = products.length ? products : assignMissingSkus(base.products);
   return {
     products: finalProducts,
     categories: mergeCategories(src.categories, finalProducts),
@@ -714,6 +746,47 @@ export function shopFilterCategories(store: ShopStore): ShopCategory[] {
   return (store.categories || []).filter((c) =>
     visible.some((p) => p.category.toLowerCase() === c.name.toLowerCase()),
   );
+}
+
+export type CategoryDoor = {
+  slug: string;
+  name: string;
+  count: number;
+  photo: string;
+};
+
+export function physicalCategoryDoors(store: ShopStore): CategoryDoor[] {
+  const products = visibleProducts(store).filter((p) => p.kind === "physical");
+  const order = new Map((store.categories || []).map((c, i) => [c.name.toLowerCase(), c.sortOrder || i + 1]));
+  const buckets = new Map<string, CategoryDoor>();
+  for (const p of products) {
+    const name = p.category || "Other";
+    const slug = categorySlug(name);
+    const photo = firstPhoto(p) || "/logo.png";
+    const existing = buckets.get(slug);
+    if (existing) {
+      existing.count += 1;
+      if (!existing.photo || existing.photo === "/logo.png") existing.photo = photo;
+    } else {
+      buckets.set(slug, { slug, name, count: 1, photo });
+    }
+  }
+  return [...buckets.values()].sort((a, b) => {
+    const ao = order.get(a.name.toLowerCase()) ?? 999;
+    const bo = order.get(b.name.toLowerCase()) ?? 999;
+    if (ao !== bo) return ao - bo;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function physicalProductsInCategory(store: ShopStore, slug: string): { name: string; products: Product[] } | null {
+  const want = safeSlug(slug);
+  if (!want || want === "all") return null;
+  const products = visibleProducts(store).filter(
+    (p) => p.kind === "physical" && categorySlug(p.category) === want,
+  );
+  if (!products.length) return null;
+  return { name: products[0].category || "Physical", products };
 }
 
 export function productBySlug(store: ShopStore, slug: string): Product | undefined {

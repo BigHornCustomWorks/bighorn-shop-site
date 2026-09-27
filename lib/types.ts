@@ -1,6 +1,10 @@
 export type ProductVariant = {
   id: string;
   name: string;
+  /** 0 = use the product’s base price. */
+  priceCents: number;
+  /** null = don't show a count. 0 = made to order. Above 0 = ready. */
+  onHand: number | null;
 };
 
 export type ProductKind = "physical" | "digital" | "sign";
@@ -77,9 +81,13 @@ export type Product = {
   id: string;
   slug: string;
   name: string;
+  /** Shop item code. Originals are numbers (221). Clones add a letter (221b). */
+  sku: string;
   priceCents: number;
   description: string;
   media: string[];
+  /** Picture for the group card (228, 228b, 228c). Faces keep their own photos. */
+  groupCover: string;
   photos: string[];
   videos: string[];
   category: string;
@@ -88,6 +96,11 @@ export type Product = {
   variants: ProductVariant[];
   variantNote: string;
   visible: boolean;
+  /**
+   * Premade pieces on hand. null = don't show a count.
+   * 0 = made to order (still for sale). Above 0 = ready to ship.
+   */
+  onHand: number | null;
   sortOrder: number;
   stripeProductId: string;
   stripePriceId: string;

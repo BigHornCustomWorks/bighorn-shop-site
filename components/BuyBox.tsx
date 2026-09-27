@@ -6,28 +6,44 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
+import { stockLabel, stockText } from "@/lib/stock";
+import { listedVariants, lowestVariantPrice, variantPriceSpread, variantUnitPrice } from "@/lib/variant-price";
 
 export function BuyBox({ product }: { product: Product }) {
   const { add } = useCart();
   const router = useRouter();
-  const [variant, setVariant] = useState(product.variants[0]?.name || "");
+  const options = listedVariants(product);
+  const needsPick = options.length > 1;
+  const [variant, setVariant] = useState(needsPick ? "" : options[0]?.name || "");
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const priceText = product.priceLabel || formatUsd(product.priceCents);
+  const picked = Boolean(variant);
+  const unitPrice = variantUnitPrice(product, variant);
+  const priceText =
+    product.priceLabel ||
+    (variantPriceSpread(product) && !picked
+      ? `From ${formatUsd(lowestVariantPrice(product))}`
+      : formatUsd(unitPrice));
   const external = (product.externalUrl || "").trim();
   const comingSoon = /coming soon/i.test(product.priceLabel || "") || /coming soon/i.test(product.digitalNote || "");
   const linkOut = Boolean(external);
 
   function addToCart() {
+    if (needsPick && !picked) {
+      setError("Pick a size / finish first.");
+      return;
+    }
     add(
       {
         productId: product.id,
         slug: product.slug,
         name: product.name,
-        priceCents: product.priceCents,
+        priceCents: unitPrice,
         photo: product.photos[0] || product.media[0] || "",
         variant,
+        shopHref:
+          product.kind === "sign" ? "/signs" : product.kind === "digital" ? "/digital" : "/physical",
       },
       qty,
     );
@@ -35,6 +51,10 @@ export function BuyBox({ product }: { product: Product }) {
   }
 
   async function buyNow() {
+    if (needsPick && !picked) {
+      setError("Pick a size / finish first.");
+      return;
+    }
     // Physical goods and premade signs must pass the cart so the customer
     // can enter a ZIP or choose Sheridan pickup before Stripe.
     if (product.kind !== "digital") {
@@ -61,7 +81,7 @@ export function BuyBox({ product }: { product: Product }) {
     }
   }
 
-  if (product.kind === "sign" && product.priceCents <= 0 && !linkOut) {
+  if (product.kind === "sign" && product.priceCents <= 0 && !options.length && !linkOut) {
     return (
       <div>
         <p className="price">{priceText === formatUsd(0) ? "Size-based" : priceText}</p>
@@ -121,15 +141,33 @@ export function BuyBox({ product }: { product: Product }) {
   }
 
   return (
-    <div>
+    <div className="buy-box">
       <p className="price">{priceText}</p>
-      {product.variants.length ? (
-        <label>
-          Color
-          <select value={variant} onChange={(e) => setVariant(e.target.value)}>
-            {product.variants.map((v) => (
-              <option key={v.id} value={v.name}>
-                {v.name}
+      {(() => {
+        const pickedVariant = options.find((v) => v.name === variant);
+        const line = pickedVariant ? stockText(pickedVariant.onHand) : stockLabel(product);
+        return line ? (
+          <p className="note">
+            {line}. You can still order it when none are ready — Clint builds that one for you.
+          </p>
+        ) : null;
+      })()}
+      {options.length ? (
+        <label className="buy-variant">
+          Choose size / finish
+          <select
+            value={variant}
+            required={needsPick}
+            onChange={(e) => {
+              setVariant(e.target.value);
+              setError("");
+            }}
+          >
+            {needsPick ? <option value="">Select an option…</option> : null}
+            {options.map((v) => (
+              <option key={v.id + v.name} value={v.name}>
+                {v.name} — {formatUsd(variantUnitPrice(product, v.name))}
+                {stockText(v.onHand) ? ` — ${stockText(v.onHand)}` : ""}
               </option>
             ))}
           </select>

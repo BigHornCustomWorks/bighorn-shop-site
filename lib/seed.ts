@@ -90,9 +90,11 @@ export function defaultProducts(): Product[] {
       id: "prod_way_covers",
       slug: "baffled-y-and-z-way-covers",
       name: "Baffled Y and Z way covers",
+      sku: "",
       priceCents: 16000,
       description:
         "For Precision Matthews PM-728 / PM-728VT. Custom-engineered Y and Z axis way covers designed to shield critical machine surfaces from chips and dust across three sides. Glass-reinforced TPU, 3D printed, heat and abrasion resistant. Set includes custom mounting brackets and hardware that attach to existing machine holes. No extra drilling.",
+      groupCover: "",
       media: [
         "/products/way-covers-1.jpg",
         "/products/way-covers-2.jpg",
@@ -108,6 +110,7 @@ export function defaultProducts(): Product[] {
       variants: [],
       variantNote: "",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,
@@ -128,9 +131,11 @@ export function defaultProducts(): Product[] {
       id: "prod_t_slot",
       slug: "t-slot-covers",
       name: "T-Slot covers",
+      sku: "",
       priceCents: 3999,
       description:
         "For Precision Matthews PM-728VT bed T-slots. Dual-material 3D printed: hard outer shell that resists hot chips and abrasion, softer flexible layer that snaps in. Keeps chips, coolant, and debris out of the T-slots. Easy to install and remove.",
+      groupCover: "",
       media: [
         "/products/t-slot-1.jpg",
         "/products/t-slot-2.png",
@@ -144,14 +149,15 @@ export function defaultProducts(): Product[] {
       kind: "physical",
       digitalNote: "",
       variants: [
-        { id: "black", name: "Black" },
-        { id: "blue", name: "Blue" },
-        { id: "red", name: "Red" },
-        { id: "gray", name: "Gray" },
+        { id: "black", name: "Black", priceCents: 0, onHand: null },
+        { id: "blue", name: "Blue", priceCents: 0, onHand: null },
+        { id: "red", name: "Red", priceCents: 0, onHand: null },
+        { id: "gray", name: "Gray", priceCents: 0, onHand: null },
       ],
       variantNote:
         "If they pick a color other than black, ONLY the top is that color. Rubber bottom stays black. Note: Clint can print on demand within 24 hours if inventory is low.",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,
@@ -172,9 +178,11 @@ export function defaultProducts(): Product[] {
       id: "prod_spindle",
       slug: "sliding-spindle-lock",
       name: "Sliding Spindle lock",
+      sku: "",
       priceCents: 13499,
       description:
         "For Precision Matthews PM-728VT. Replaces the stock spindle lock with a sliding mechanism. Locks the spindle with one motion. Solid steel. Hardware included. No mill modifications.",
+      groupCover: "",
       media: [
         "/products/spindle-1.jpg",
         "/products/spindle-2.jpg",
@@ -192,6 +200,7 @@ export function defaultProducts(): Product[] {
       variants: [],
       variantNote: "",
       visible: true,
+      onHand: null,
       stripeProductId: "",
       stripePriceId: "",
       stripePriceCents: 0,
