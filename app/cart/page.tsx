@@ -23,21 +23,18 @@ type RatesState =
 
 function reasonText(reason: string): string {
   switch (reason) {
-    case "not_configured":
-      return "Live USPS/UPS rates are off: SHIPPO_API_KEY is not set on this site. Checkout uses the flat shipping price.";
-    case "no_ship_from":
-      return "Live rates need a ship-from address in Master Control (street, city, state, and ZIP). Checkout uses the flat shipping price.";
-    case "missing_dimensions":
-      return "Live rates need a weight and a box on every physical item in this cart. Checkout uses the flat shipping price until those are saved.";
     case "no_rates":
-      return "USPS and UPS did not return a rate for that ZIP. Checkout uses the flat shipping price.";
+      return "USPS and UPS did not return a price for that ZIP. This order ships at the flat rate.";
     case "api_error":
-      return "The shipping service failed. Checkout uses the flat shipping price.";
     case "busy":
-      return "Too many rate lookups just now. Checkout uses the flat shipping price.";
+      return "Carrier prices are unavailable right now. This order ships at the flat rate.";
     default:
-      return reason ? `Live rates are not available (${reason}). Checkout uses the flat shipping price.` : "";
+      return "This order ships at the shop's flat rate. The shipping price is confirmed when you pay.";
   }
+}
+
+function ratesNeedSetup(reason: string): boolean {
+  return reason === "not_configured" || reason === "no_ship_from" || reason === "missing_dimensions";
 }
 
 export default function CartPage() {
@@ -164,9 +161,10 @@ export default function CartPage() {
     }
   }
 
-  const showRateBox = shipChosen && rates.mode !== "idle" && rates.mode !== "none";
+  const setupGap = rates.mode === "flat" && ratesNeedSetup(rates.reason);
+  const showRateBox = shipChosen && !setupGap && rates.mode !== "idle" && rates.mode !== "none";
   const chosen = rates.mode === "live" && shipChosen ? rates.rates.find((r) => r.id === picked) : undefined;
-  const flatNote = rates.mode === "flat" && shipChosen ? reasonText(rates.reason) : "";
+  const flatNote = rates.mode === "flat" && shipChosen && !showRateBox ? reasonText(rates.reason) : "";
 
   return (
     <div className="wrap">
@@ -228,11 +226,13 @@ export default function CartPage() {
           {showRateBox ? (
             <div className="form" style={{ maxWidth: 560, marginBottom: 16 }}>
               <p className="section-kicker">Shipping ZIP</p>
-              {rates.mode === "flat" ? <p className="err">{reasonText(rates.reason)}</p> : null}
-              <p className="note">
-                Enter where it&apos;s going for live USPS and UPS rates from Sheridan, WY. ZIP is enough; the full
-                street address makes the rate exact. Pick a rate before checkout. Stripe will charge only that rate.
-              </p>
+              {rates.mode === "flat" ? <p className="note">{reasonText(rates.reason)}</p> : null}
+              {rates.mode === "ready" || rates.mode === "live" ? (
+                <p className="note">
+                  Enter where it&apos;s going for live USPS and UPS rates from Sheridan, WY. ZIP is enough; the full
+                  street address makes the rate exact. Pick a rate before checkout. Stripe will charge only that rate.
+                </p>
+              ) : null}
               <label>
                 Street (optional)
                 <input
