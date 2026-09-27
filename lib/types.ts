@@ -262,6 +262,8 @@ export type ShopOrder = {
   sessionId: string;
   /** Which shipping service the customer paid for, so the right label gets bought. */
   shippingLabel: string;
+  /** "pickup" or "ship". Empty on orders from before the cart choice existed. */
+  fulfillment: string;
   shippingCents: number;
   taxCents: number;
   trackingCarrier: string;

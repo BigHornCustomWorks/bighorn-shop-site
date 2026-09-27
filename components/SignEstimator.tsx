@@ -102,6 +102,7 @@ export function SignEstimator({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          fulfillment: "ship",
           sign: { widthIn: quote.widthIn, heightIn: quote.heightIn },
           shipping: chosen ? { shipmentId, rateId: chosen.id } : undefined,
         }),
@@ -204,8 +205,9 @@ export function SignEstimator({
               </button>
             </div>
             <p className="note" style={{ marginTop: 12 }}>
-              On Stripe you can ship ({liveMode === "ready" || liveMode === "live" ? "the rate picked above" : "size-based postage"}) or
-              choose local pickup in Sheridan at $0. {shippingNote}
+              Stripe charges only the rate you pick here
+              {liveMode === "ready" || liveMode === "live" ? "" : ", or the flat size-based postage if live rates are unavailable"}.{" "}
+              {shippingNote}
             </p>
           </>
         ) : (

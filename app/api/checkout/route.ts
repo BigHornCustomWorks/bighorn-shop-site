@@ -8,6 +8,7 @@ import {
   retrieveRate,
   retrieveShipment,
   shipFromAddress,
+  checkoutFulfillment,
   shippoConfig,
   signParcel,
   type LiveRate,
@@ -55,17 +56,22 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const store = await readStore();
+    const requested = body.fulfillment ?? (body.sign?.pickup === true ? "pickup" : "ship");
+    const how = checkoutFulfillment(requested, store.site.pickupEnabled !== false);
+    if (!how) {
+      return NextResponse.json({ error: "Local pickup is not offered." }, { status: 400 });
+    }
 
     if (body.sign) {
       const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn, {
         finishId: cleanStr(body.sign.finishId),
-        fulfillment: body.sign.pickup === true || body.sign.fulfillment === "pickup" ? "pickup" : "ship",
+        fulfillment: how,
       });
       if (!quote.ok) {
         return NextResponse.json({ error: quote.error }, { status: 400 });
       }
       const live =
-        quote.fulfillment === "ship"
+        how === "ship"
           ? await lookupLiveRate(store, body, signParcel(store.metalSigns, quote.widthIn, quote.heightIn))
           : { rate: null, invalid: false };
       if (live.invalid) return rateChanged();
@@ -73,7 +79,7 @@ export async function POST(req: Request) {
         store,
         quote,
         cleanStr(body.email) || undefined,
-        live.rate,
+        how === "ship" ? live.rate : null,
       );
       return NextResponse.json({ url: session.url });
     }
@@ -84,10 +90,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cart is empty or those parts are hidden." }, { status: 400 });
     }
 
-    const live = await lookupLiveRate(store, body, buildParcel(items, store.settings));
+    const live =
+      how === "ship"
+        ? await lookupLiveRate(store, body, buildParcel(items, store.settings))
+        : { rate: null, invalid: false };
     if (live.invalid) return rateChanged();
 
-    const session = await createCheckoutSession(store, items, cleanStr(body.email) || undefined, live.rate);
+    const session = await createCheckoutSession(
+      store,
+      items,
+      cleanStr(body.email) || undefined,
+      how === "ship" ? live.rate : null,
+      how,
+    );
     return NextResponse.json({ url: session.url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Checkout failed.";

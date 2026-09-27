@@ -517,6 +517,26 @@ export async function quoteRates(
   return { shipmentId, rates: shipmentId ? offeredRates(shipment.rates, shipmentId) : [] };
 }
 
+export type CheckoutFulfillment = "ship" | "pickup";
+
+/**
+ * Cart choice. Anything other than an explicit pickup is "ship".
+ * Pickup is refused when Master Control has turned it off.
+ */
+export function checkoutFulfillment(requested: unknown, pickupEnabled: boolean): CheckoutFulfillment | null {
+  if (requested === "pickup") return pickupEnabled ? "pickup" : null;
+  return "ship";
+}
+
+/** Stripe gets exactly one kind of shipping option. Pickup never sits next to a paid rate. */
+export function stripeShippingPlan(
+  fulfillment: CheckoutFulfillment,
+  hasLiveRate: boolean,
+): "pickup" | "live" | "flat" {
+  if (fulfillment === "pickup") return "pickup";
+  return hasLiveRate ? "live" : "flat";
+}
+
 export type RateCheck = { ok: true; rate: LiveRate } | { ok: false; reason: string };
 
 /**

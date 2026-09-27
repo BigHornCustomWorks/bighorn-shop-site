@@ -16,8 +16,29 @@ type Rate = {
 
 type RatesState =
   | { mode: "idle" }
-  | { mode: "none" | "flat" | "ready"; pickup: boolean }
-  | { mode: "live"; pickup: boolean; shipmentId: string; rates: Rate[] };
+  | { mode: "none"; pickup: boolean; reason: string }
+  | { mode: "flat"; pickup: boolean; reason: string }
+  | { mode: "ready"; pickup: boolean; reason: string }
+  | { mode: "live"; pickup: boolean; reason: string; shipmentId: string; rates: Rate[] };
+
+function reasonText(reason: string): string {
+  switch (reason) {
+    case "not_configured":
+      return "Live USPS/UPS rates are off: SHIPPO_API_KEY is not set on this site. Checkout uses the flat shipping price.";
+    case "no_ship_from":
+      return "Live rates need a ship-from address in Master Control (street, city, state, and ZIP). Checkout uses the flat shipping price.";
+    case "missing_dimensions":
+      return "Live rates need a weight and a box on every physical item in this cart. Checkout uses the flat shipping price until those are saved.";
+    case "no_rates":
+      return "USPS and UPS did not return a rate for that ZIP. Checkout uses the flat shipping price.";
+    case "api_error":
+      return "The shipping service failed. Checkout uses the flat shipping price.";
+    case "busy":
+      return "Too many rate lookups just now. Checkout uses the flat shipping price.";
+    default:
+      return reason ? `Live rates are not available (${reason}). Checkout uses the flat shipping price.` : "";
+  }
+}
 
 export default function CartPage() {
   const { lines, setQty, remove, totalCents, clear } = useCart();
@@ -27,6 +48,7 @@ export default function CartPage() {
   const [rateBusy, setRateBusy] = useState(false);
   const [rateError, setRateError] = useState("");
   const [picked, setPicked] = useState("");
+  const [how, setHow] = useState<"ship" | "pickup">("ship");
   const [addr, setAddr] = useState({ street1: "", city: "", state: "", zip: "" });
 
   const cartRows = useMemo(
@@ -60,9 +82,9 @@ export default function CartPage() {
       .then((json) => {
         if (!live) return;
         const mode = json.mode === "none" || json.mode === "ready" ? json.mode : "flat";
-        setRates({ mode, pickup: json.pickup !== false });
+        setRates({ mode, pickup: json.pickup === true, reason: typeof json.reason === "string" ? json.reason : "" });
       })
-      .catch(() => live && setRates({ mode: "flat", pickup: true }));
+      .catch(() => live && setRates({ mode: "flat", pickup: false, reason: "api_error" }));
     return () => {
       live = false;
     };
@@ -85,37 +107,51 @@ export default function CartPage() {
         return;
       }
       if (json.mode === "live" && Array.isArray(json.rates) && json.rates.length) {
-        setRates({ mode: "live", pickup: json.pickup !== false, shipmentId: json.shipmentId, rates: json.rates });
-        setPicked(json.rates[0].id);
+        setRates({
+          mode: "live",
+          pickup: json.pickup === true,
+          reason: "",
+          shipmentId: json.shipmentId,
+          rates: json.rates,
+        });
+        setPicked("");
       } else {
-        // API trouble or no rates: flat shipping on the Stripe page instead.
-        setRates({ mode: "flat", pickup: json.pickup !== false });
-        setRateError("Live rates are not available right now — standard shipping is chosen on the payment page.");
+        const reason = typeof json.reason === "string" ? json.reason : "no_rates";
+        setRates({ mode: "flat", pickup: json.pickup === true, reason });
+        setRateError(reasonText(reason));
       }
     } catch {
-      setRates({ mode: "flat", pickup: true });
-      setRateError("Live rates are not available right now — standard shipping is chosen on the payment page.");
+      setRates({ mode: "flat", pickup: false, reason: "api_error" });
+      setRateError(reasonText("api_error"));
     } finally {
       setRateBusy(false);
     }
   }
 
-  const needsRate = rates.mode === "ready" || (rates.mode === "live" && !picked);
+  const pickupOn = rates.mode !== "idle" && rates.mode !== "none" && rates.pickup;
+  const shipChosen = !pickupOn || how === "ship";
+  const needsRate = shipChosen && (rates.mode === "ready" || (rates.mode === "live" && !picked));
 
   async function checkout() {
     setBusy(true);
     setError("");
     try {
       const shipping =
-        rates.mode === "live" && picked ? { shipmentId: rates.shipmentId, rateId: picked } : undefined;
+        shipChosen && rates.mode === "live" && picked
+          ? { shipmentId: rates.shipmentId, rateId: picked }
+          : undefined;
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: cartRows, shipping }),
+        body: JSON.stringify({
+          items: cartRows,
+          fulfillment: shipChosen ? "ship" : "pickup",
+          shipping,
+        }),
       });
       const json = await res.json();
       if (res.status === 409 && json.code === "rate_invalid") {
-        setRates({ mode: "ready", pickup: rates.mode === "live" ? rates.pickup : true });
+        setRates({ mode: "ready", pickup: "pickup" in rates && rates.pickup === true, reason: "" });
         setPicked("");
         throw new Error(json.error || "Shipping rates changed. Please get rates again.");
       }
@@ -128,9 +164,9 @@ export default function CartPage() {
     }
   }
 
-  const showRateBox = rates.mode === "ready" || rates.mode === "live";
-  const pickupOn = rates.mode !== "idle" && rates.pickup;
-  const chosen = rates.mode === "live" ? rates.rates.find((r) => r.id === picked) : undefined;
+  const showRateBox = shipChosen && (rates.mode === "ready" || rates.mode === "live");
+  const chosen = rates.mode === "live" && shipChosen ? rates.rates.find((r) => r.id === picked) : undefined;
+  const flatNote = rates.mode === "flat" && shipChosen ? reasonText(rates.reason) : "";
 
   return (
     <div className="wrap">
@@ -165,13 +201,28 @@ export default function CartPage() {
           ))}
           <p className="price">Total {formatUsd(totalCents)}</p>
 
+          {rates.mode !== "idle" && rates.mode !== "none" ? (
+            <fieldset className="sign-fulfill" style={{ maxWidth: 560 }}>
+              <legend>How do you want it?</legend>
+              <label className="radio">
+                <input type="radio" name="cart-how" checked={how === "ship" || !pickupOn} onChange={() => setHow("ship")} />
+                Ship it
+              </label>
+              {pickupOn ? (
+                <label className="radio">
+                  <input type="radio" name="cart-how" checked={how === "pickup"} onChange={() => setHow("pickup")} />
+                  Pick up in Sheridan, WY (free)
+                </label>
+              ) : null}
+            </fieldset>
+          ) : null}
+
           {showRateBox ? (
             <div className="form" style={{ maxWidth: 560, marginBottom: 16 }}>
-              <p className="section-kicker">Shipping</p>
+              <p className="section-kicker">Shipping ZIP</p>
               <p className="note">
                 Enter where it&apos;s going for live USPS and UPS rates from Sheridan, WY. ZIP is enough; the full
-                street address makes the rate exact.
-                {pickupOn ? " Picking up in Sheridan? Choose Local pickup on the payment page." : ""}
+                street address makes the rate exact. Pick a rate before checkout. Stripe will charge only that rate.
               </p>
               <label>
                 Street (optional)
@@ -234,6 +285,7 @@ export default function CartPage() {
             </div>
           ) : null}
           {rateError ? <p className="note">{rateError}</p> : null}
+          {flatNote && !rateError ? <p className="note">{flatNote}</p> : null}
 
           {chosen ? (
             <p className="price">

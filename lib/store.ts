@@ -159,6 +159,7 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     address: cleanMultiline(src.address),
     sessionId,
     shippingLabel: cleanStr(src.shippingLabel),
+    fulfillment: cleanStr(src.fulfillment) === "pickup" ? "pickup" : cleanStr(src.fulfillment) === "ship" ? "ship" : "",
     shippingCents: asCents(src.shippingCents, 0),
     taxCents: asCents(src.taxCents, 0),
     trackingCarrier: cleanStr(src.trackingCarrier),

@@ -110,6 +110,7 @@ export async function POST(req: Request) {
           address,
           sessionId: session.id,
           shippingLabel,
+          fulfillment: meta.fulfillment === "pickup" ? "pickup" : "ship",
           shippingCents,
           taxCents,
           trackingCarrier: "",

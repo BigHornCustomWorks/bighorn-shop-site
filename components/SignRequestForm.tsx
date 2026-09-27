@@ -22,7 +22,7 @@ export function SignRequestForm({
   const [width, setWidth] = useState("12");
   const [height, setHeight] = useState("12");
   const [finishId, setFinishId] = useState(finishes[0]?.id || "");
-  const [fulfillment, setFulfillment] = useState<"pickup" | "ship">(pickupEnabled ? "pickup" : "ship");
+  const [fulfillment, setFulfillment] = useState<"pickup" | "ship">("ship");
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "err">("idle");
   const [message, setMessage] = useState("");
   const [payBusy, setPayBusy] = useState(false);
@@ -67,6 +67,7 @@ export function SignRequestForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          fulfillment,
           sign: {
             widthIn: quote.widthIn,
             heightIn: quote.heightIn,
@@ -137,6 +138,15 @@ export function SignRequestForm({
 
       <fieldset className="sign-fulfill">
         <legend>How do you want it?</legend>
+        <label className="radio">
+          <input
+            type="radio"
+            name="how"
+            checked={fulfillment === "ship"}
+            onChange={() => setFulfillment("ship")}
+          />
+          Ship it
+        </label>
         {pickupEnabled ? (
           <label className="radio">
             <input
@@ -145,19 +155,10 @@ export function SignRequestForm({
               checked={fulfillment === "pickup"}
               onChange={() => setFulfillment("pickup")}
             />
-            Local pickup — no shipping
-            {pickupLabel ? ` (${pickupLabel})` : ""}
+            Pick up in Sheridan, WY (free)
+            {pickupLabel ? ` — ${pickupLabel}` : ""}
           </label>
         ) : null}
-        <label className="radio">
-          <input
-            type="radio"
-            name="how"
-            checked={fulfillment === "ship"}
-            onChange={() => setFulfillment("ship")}
-          />
-          Ship from Sheridan (postage from size)
-        </label>
       </fieldset>
 
       <div className="sign-price-box">

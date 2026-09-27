@@ -50,16 +50,6 @@ function pickupOption(
   };
 }
 
-function withPickup(
-  store: ShopStore,
-  paid: Stripe.Checkout.SessionCreateParams.ShippingOption[],
-): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
-  const pickup = pickupOption(store);
-  const room = pickup ? 4 : 5;
-  const list = paid.slice(0, room);
-  return pickup ? [pickup, ...list] : list;
-}
-
 function perItemShipping(
   store: ShopStore,
   items: { product: Product; quantity: number }[],
@@ -94,7 +84,7 @@ function shippingOptionsFor(
   items: { product: Product; quantity: number }[],
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
   const fromItems = perItemShipping(store, items);
-  if (fromItems.length) return withPickup(store, fromItems);
+  if (fromItems.length) return fromItems;
 
   const paid = store.site.shippingOptions.slice(0, 5).map((opt) => {
     const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
@@ -111,19 +101,22 @@ function shippingOptionsFor(
     }
     return { shipping_rate_data: rate };
   });
-  return withPickup(store, paid);
+  return paid;
+}
+
+/** Only the free pickup rate. Used when the customer already chose pickup on the cart. */
+function pickupOnlyOptions(
+  store: ShopStore,
+): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+  const pickup = pickupOption(store);
+  return pickup ? [pickup] : [];
 }
 
 /**
  * The one carrier rate the customer picked in the cart, at the exact amount
- * Shippo quoted (already re-checked server-side). Pickup stays available.
- * The ids ride on the Stripe shipping rate so the webhook can tell whether
- * the customer kept this rate or switched to pickup on the payment page.
+ * Shippo quoted (already re-checked server-side). Pickup is not included.
  */
-function liveShippingOptions(
-  store: ShopStore,
-  rate: LiveRate,
-): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
+function liveShippingOptions(rate: LiveRate): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
   const data: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
     type: "fixed_amount",
     fixed_amount: { amount: rate.amountCents, currency: "usd" },
@@ -137,7 +130,7 @@ function liveShippingOptions(
       maximum: { unit: "business_day", value: rate.days },
     };
   }
-  return withPickup(store, [{ shipping_rate_data: data }]);
+  return [{ shipping_rate_data: data }];
 }
 
 function liveRateMetadata(rate: LiveRate): Record<string, string> {
@@ -160,6 +153,7 @@ export async function createCheckoutSession(
   items: { product: Product; quantity: number; variant?: string }[],
   customerEmail?: string,
   liveRate?: LiveRate | null,
+  fulfillment: "ship" | "pickup" = "ship",
 ) {
   const stripe = stripeClient(store);
   if (!stripe) throw new Error("Stripe is not configured.");
@@ -199,16 +193,22 @@ export async function createCheckoutSession(
     cancel_url: `${origin}/checkout/cancel`,
     metadata: {
       shop: "big-horn-custom-works",
+      fulfillment,
       items: items.map((i) => `${i.product.slug}:${i.variant || "default"}x${i.quantity}`).join(","),
     },
   };
 
   if (needsShipping) {
     params.shipping_address_collection = { allowed_countries: ["US"] };
-    const options = liveRate ? liveShippingOptions(store, liveRate) : shippingOptionsFor(store, items);
+    const options =
+      fulfillment === "pickup"
+        ? pickupOnlyOptions(store)
+        : liveRate
+          ? liveShippingOptions(liveRate)
+          : shippingOptionsFor(store, items);
     if (options.length) params.shipping_options = options;
-    if (liveRate && params.metadata) Object.assign(params.metadata, liveRateMetadata(liveRate));
-    if (store.site.pickupEnabled !== false) {
+    if (fulfillment === "ship" && liveRate && params.metadata) Object.assign(params.metadata, liveRateMetadata(liveRate));
+    if (fulfillment === "pickup") {
       params.phone_number_collection = { enabled: true };
     }
   }
@@ -237,7 +237,7 @@ function signShippingOptions(
   shippingCents: number,
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] {
   if (shippingCents > 0) {
-    return withPickup(store, [
+    return [
       {
         shipping_rate_data: {
           type: "fixed_amount",
@@ -246,11 +246,9 @@ function signShippingOptions(
           tax_behavior: "exclusive",
         },
       },
-    ]);
+    ];
   }
-  return withPickup(
-    store,
-    store.site.shippingOptions.slice(0, 5).map((opt) => {
+  return store.site.shippingOptions.slice(0, 5).map((opt) => {
       const rate: Stripe.Checkout.SessionCreateParams.ShippingOption.ShippingRateData = {
         type: "fixed_amount",
         fixed_amount: { amount: opt.amountCents, currency: "usd" },
@@ -264,8 +262,7 @@ function signShippingOptions(
         };
       }
       return { shipping_rate_data: rate };
-    }),
-  );
+    });
 }
 
 export async function createSignCheckoutSession(
@@ -313,20 +310,21 @@ export async function createSignCheckoutSession(
       areaLabel: quote.areaLabel,
       rateLabel: quote.rateLabel,
       shippingCents: String(quote.shippingCents),
+      fulfillment: quote.fulfillment === "pickup" ? "pickup" : "ship",
     },
   };
 
   const options =
     quote.fulfillment === "pickup"
-      ? withPickup(store, [])
+      ? pickupOnlyOptions(store)
       : liveRate
-        ? liveShippingOptions(store, liveRate)
+        ? liveShippingOptions(liveRate)
         : signShippingOptions(store, quote.shippingCents);
   if (liveRate && quote.fulfillment !== "pickup" && params.metadata) {
     Object.assign(params.metadata, liveRateMetadata(liveRate));
   }
   if (options.length) params.shipping_options = options;
-  if (store.site.pickupEnabled !== false) {
+  if (quote.fulfillment === "pickup") {
     params.phone_number_collection = { enabled: true };
   }
 

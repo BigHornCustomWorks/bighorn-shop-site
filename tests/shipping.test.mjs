@@ -11,8 +11,10 @@ import {
   offeredRates,
   planLabel,
   quoteRates,
+  checkoutFulfillment,
   shipFromAddress,
   signParcel,
+  stripeShippingPlan,
 } from "../lib/shipping.ts";
 
 const NOW = Date.parse("2026-09-25T16:00:00Z");
@@ -146,6 +148,16 @@ test("offeredRates keeps USPS/UPS only, in cents, cheapest first", () => {
   assert.deepEqual(rates.map((r) => [r.carrier, r.amountCents]), [["USPS", 820], ["USPS", 1101], ["UPS", 1340]]);
   assert.equal(rates[0].displayName, "USPS Ground Advantage");
   assert.equal(rates[0].serviceToken, "usps_ground_advantage");
+});
+
+test("checkout fulfillment: ship is the default, pickup only when it is offered", () => {
+  assert.equal(checkoutFulfillment(undefined, true), "ship");
+  assert.equal(checkoutFulfillment("ship", true), "ship");
+  assert.equal(checkoutFulfillment("pickup", true), "pickup");
+  assert.equal(checkoutFulfillment("pickup", false), null);
+  assert.equal(stripeShippingPlan("pickup", true), "pickup");
+  assert.equal(stripeShippingPlan("ship", true), "live");
+  assert.equal(stripeShippingPlan("ship", false), "flat");
 });
 
 test("shipFromAddress: complete settings win, then env, else null (no invented default)", () => {
