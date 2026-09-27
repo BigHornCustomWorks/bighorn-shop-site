@@ -164,7 +164,7 @@ export default function CartPage() {
     }
   }
 
-  const showRateBox = shipChosen && (rates.mode === "ready" || rates.mode === "live");
+  const showRateBox = shipChosen && rates.mode !== "idle" && rates.mode !== "none";
   const chosen = rates.mode === "live" && shipChosen ? rates.rates.find((r) => r.id === picked) : undefined;
   const flatNote = rates.mode === "flat" && shipChosen ? reasonText(rates.reason) : "";
 
@@ -220,6 +220,7 @@ export default function CartPage() {
           {showRateBox ? (
             <div className="form" style={{ maxWidth: 560, marginBottom: 16 }}>
               <p className="section-kicker">Shipping ZIP</p>
+              {rates.mode === "flat" ? <p className="err">{reasonText(rates.reason)}</p> : null}
               <p className="note">
                 Enter where it&apos;s going for live USPS and UPS rates from Sheridan, WY. ZIP is enough; the full
                 street address makes the rate exact. Pick a rate before checkout. Stripe will charge only that rate.
