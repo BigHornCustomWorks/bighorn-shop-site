@@ -35,6 +35,12 @@ export function BuyBox({ product }: { product: Product }) {
   }
 
   async function buyNow() {
+    // Physical goods and premade signs must pass the cart so the customer
+    // can enter a ZIP or choose Sheridan pickup before Stripe.
+    if (product.kind !== "digital") {
+      addToCart();
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -43,6 +49,7 @@ export function BuyBox({ product }: { product: Product }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: [{ productId: product.id, quantity: qty, variant }],
+          fulfillment: "ship",
         }),
       });
       const json = await res.json();
@@ -147,6 +154,11 @@ export function BuyBox({ product }: { product: Product }) {
           {busy ? "Opening checkout…" : "Buy now"}
         </button>
       </div>
+      {product.kind !== "digital" ? (
+        <p className="note" style={{ marginTop: 10 }}>
+          Buy now goes to the cart first, where you enter a ZIP for shipping or choose local pickup.
+        </p>
+      ) : null}
       {error ? <p className="err">{error}</p> : null}
       {product.kind === "digital" ? (
         <p className="note" style={{ marginTop: 10 }}>
