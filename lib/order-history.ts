@@ -205,6 +205,7 @@ export function ordersToCsv(orders: ShopOrder[]): string {
     "fulfillment",
     "shipped",
     "reviewRequestedAt",
+    "repairReviewRequestedAt",
   ];
   const lines = orders.map((order) =>
     [
@@ -219,6 +220,7 @@ export function ordersToCsv(orders: ShopOrder[]): string {
       orderFulfillment(order),
       order.shippedAt ? "yes" : "no",
       order.reviewRequestedAt || "",
+      order.repairReviewRequestedAt || "",
     ]
       .map((cell) => csvCell(String(cell ?? "")))
       .join(","),

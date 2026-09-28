@@ -139,6 +139,7 @@ export async function POST(req: Request) {
           phone,
           smsOptIn,
           reviewRequestedAt: "",
+          repairReviewRequestedAt: "",
           amountCents,
           items,
           address,

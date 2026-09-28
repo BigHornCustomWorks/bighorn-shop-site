@@ -283,11 +283,19 @@ export async function sendReviewRequestEmail(opts: {
   to: string;
   name: string;
   reviewUrl: string;
+  brand?: "shop" | "repair";
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const to = cleanStr(opts.to);
   const reviewUrl = cleanStr(opts.reviewUrl);
+  const brand = opts.brand === "repair" ? "repair" : "shop";
+  const business = brand === "repair" ? "Repair Status" : "Big Horn Custom Works";
   if (!to) return { ok: false, error: "This order has no customer email." };
-  if (!reviewUrl) return { ok: false, error: "Add a Google review link in Settings, then save, before sending." };
+  if (!reviewUrl) {
+    return {
+      ok: false,
+      error: `Add the ${business} Google review link in Settings, then save, before sending.`,
+    };
+  }
 
   const user = cleanStr(process.env.SMTP_USER);
   const pass = cleanStr(process.env.SMTP_PASS);
@@ -296,16 +304,28 @@ export async function sendReviewRequestEmail(opts: {
   }
 
   const name = cleanStr(opts.name);
-  const text = [
-    name ? `Hi ${name},` : "Hi,",
-    "",
-    "Thanks for your order from Big Horn Custom Works.",
-    "If you have a minute, a Google review helps other people find the Sheridan shop.",
-    "",
-    reviewUrl,
-    "",
-    "— Clint, Big Horn Custom Works",
-  ].join("\n");
+  const text =
+    brand === "repair"
+      ? [
+          name ? `Hi ${name},` : "Hi,",
+          "",
+          "Thanks for using Repair Status, from Big Horn Custom Works.",
+          "If you have a minute, a Google review helps other shops find it.",
+          "",
+          reviewUrl,
+          "",
+          "— Clint, Big Horn Custom Works",
+        ].join("\n")
+      : [
+          name ? `Hi ${name},` : "Hi,",
+          "",
+          "Thanks for your order from Big Horn Custom Works.",
+          "If you have a minute, a Google review helps other people find the Sheridan shop.",
+          "",
+          reviewUrl,
+          "",
+          "— Clint, Big Horn Custom Works",
+        ].join("\n");
 
   try {
     const nodemailer = await import("nodemailer");
@@ -319,7 +339,10 @@ export async function sendReviewRequestEmail(opts: {
       from: `Big Horn Custom Works <${user}>`,
       to,
       replyTo: shopInbox(),
-      subject: "Thanks for your order from Big Horn Custom Works",
+      subject:
+        brand === "repair"
+          ? "Thanks for using Repair Status"
+          : "Thanks for your order from Big Horn Custom Works",
       text,
     });
     return { ok: true };

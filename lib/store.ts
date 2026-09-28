@@ -188,6 +188,7 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     phone: cleanStr(src.phone) || cleanStr(rawShip.phone),
     smsOptIn: src.smsOptIn === true,
     reviewRequestedAt: cleanStr(src.reviewRequestedAt),
+    repairReviewRequestedAt: cleanStr(src.repairReviewRequestedAt),
     amountCents: asCents(src.amountCents, 0),
     items: cleanMultiline(src.items),
     address: cleanMultiline(src.address),
@@ -302,6 +303,7 @@ function normalizeSite(raw: unknown): SiteCopy {
     footerLinks: links.length ? links : base.footerLinks,
     shopFloorNotes: cleanMultiline(src.shopFloorNotes, base.shopFloorNotes),
     googleReviewUrl: safeUrl(src.googleReviewUrl),
+    repairReviewUrl: safeUrl(src.repairReviewUrl),
   };
 }
 

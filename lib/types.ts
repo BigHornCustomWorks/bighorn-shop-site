@@ -194,8 +194,10 @@ export type SiteCopy = {
   footerNote: string;
   footerLinks: FooterLink[];
   shopFloorNotes: string;
-  /** Public Google review URL. Order history uses it when Clint sends a review request. */
+  /** Public Google review URL for the shop. Order history uses it when Clint sends a review request. */
   googleReviewUrl: string;
+  /** Public Google review URL for Repair Status. Sent only when Clint clicks that button. */
+  repairReviewUrl: string;
 };
 
 /** A postal address for carrier rates and labels. Empty strings when unknown. */
@@ -275,8 +277,10 @@ export type ShopOrder = {
   phone?: string;
   /** True when the customer chose Yes on the checkout text opt-in. Missing on older orders. */
   smsOptIn?: boolean;
-  /** ISO time the owner sent a Google review request. Empty until then. */
+  /** ISO time the owner sent the Big Horn Custom Works review request. Empty until then. */
   reviewRequestedAt?: string;
+  /** ISO time the owner sent the Repair Status review request. Empty until then. */
+  repairReviewRequestedAt?: string;
   amountCents: number;
   items: string;
   address: string;

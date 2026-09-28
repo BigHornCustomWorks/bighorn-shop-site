@@ -189,8 +189,8 @@ export function OrderHistoryTab({
           <input type="checkbox" checked={smsOnly} onChange={(e) => setSmsOnly(e.target.checked)} /> SMS OK
         </label>
         <label className="oh-check">
-          <input type="checkbox" checked={reviewPending} onChange={(e) => setReviewPending(e.target.checked)} /> Review
-          not sent
+          <input type="checkbox" checked={reviewPending} onChange={(e) => setReviewPending(e.target.checked)} /> Big Horn
+          review not sent
         </label>
         <label className="oh-check">
           <input type="checkbox" checked={hasPhone} onChange={(e) => setHasPhone(e.target.checked)} /> Has phone
@@ -235,7 +235,7 @@ export function OrderHistoryTab({
             setCustomerId(order.id);
             setOpenId(order.id);
           }}
-          onReviewed={(reviewRequestedAt) => onOrderUpdated(order.id, { reviewRequestedAt })}
+          onReviewed={(fields) => onOrderUpdated(order.id, fields)}
         />
       ))}
     </div>
@@ -253,45 +253,49 @@ function HistoryRow({
   open: boolean;
   onToggle: () => void;
   onViewCustomer: () => void;
-  onReviewed: (reviewRequestedAt: string) => void;
+  onReviewed: (fields: Partial<ShopOrder>) => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"shop" | "repair" | "">("");
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
   const phone = orderPhone(order);
   const how = orderFulfillment(order) || "—";
 
-  async function sendReview(again = false) {
-    setBusy(true);
+  async function sendReview(brand: "shop" | "repair", again = false) {
+    setBusy(brand);
     setNote("");
     setBad(false);
+    const label = brand === "repair" ? "Repair Status" : "Big Horn";
     try {
       const res = await fetch("/api/master/review-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, again }),
+        body: JSON.stringify({ orderId: order.id, brand, again }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 409 && json.already) {
-        const againOk = window.confirm(json.error || "Send the review request again?");
-        if (againOk) return sendReview(true);
+        const againOk = window.confirm(json.error || `Send the ${label} review request again?`);
+        if (againOk) return sendReview(brand, true);
         setBad(true);
         setNote(json.error || "Already sent.");
         return;
       }
+      const sentAt = json.reviewRequestedAt || new Date().toISOString();
       if (!res.ok) {
         setBad(true);
         setNote(json.error || "The review email was not sent.");
-        if (json.reviewRequestedAt) onReviewed(json.reviewRequestedAt);
+        if (json.reviewRequestedAt) {
+          onReviewed(brand === "repair" ? { repairReviewRequestedAt: sentAt } : { reviewRequestedAt: sentAt });
+        }
         return;
       }
-      onReviewed(json.reviewRequestedAt || new Date().toISOString());
-      setNote("Review request sent.");
+      onReviewed(brand === "repair" ? { repairReviewRequestedAt: sentAt } : { reviewRequestedAt: sentAt });
+      setNote(`${label} review request sent.`);
     } catch (err) {
       setBad(true);
       setNote(err instanceof Error ? err.message : "Could not reach the server.");
     } finally {
-      setBusy(false);
+      setBusy("");
     }
   }
 
@@ -310,14 +314,26 @@ function HistoryRow({
       </p>
       <p className="muted">Order {order.id}</p>
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
-      {order.reviewRequestedAt ? (
-        <p className="note">Review requested {orderWhen(order.reviewRequestedAt)}</p>
-      ) : (
-        <p className="muted">Review not requested</p>
-      )}
+      <p className={order.reviewRequestedAt ? "note" : "muted"}>
+        {order.reviewRequestedAt
+          ? `Big Horn review requested ${orderWhen(order.reviewRequestedAt)}`
+          : "Big Horn review not requested"}
+      </p>
+      <p className={order.repairReviewRequestedAt ? "note" : "muted"}>
+        {order.repairReviewRequestedAt
+          ? `Repair Status review requested ${orderWhen(order.repairReviewRequestedAt)}`
+          : "Repair Status review not requested"}
+      </p>
       <div className="hero-actions">
-        <button type="button" className="btn" onClick={() => sendReview(false)} disabled={busy || !order.email}>
-          {busy ? "Sending…" : order.reviewRequestedAt ? "Send review request again" : "Send review request"}
+        <button type="button" className="btn" onClick={() => sendReview("shop")} disabled={Boolean(busy) || !order.email}>
+          {busy === "shop" ? "Sending…" : order.reviewRequestedAt ? "Send Big Horn review again" : "Send Big Horn review"}
+        </button>
+        <button type="button" className="btn" onClick={() => sendReview("repair")} disabled={Boolean(busy) || !order.email}>
+          {busy === "repair"
+            ? "Sending…"
+            : order.repairReviewRequestedAt
+              ? "Send Repair Status review again"
+              : "Send Repair Status review"}
         </button>
         <button type="button" className="btn-ghost" onClick={onViewCustomer}>
           View customer

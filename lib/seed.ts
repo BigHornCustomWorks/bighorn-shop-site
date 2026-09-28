@@ -42,6 +42,7 @@ export function defaultSite(): SiteCopy {
     shopFloorNotes:
       "Shop-floor calls (edit these):\n• Shipping starts as a note, not a made-up rate. Set a flat amount in cents only if you want it added at Stripe Checkout.\n• Repair Status is a text link, never a catalog item and never $0.\n• Stripe is in test mode until you put live keys in Vercel env or the Stripe key field below.\n• Public pages ignore messy HTML/JS in these fields so a stray edit cannot crash the site.\n• Categories are a label on each product (Mill accessories, Digital downloads, or a new line you type). Shop filters by that label.\n• Digital products skip shipping at checkout. Delivery note is emailed / Master Control until a download locker is built.\n• Media: one list per product. Upload a photo or video, or paste a URL. Drag to set the order they show on the product page.",
     googleReviewUrl: "",
+    repairReviewUrl: "",
   };
 }
 

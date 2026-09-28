@@ -11,27 +11,31 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const orderId = cleanStr(body.orderId);
+  const brand = body.brand === "repair" ? "repair" : "shop";
+  const business = brand === "repair" ? "Repair Status" : "Big Horn Custom Works";
   if (!orderId) return NextResponse.json({ error: "Pick an order first." }, { status: 400 });
 
   const store = await readStore();
   const order = store.orders.find((row) => row.id === orderId);
   if (!order) return NextResponse.json({ error: "That order is not in the list." }, { status: 404 });
 
-  if (order.reviewRequestedAt && body.again !== true) {
+  const alreadyAt = brand === "repair" ? order.repairReviewRequestedAt : order.reviewRequestedAt;
+  if (alreadyAt && body.again !== true) {
     return NextResponse.json(
       {
-        error: `A review request was already sent ${order.reviewRequestedAt}. Send again only if you mean to.`,
+        error: `A ${business} review request was already sent ${alreadyAt}. Send again only if you mean to.`,
         already: true,
-        reviewRequestedAt: order.reviewRequestedAt,
+        brand,
+        reviewRequestedAt: alreadyAt,
       },
       { status: 409 },
     );
   }
 
-  const reviewUrl = safeUrl(store.site.googleReviewUrl);
+  const reviewUrl = safeUrl(brand === "repair" ? store.site.repairReviewUrl : store.site.googleReviewUrl);
   if (!reviewUrl) {
     return NextResponse.json(
-      { error: "Add a Google review link in Settings, then save, before sending." },
+      { error: `Add the ${business} Google review link in Settings, then save, before sending.` },
       { status: 400 },
     );
   }
@@ -43,20 +47,24 @@ export async function POST(req: Request) {
     to: order.email,
     name: order.name,
     reviewUrl,
+    brand,
   });
   if (!sent.ok) return NextResponse.json({ error: sent.error }, { status: 502 });
 
-  order.reviewRequestedAt = new Date().toISOString();
+  const sentAt = new Date().toISOString();
+  if (brand === "repair") order.repairReviewRequestedAt = sentAt;
+  else order.reviewRequestedAt = sentAt;
   const saved = await writeStore(store);
   if (!saved.ok) {
     return NextResponse.json(
       {
         error: "The email was sent, but the order history did not save. Refresh and check before sending again.",
-        reviewRequestedAt: order.reviewRequestedAt,
+        brand,
+        reviewRequestedAt: sentAt,
       },
       { status: 500 },
     );
   }
 
-  return NextResponse.json({ ok: true, reviewRequestedAt: order.reviewRequestedAt });
+  return NextResponse.json({ ok: true, brand, reviewRequestedAt: sentAt });
 }

@@ -931,16 +931,24 @@ export function MasterClient() {
             your catalog checkout. Quote jobs stay off the cart.
           </p>
           <label>
-            Google review link
+            Big Horn Custom Works review link
             <input
               value={store.site.googleReviewUrl || ""}
               onChange={(e) => setStore({ ...store, site: { ...store.site, googleReviewUrl: e.target.value } })}
               placeholder="https://g.page/r/…/review"
             />
           </label>
+          <label>
+            Repair Status review link
+            <input
+              value={store.site.repairReviewUrl || ""}
+              onChange={(e) => setStore({ ...store, site: { ...store.site, repairReviewUrl: e.target.value } })}
+              placeholder="https://g.page/r/…/review"
+            />
+          </label>
           <p className="note">
-            Order history uses this when you click Send review request. Paste the link, then Save settings. Nothing is
-            sent until you click the button.
+            Order history has a button for each link. Paste both, then Save settings. Nothing is sent until you click
+            a button.
           </p>
           <p className="note">
             Quote emails go to the contact email above (and QUOTE_TO_EMAIL). SMTP: {envSmtp ? "set" : "not set"}.
