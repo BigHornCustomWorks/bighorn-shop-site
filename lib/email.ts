@@ -278,6 +278,57 @@ export async function sendShippedEmail(detail: {
   });
 }
 
+/** Owner-clicked Google review request. SMTP only, and the real error comes back. */
+export async function sendReviewRequestEmail(opts: {
+  to: string;
+  name: string;
+  reviewUrl: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const to = cleanStr(opts.to);
+  const reviewUrl = cleanStr(opts.reviewUrl);
+  if (!to) return { ok: false, error: "This order has no customer email." };
+  if (!reviewUrl) return { ok: false, error: "Add a Google review link in Settings, then save, before sending." };
+
+  const user = cleanStr(process.env.SMTP_USER);
+  const pass = cleanStr(process.env.SMTP_PASS);
+  if (!user || !pass) {
+    return { ok: false, error: "SMTP_USER / SMTP_PASS is not set, so the review email was not sent." };
+  }
+
+  const name = cleanStr(opts.name);
+  const text = [
+    name ? `Hi ${name},` : "Hi,",
+    "",
+    "Thanks for your order from Big Horn Custom Works.",
+    "If you have a minute, a Google review helps other people find the Sheridan shop.",
+    "",
+    reviewUrl,
+    "",
+    "— Clint, Big Horn Custom Works",
+  ].join("\n");
+
+  try {
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host: cleanStr(process.env.SMTP_HOST, "smtp.gmail.com"),
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: true,
+      auth: { user, pass },
+    });
+    await transporter.sendMail({
+      from: `Big Horn Custom Works <${user}>`,
+      to,
+      replyTo: shopInbox(),
+      subject: "Thanks for your order from Big Horn Custom Works",
+      text,
+    });
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error && err.message ? err.message : "The review email failed.";
+    return { ok: false, error: message };
+  }
+}
+
 export async function sendOrderEmail(detail: {
   email: string;
   name: string;

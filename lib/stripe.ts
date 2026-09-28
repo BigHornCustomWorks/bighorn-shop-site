@@ -7,6 +7,7 @@ import { cleanStr, safeUrl } from "./sanitize";
 import { isVideoSrc } from "./video";
 import type { LiveRate } from "./shipping";
 import { variantUnitPrice } from "./variant-price";
+import { checkoutContactParams } from "./checkout-contact";
 
 export function stripeClient(store: ShopStore): Stripe | null {
   const key = stripeSecret(store);
@@ -211,9 +212,6 @@ export async function createCheckoutSession(
           : shippingOptionsFor(store, items);
     if (options.length) params.shipping_options = options;
     if (fulfillment === "ship" && liveRate && params.metadata) Object.assign(params.metadata, liveRateMetadata(liveRate));
-    if (fulfillment === "pickup") {
-      params.phone_number_collection = { enabled: true };
-    }
   }
 
   if (store.settings.taxEnabled) {
@@ -224,6 +222,7 @@ export async function createCheckoutSession(
   }
 
   if (customerEmail) params.customer_email = customerEmail;
+  Object.assign(params, checkoutContactParams());
 
   try {
     return await stripe.checkout.sessions.create({
@@ -327,14 +326,12 @@ export async function createSignCheckoutSession(
     Object.assign(params.metadata, liveRateMetadata(liveRate));
   }
   if (options.length) params.shipping_options = options;
-  if (quote.fulfillment === "pickup") {
-    params.phone_number_collection = { enabled: true };
-  }
 
   if (store.settings.taxEnabled) {
     params.automatic_tax = { enabled: true };
   }
   if (customerEmail) params.customer_email = customerEmail;
+  Object.assign(params, checkoutContactParams());
 
   try {
     return await stripe.checkout.sessions.create({

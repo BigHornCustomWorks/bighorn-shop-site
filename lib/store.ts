@@ -179,11 +179,15 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
   const sessionId = cleanStr(src.sessionId);
   const email = cleanStr(src.email);
   if (!sessionId && !email && !cleanStr(src.items)) return null;
+  const rawShip = (src.shipTo && typeof src.shipTo === "object" ? src.shipTo : {}) as { phone?: unknown };
   return {
     id: cleanStr(src.id, newId("order")),
     createdAt: cleanStr(src.createdAt, new Date().toISOString()),
     email,
     name: cleanStr(src.name),
+    phone: cleanStr(src.phone) || cleanStr(rawShip.phone),
+    smsOptIn: src.smsOptIn === true,
+    reviewRequestedAt: cleanStr(src.reviewRequestedAt),
     amountCents: asCents(src.amountCents, 0),
     items: cleanMultiline(src.items),
     address: cleanMultiline(src.address),
@@ -297,6 +301,7 @@ function normalizeSite(raw: unknown): SiteCopy {
     footerNote: cleanStr(src.footerNote, base.footerNote),
     footerLinks: links.length ? links : base.footerLinks,
     shopFloorNotes: cleanMultiline(src.shopFloorNotes, base.shopFloorNotes),
+    googleReviewUrl: safeUrl(src.googleReviewUrl),
   };
 }
 

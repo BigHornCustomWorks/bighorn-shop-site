@@ -20,13 +20,14 @@ import type {
   ShippingOption,
 } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
+import { OrderHistoryTab } from "@/components/OrderHistoryTab";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
 import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
 import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
 
-type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "traffic" | "settings";
+type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "history" | "traffic" | "settings";
 
 const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   id: newId("prod"),
@@ -386,6 +387,7 @@ export function MasterClient() {
             ["gallery", "Gallery"],
             ["copy", "Site copy"],
             ["quotes", `Inbox${unread ? ` (${unread})` : ""}`],
+            ["history", "Order history"],
             ["traffic", "Traffic"],
             ["settings", "Settings"],
           ] as [Tab, string][]
@@ -719,6 +721,18 @@ export function MasterClient() {
         </div>
       ) : null}
 
+      {tab === "history" ? (
+        <OrderHistoryTab
+          store={store}
+          onOrderUpdated={(orderId, fields) =>
+            setStore({
+              ...store,
+              orders: store.orders.map((order) => (order.id === orderId ? { ...order, ...fields } : order)),
+            })
+          }
+        />
+      ) : null}
+
       {tab === "quotes" ? (
         <div>
           <h2>Orders</h2>
@@ -915,6 +929,18 @@ export function MasterClient() {
           <p className="note">
             Clint keeps his own processor. This site does not process shop payments as a platform — Stripe Checkout is
             your catalog checkout. Quote jobs stay off the cart.
+          </p>
+          <label>
+            Google review link
+            <input
+              value={store.site.googleReviewUrl || ""}
+              onChange={(e) => setStore({ ...store, site: { ...store.site, googleReviewUrl: e.target.value } })}
+              placeholder="https://g.page/r/…/review"
+            />
+          </label>
+          <p className="note">
+            Order history uses this when you click Send review request. Paste the link, then Save settings. Nothing is
+            sent until you click the button.
           </p>
           <p className="note">
             Quote emails go to the contact email above (and QUOTE_TO_EMAIL). SMTP: {envSmtp ? "set" : "not set"}.
@@ -1922,6 +1948,8 @@ function OrderRow({
   return (
     <div className="quote-item">
       <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
+      {order.phone || order.shipTo?.phone ? ` · ${order.phone || order.shipTo?.phone}` : ""}
+      {order.smsOptIn ? " · SMS OK" : ""}
       {!order.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       {order.address ? <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p> : null}

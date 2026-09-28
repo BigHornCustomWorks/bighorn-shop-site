@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { sendOrderEmail } from "@/lib/email";
+import { fulfillmentFromCart, smsOptInFromCustomFields } from "@/lib/order-history";
 import { formatUsd } from "@/lib/money";
 import { newId } from "@/lib/sanitize";
 import { emptyShipAddress, normalizeShipAddress } from "@/lib/shipping";
@@ -65,6 +66,8 @@ export async function POST(req: Request) {
         extra.customer_details?.name ||
         "";
       const email = session.customer_details?.email || session.customer_email || "";
+      const phone = session.customer_details?.phone || "";
+      const smsOptIn = smsOptInFromCustomFields(session.custom_fields);
       const amountCents = session.amount_total || 0;
       const address = addressLines(ship || null);
       const shippingRate = session.shipping_cost?.shipping_rate;
@@ -86,7 +89,7 @@ export async function POST(req: Request) {
             state: ship.state,
             zip: ship.postal_code,
             country: ship.country,
-            phone: session.customer_details?.phone || "",
+            phone,
             email,
           })
         : emptyShipAddress();
@@ -100,6 +103,16 @@ export async function POST(req: Request) {
 
       const orderId = newId("order");
       const stockNote = meta.items || "";
+      const itemSlugs = stockNote
+        .split(",")
+        .filter(Boolean)
+        .map((part) => part.split(":")[0] || "")
+        .filter(Boolean);
+      const fulfillment = fulfillmentFromCart(
+        meta.fulfillment || "",
+        itemSlugs,
+        latest.products.map((p) => ({ slug: p.slug, kind: p.kind })),
+      );
       for (const part of stockNote.split(",").filter(Boolean)) {
         const match = part.match(/^([^:]+):(.*)x(\d+)$/);
         if (!match) continue;
@@ -123,12 +136,15 @@ export async function POST(req: Request) {
           createdAt: new Date().toISOString(),
           email,
           name,
+          phone,
+          smsOptIn,
+          reviewRequestedAt: "",
           amountCents,
           items,
           address,
           sessionId: session.id,
           shippingLabel,
-          fulfillment: meta.fulfillment === "pickup" ? "pickup" : "ship",
+          fulfillment: fulfillment || (meta.fulfillment === "pickup" ? "pickup" : "ship"),
           shippingCents,
           taxCents,
           trackingCarrier: "",

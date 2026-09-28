@@ -194,6 +194,8 @@ export type SiteCopy = {
   footerNote: string;
   footerLinks: FooterLink[];
   shopFloorNotes: string;
+  /** Public Google review URL. Order history uses it when Clint sends a review request. */
+  googleReviewUrl: string;
 };
 
 /** A postal address for carrier rates and labels. Empty strings when unknown. */
@@ -269,13 +271,19 @@ export type ShopOrder = {
   createdAt: string;
   email: string;
   name: string;
+  /** Customer phone from Stripe Checkout. Also copied onto shipTo.phone when there is an address. */
+  phone?: string;
+  /** True when the customer chose Yes on the checkout text opt-in. Missing on older orders. */
+  smsOptIn?: boolean;
+  /** ISO time the owner sent a Google review request. Empty until then. */
+  reviewRequestedAt?: string;
   amountCents: number;
   items: string;
   address: string;
   sessionId: string;
   /** Which shipping service the customer paid for, so the right label gets bought. */
   shippingLabel: string;
-  /** "pickup" or "ship". Empty on orders from before the cart choice existed. */
+  /** "pickup", "ship", or "digital". Empty on orders from before the cart choice existed. */
   fulfillment: string;
   shippingCents: number;
   taxCents: number;
