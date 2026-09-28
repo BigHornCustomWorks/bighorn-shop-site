@@ -28,8 +28,8 @@ export function OrderHistoryTab({
   const [from, setFrom] = useState(shiftDay(today, -90));
   const [to, setTo] = useState(today);
   const [allTime, setAllTime] = useState(false);
-  const [productIds, setProductIds] = useState<string[]>([]);
-  const [productQuery, setProductQuery] = useState("");
+  const [productId, setProductId] = useState("");
+  const [category, setCategory] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [fulfillment, setFulfillment] = useState<"" | "ship" | "pickup" | "digital">("");
   const [smsOnly, setSmsOnly] = useState(false);
@@ -49,7 +49,8 @@ export function OrderHistoryTab({
         from,
         to,
         allTime,
-        productIds,
+        productId,
+        category,
         itemQuery,
         fulfillment,
         smsOnly,
@@ -58,7 +59,7 @@ export function OrderHistoryTab({
         hasEmail,
         sort,
       }),
-    [orders, products, from, to, allTime, productIds, itemQuery, fulfillment, smsOnly, reviewPending, hasPhone, hasEmail, sort],
+    [orders, products, from, to, allTime, productId, category, itemQuery, fulfillment, smsOnly, reviewPending, hasPhone, hasEmail, sort],
   );
 
   const customerSource = orders.find((order) => order.id === customerId) || null;
@@ -67,22 +68,28 @@ export function OrderHistoryTab({
   const spent = customerOrders.reduce((sum, order) => sum + (order.amountCents || 0), 0);
   const latest = customerOrders[0];
 
-  const productMatches = [...products]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .filter((product) => {
-      const q = productQuery.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        product.name.toLowerCase().includes(q) ||
-        product.slug.toLowerCase().includes(q) ||
-        (product.sku || "").toLowerCase().includes(q)
-      );
-    })
-    .filter((product, index) => productIds.includes(product.id) || index < 20);
+  const categories = useMemo(() => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    const add = (name: string) => {
+      const trimmed = name.trim();
+      const key = trimmed.toLowerCase();
+      if (!trimmed || seen.has(key)) return;
+      seen.add(key);
+      names.push(trimmed);
+    };
+    [...(store.categories || [])]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .forEach((cat) => add(cat.name));
+    products.forEach((product) => add(product.category || ""));
+    return names;
+  }, [store.categories, products]);
 
-  function toggleProduct(id: string) {
-    setProductIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  }
+  const productOptions = useMemo(() => {
+    return [...products]
+      .filter((product) => !category || (product.category || "").trim().toLowerCase() === category.trim().toLowerCase())
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, category]);
 
   function download() {
     const csv = ordersToCsv(shown);
@@ -98,86 +105,68 @@ export function OrderHistoryTab({
   return (
     <div>
       <h2>Order history</h2>
-      <p className="note">
-        Every paid checkout lands here with the customer&apos;s email and phone. Filters apply together. Times are
-        Sheridan time.
-      </p>
+      <p className="note">Filters work together. Times are Sheridan time.</p>
 
-      <div className="form" style={{ maxWidth: 860 }}>
-        <div className="row-3">
-          <label>
-            From
-            <input type="date" value={from} disabled={allTime} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-          <label>
-            To
-            <input type="date" value={to} disabled={allTime} onChange={(e) => setTo(e.target.value)} />
-          </label>
-          <label>
-            Sort
-            <select value={sort} onChange={(e) => setSort(e.target.value as OrderSort)}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="amount-desc">Amount, high to low</option>
-              <option value="amount-asc">Amount, low to high</option>
-              <option value="name-asc">Name A–Z</option>
-              <option value="name-desc">Name Z–A</option>
-            </select>
-          </label>
-        </div>
-        <label className="radio">
+      <div className="oh-bar">
+        <label>
+          From
+          <input type="date" value={from} disabled={allTime} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label>
+          To
+          <input type="date" value={to} disabled={allTime} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <label className="oh-check">
           <input type="checkbox" checked={allTime} onChange={(e) => setAllTime(e.target.checked)} /> All time
         </label>
         <label>
-          What they ordered
-          <input
-            value={productQuery}
-            placeholder="Search product name, item code, or slug"
-            onChange={(e) => setProductQuery(e.target.value)}
-          />
+          Category
+          <select
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value;
+              setCategory(next);
+              const chosen = products.find((product) => product.id === productId);
+              if (chosen && next && (chosen.category || "").trim().toLowerCase() !== next.trim().toLowerCase()) {
+                setProductId("");
+              }
+            }}
+          >
+            <option value="">All categories</option>
+            {categories.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </label>
-        {productIds.length ? (
-          <p className="note">
-            Showing orders that include{" "}
-            {products
-              .filter((product) => productIds.includes(product.id))
-              .map((product) => product.name)
-              .join(", ")}
-            .{" "}
-            <button type="button" className="btn-ghost" onClick={() => setProductIds([])}>
-              Clear products
-            </button>
-          </p>
-        ) : (
-          <p className="note">Leave this empty to include every product. Pick one or more to narrow the list.</p>
-        )}
-        <div>
-          {productMatches.map((product) => (
-            <label key={product.id} className="radio" style={{ display: "block" }}>
-              <input
-                type="checkbox"
-                checked={productIds.includes(product.id)}
-                onChange={() => toggleProduct(product.id)}
-              />{" "}
-              {product.name}
-              {product.sku ? <span className="muted"> · {product.sku}</span> : null}
-            </label>
-          ))}
-          {!productMatches.length ? <p className="muted">No catalog product matches that search.</p> : null}
-        </div>
+        <label>
+          What they ordered
+          <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <option value="">Anything</option>
+            {productOptions.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.sku ? `${product.sku} — ` : ""}
+                {product.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Item name contains
-          <input
-            value={itemQuery}
-            placeholder="Matches the names on the order"
-            onChange={(e) => setItemQuery(e.target.value)}
-          />
+          <input value={itemQuery} onChange={(e) => setItemQuery(e.target.value)} />
         </label>
         <label>
           Fulfillment
           <select
             value={fulfillment}
-            onChange={(e) => setFulfillment(e.target.value === "ship" || e.target.value === "pickup" || e.target.value === "digital" ? e.target.value : "")}
+            onChange={(e) =>
+              setFulfillment(
+                e.target.value === "ship" || e.target.value === "pickup" || e.target.value === "digital"
+                  ? e.target.value
+                  : "",
+              )
+            }
           >
             <option value="">Any</option>
             <option value="ship">Ship</option>
@@ -185,27 +174,36 @@ export function OrderHistoryTab({
             <option value="digital">Digital</option>
           </select>
         </label>
-        <label className="radio">
-          <input type="checkbox" checked={smsOnly} onChange={(e) => setSmsOnly(e.target.checked)} /> SMS OK only
+        <label>
+          Sort
+          <select value={sort} onChange={(e) => setSort(e.target.value as OrderSort)}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="amount-desc">Amount, high to low</option>
+            <option value="amount-asc">Amount, low to high</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+          </select>
         </label>
-        <label className="radio">
+        <label className="oh-check">
+          <input type="checkbox" checked={smsOnly} onChange={(e) => setSmsOnly(e.target.checked)} /> SMS OK
+        </label>
+        <label className="oh-check">
           <input type="checkbox" checked={reviewPending} onChange={(e) => setReviewPending(e.target.checked)} /> Review
-          not yet requested
+          not sent
         </label>
-        <label className="radio">
+        <label className="oh-check">
           <input type="checkbox" checked={hasPhone} onChange={(e) => setHasPhone(e.target.checked)} /> Has phone
         </label>
-        <label className="radio">
+        <label className="oh-check">
           <input type="checkbox" checked={hasEmail} onChange={(e) => setHasEmail(e.target.checked)} /> Has email
         </label>
-        <div className="hero-actions">
-          <button className="btn" type="button" onClick={download} disabled={!shown.length}>
-            Download CSV
-          </button>
-          <span className="muted">
-            {shown.length} order{shown.length === 1 ? "" : "s"}
-          </span>
-        </div>
+        <button className="btn" type="button" onClick={download} disabled={!shown.length}>
+          Download CSV
+        </button>
+        <span className="muted" style={{ paddingBottom: 8 }}>
+          {shown.length} order{shown.length === 1 ? "" : "s"}
+        </span>
       </div>
 
       {customerSource && latest ? (

@@ -69,15 +69,16 @@ function order(over = {}) {
 }
 
 const products = [
-  { id: "p_dog", name: "Dog 1", slug: "dog-1", sku: "230" },
-  { id: "p_way", name: "Baffled Y and Z way covers", slug: "way-covers", sku: "221" },
+  { id: "p_dog", name: "Dog 1", slug: "dog-1", sku: "230", category: "3D printer dogs" },
+  { id: "p_way", name: "Baffled Y and Z way covers", slug: "way-covers", sku: "221", category: "Mill accessories" },
 ];
 
 const baseFilters = {
   from: "2026-06-03",
   to: "2026-09-01",
   allTime: false,
-  productIds: [],
+  productId: "",
+  category: "",
   itemQuery: "",
   fulfillment: "",
   smsOnly: false,
@@ -144,10 +145,15 @@ test("date range, product, and item text filter together", () => {
     ranged.map((row) => row.id),
     ["order_1", "order_pump"],
   );
-  const dogs = filterOrders(rows, products, { ...baseFilters, productIds: ["p_dog"] });
+  const dogs = filterOrders(rows, products, { ...baseFilters, productId: "p_dog" });
   assert.deepEqual(
     dogs.map((row) => row.id),
     ["order_1"],
+  );
+  const mill = filterOrders(rows, products, { ...baseFilters, allTime: true, category: "Mill accessories" });
+  assert.deepEqual(
+    mill.map((row) => row.id),
+    ["order_old"],
   );
   const text = filterOrders(rows, products, { ...baseFilters, itemQuery: "pumpkin" });
   assert.deepEqual(

@@ -1,6 +1,6 @@
 import type { Product, ShopOrder } from "./types";
 
-export type HistoryProduct = Pick<Product, "id" | "name" | "slug" | "sku">;
+export type HistoryProduct = Pick<Product, "id" | "name" | "slug" | "sku"> & { category?: string };
 
 export type OrderSort = "newest" | "oldest" | "amount-desc" | "amount-asc" | "name-asc" | "name-desc";
 
@@ -8,7 +8,10 @@ export type OrderHistoryFilters = {
   from: string;
   to: string;
   allTime: boolean;
-  productIds: string[];
+  /** Empty means any product. */
+  productId: string;
+  /** Category name from the catalog. Empty means any category. */
+  category: string;
   itemQuery: string;
   fulfillment: "" | "ship" | "pickup" | "digital";
   smsOnly: boolean;
@@ -123,7 +126,10 @@ export function filterOrders(
   products: HistoryProduct[],
   filters: OrderHistoryFilters,
 ): ShopOrder[] {
-  const selected = products.filter((p) => filters.productIds.includes(p.id));
+  const selected = filters.productId ? products.filter((p) => p.id === filters.productId) : [];
+  const inCategory = filters.category
+    ? products.filter((p) => (p.category || "").trim().toLowerCase() === filters.category.trim().toLowerCase())
+    : [];
   const q = filters.itemQuery.trim().toLowerCase();
   const rows = orders.filter((order) => {
     if (!filters.allTime) {
@@ -131,6 +137,7 @@ export function filterOrders(
       if (filters.from && (!day || day < filters.from)) return false;
       if (filters.to && (!day || day > filters.to)) return false;
     }
+    if (filters.category && !inCategory.some((p) => orderMatchesProduct(order, p))) return false;
     if (selected.length && !selected.some((p) => orderMatchesProduct(order, p))) return false;
     if (q && !order.items.toLowerCase().includes(q)) return false;
     if (filters.fulfillment && orderFulfillment(order) !== filters.fulfillment) return false;

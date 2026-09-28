@@ -716,6 +716,46 @@ button.mc-stat { font: inherit; color: inherit; }
 }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.oh-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+}
+.oh-bar label {
+  gap: 3px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--steel);
+  min-width: 0;
+}
+.oh-bar input,
+.oh-bar select {
+  padding: 6px 8px;
+  min-width: 148px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.oh-bar label.oh-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+  padding-bottom: 8px;
+}
+.oh-bar label.oh-check input {
+  min-width: 0;
+  width: auto;
+  padding: 0;
+}
 .quote-item {
   border-bottom: 1px solid var(--rule);
   padding: 12px 0;
