@@ -14,6 +14,7 @@ import {
   type LiveRate,
   type Parcel,
 } from "@/lib/shipping";
+import { isRepairStatusProduct } from "@/lib/repair-status";
 import { estimateSign } from "@/lib/sign-price";
 import { readStore } from "@/lib/store";
 import type { ShopStore } from "@/lib/types";
@@ -88,6 +89,12 @@ export async function POST(req: Request) {
 
     if (!items.length) {
       return NextResponse.json({ error: "Cart is empty or those parts are hidden." }, { status: 400 });
+    }
+    if (items.some((item) => isRepairStatusProduct(item.product))) {
+      return NextResponse.json(
+        { error: "Repair Status is not sold in this shop. See https://repairstatus.site/info" },
+        { status: 400 },
+      );
     }
 
     const live =

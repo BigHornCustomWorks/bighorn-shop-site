@@ -2,12 +2,13 @@ import Link from "next/link";
 import { HeroMedia } from "@/components/HeroMedia";
 import { QuoteForm } from "@/components/QuoteForm";
 import { readStore } from "@/lib/store";
+import { repairStatusPublicUrl, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
 import { safeUrl } from "@/lib/sanitize";
 
 export default async function HomePage() {
   const store = await readStore();
   const site = store.site;
-  const rsUrl = safeUrl(site.repairStatusUrl) || "https://repairstatus.site/";
+  const rsUrl = repairStatusPublicUrl(site.repairStatusUrl) || REPAIR_STATUS_INFO_URL;
   const physicalPhoto =
     store.products.find((p) => p.kind === "physical" && (p.photos?.[0] || p.media?.[0]))?.photos?.[0] ||
     store.products.find((p) => p.kind === "physical")?.media?.[0] ||
@@ -61,17 +62,20 @@ export default async function HomePage() {
               <h2 className="gate-title digital">Digital Products</h2>
               <p className="gate-title-sub">Software &amp; tools</p>
             </div>
-            <Link className="gate digital" href="/digital">
+            <a className="gate digital" href={rsUrl} rel="noreferrer">
               <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="" />
               <div className="shade" />
               <div className="content">
                 <span className="badge">Software</span>
-                <h3>Software &amp; apps</h3>
-                <p>Repair Status and other tools for shops — month to month.</p>
-                <p className="includes">Includes: Repair Status · Google review collection (coming soon)</p>
-                <span className="btn btn-spark">Enter digital products →</span>
+                <h3>Repair Status</h3>
+                <p>Shop software from Big Horn Custom Works. Information and signup are on its own site.</p>
+                <p className="includes">Opens the Repair Status info page. Not sold in this shop.</p>
+                <span className="btn btn-spark">Repair Status info →</span>
               </div>
-            </Link>
+            </a>
+            <p className="gate-title-sub">
+              <Link href="/digital">Other digital products on this site</Link>
+            </p>
           </div>
 
           <div className="gate-col">
@@ -106,9 +110,9 @@ export default async function HomePage() {
           <div className="card card-weld">
             <p className="section-kicker kicker-spark">Quick link</p>
             <h3>Already know Repair Status?</h3>
-            <p className="card-weld-p">Skip the catalog and go straight to the live product.</p>
+            <p className="card-weld-p">Pricing, a demo, and signup are on the Repair Status info page.</p>
             <a className="btn btn-spark" href={rsUrl} rel="noreferrer">
-              Open repairstatus.site
+              Open the info page
             </a>
           </div>
         </div>

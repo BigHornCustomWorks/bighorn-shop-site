@@ -4,14 +4,16 @@ import { formatUsd } from "@/lib/money";
 import { firstPhoto } from "@/lib/video";
 import { stockLabel } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread } from "@/lib/variant-price";
+import { isRepairStatusProduct, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
 
 export function ProductCard({ product, showOptions = false }: { product: Product; showOptions?: boolean }) {
   const photo = firstPhoto(product) || "/logo.png";
   const blurb = product.description.slice(0, 72);
   const options = listedVariants(product);
   const stock = stockLabel(product);
-  return (
-    <Link className="product-card" href={`/shop/${product.slug}`}>
+  const repairStatus = isRepairStatusProduct(product);
+  const card = (
+    <>
       <div className="product-card-media">
         <img src={photo} alt="" />
         {(product.videos || []).length ? <span className="badge-media">Video</span> : null}
@@ -25,13 +27,15 @@ export function ProductCard({ product, showOptions = false }: { product: Product
         </p>
         <h3>{product.name}</h3>
         <p className="price">
-          {product.priceLabel ||
-            (variantPriceSpread(product)
-              ? `From ${formatUsd(lowestVariantPrice(product))}`
-              : formatUsd(lowestVariantPrice(product) || product.priceCents))}
+          {repairStatus
+            ? "Opens Repair Status"
+            : product.priceLabel ||
+              (variantPriceSpread(product)
+                ? `From ${formatUsd(lowestVariantPrice(product))}`
+                : formatUsd(lowestVariantPrice(product) || product.priceCents))}
         </p>
-        {stock ? <p className="muted card-blurb">{stock}</p> : null}
-        {showOptions && options.length ? (
+        {stock && !repairStatus ? <p className="muted card-blurb">{stock}</p> : null}
+        {repairStatus ? null : showOptions && options.length ? (
           <ul className="face-options">
             {options.map((v) => (
               <li key={v.id}>
@@ -46,10 +50,24 @@ export function ProductCard({ product, showOptions = false }: { product: Product
           <p className="muted card-blurb">{options[0].name}</p>
         ) : null}
         <p className="muted card-blurb">
-          {blurb}
-          {product.description.length > 72 ? "…" : ""}
+          {repairStatus
+            ? "Information and signup are on repairstatus.site. Not sold in this shop."
+            : blurb}
+          {!repairStatus && product.description.length > 72 ? "…" : ""}
         </p>
       </div>
+    </>
+  );
+  if (repairStatus) {
+    return (
+      <a className="product-card" href={REPAIR_STATUS_INFO_URL} rel="noreferrer">
+        {card}
+      </a>
+    );
+  }
+  return (
+    <Link className="product-card" href={`/shop/${product.slug}`}>
+      {card}
     </Link>
   );
 }

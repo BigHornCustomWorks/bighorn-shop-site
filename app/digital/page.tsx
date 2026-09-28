@@ -18,7 +18,7 @@ export default async function DigitalPage() {
       <p className="section-kicker">Digital products</p>
       <h1>Software &amp; tools</h1>
       <p className="lede">
-        Software and services for local shops — month to month, no long contract. These are not mill-parts cart items.
+        Repair Status opens on its own site. Other tools listed here stay on this shop.
       </p>
       {products.length ? (
         <div className="grid-catalog">

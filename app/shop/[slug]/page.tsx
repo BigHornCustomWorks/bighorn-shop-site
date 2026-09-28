@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BuyBox } from "@/components/BuyBox";
 import { ProductGallery } from "@/components/ProductGallery";
+import { isRepairStatusProduct, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
 import { categorySlug, productBySlug, readStore } from "@/lib/store";
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -9,6 +10,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const store = await readStore();
   const product = productBySlug(store, slug);
   if (!product) notFound();
+  if (isRepairStatusProduct(product)) redirect(REPAIR_STATUS_INFO_URL);
   const cat = categorySlug(product.category);
 
   return (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SiteCopy } from "@/lib/types";
+import { repairStatusPublicUrl } from "@/lib/repair-status";
 import { safeUrl } from "@/lib/sanitize";
 
 export function Footer({ site, uniqueVisitors = 0 }: { site: SiteCopy; uniqueVisitors?: number }) {
@@ -24,7 +25,7 @@ export function Footer({ site, uniqueVisitors = 0 }: { site: SiteCopy; uniqueVis
         </div>
         <div>
           {site.footerLinks.map((link) => {
-            const href = safeUrl(link.url);
+            const href = repairStatusPublicUrl(link.url);
             if (!href) return null;
             const external = href.startsWith("http");
             return external ? (
