@@ -53,7 +53,7 @@ export default async function SignsPage() {
         <div className="card" style={{ marginTop: 20 }}>
           <p className="section-kicker">Coming soon</p>
           <h3>Custom requests are off</h3>
-          <Link className="btn" href="/custom">
+          <Link className="btn" href="/services#request">
             Request a quote
           </Link>
         </div>

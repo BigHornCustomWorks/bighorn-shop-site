@@ -1020,8 +1020,13 @@ button.mc-stat { font: inherit; color: inherit; }
   border-color: var(--spark);
 }
 .btn-outline-ink {
-  border: 1px solid var(--ink);
+  border: 1px solid #111;
   background: #fff;
+  color: #111;
+}
+.btn-outline-ink:hover {
+  background: #111;
+  color: #f6efe4;
 }
 .third {
   display: grid;

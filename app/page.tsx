@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { HeroMedia } from "@/components/HeroMedia";
-import { QuoteForm } from "@/components/QuoteForm";
 import { readStore } from "@/lib/store";
 import { repairStatusPublicUrl, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
 import { safeUrl } from "@/lib/sanitize";
@@ -101,9 +100,9 @@ export default async function HomePage() {
         <div className="third">
           <div className="card">
             <p className="section-kicker">Custom work</p>
-            <h3>Need something that doesn’t exist yet?</h3>
-            <p>One-offs, mill upgrades, fab, repair, or a floor tool. Quote form — not checkout.</p>
-            <Link className="btn btn-outline-ink" href="/custom">
+            <h3>Need something that doesn’t exist or that is no longer manufactured?</h3>
+            <p>Replacement parts, signs, mixed materials, and 3D printing. One quote form — not checkout.</p>
+            <Link className="btn btn-outline-ink" href="/services#request">
               Request a quote
             </Link>
           </div>
@@ -117,11 +116,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-        <div className="home-quote-block">
-          <p className="section-kicker">Or send a note</p>
-          <h2>Custom quote</h2>
-          <QuoteForm />
-        </div>
       </div>
     </>
   );

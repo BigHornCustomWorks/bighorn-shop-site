@@ -12,11 +12,12 @@ export default async function ServicesPage() {
       <p className="section-kicker">Services</p>
       <h1>Custom fabrication in Sheridan, Wyoming</h1>
       <p className="lede">
-        Can&apos;t find that part? I&apos;ll make it. Metal, wood, and 3D printed — designed and built under one roof.
+        Need something that doesn&apos;t exist, or that is no longer manufactured? I&apos;ll make it. Metal, wood, and
+        3D printed — designed and built under one roof.
       </p>
       <div className="hero-actions">
         <a className="btn btn-bronze" href="#request">
-          Request a custom part
+          Request a quote
         </a>
         <Link className="btn" href="/physical/mill-accessories">
           Shop mill parts
@@ -55,7 +56,7 @@ export default async function ServicesPage() {
       </div>
 
       <section id="request">
-        <h2>Request a custom part</h2>
+        <h2>Request a quote</h2>
         <p className="note">Goes to {store.site.contactEmail} and Master Control.</p>
         <ServiceRequestForm />
       </section>

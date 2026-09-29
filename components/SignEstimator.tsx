@@ -215,7 +215,7 @@ export function SignEstimator({
             <p className="price">—</p>
             <p>{quote.error}</p>
             <div className="hero-actions" style={{ marginTop: 16 }}>
-              <Link className="btn btn-spark" href="/custom">
+              <Link className="btn btn-spark" href="/services#request">
                 Request a quote
               </Link>
             </div>

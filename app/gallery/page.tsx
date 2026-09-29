@@ -32,7 +32,7 @@ export default async function GalleryPage() {
               <p className="section-kicker">Coming soon</p>
               <h3>{section.title}</h3>
               <p className="muted">Ready for photos. Nothing listed yet.</p>
-              <Link className="btn" href="/custom">Request a custom sign quote</Link>
+              <Link className="btn" href="/services#request">Request a quote</Link>
             </div>
           )}
         </section>
