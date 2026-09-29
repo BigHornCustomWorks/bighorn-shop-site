@@ -247,6 +247,21 @@ export function productMeasured(product: BoxProduct, presets: PackagePreset[]): 
   return product.weightOz > 0 && Boolean(productBox(product, presets));
 }
 
+/** Product names that block a live quote. One unmeasured item blanks the whole parcel. */
+export function unmeasuredItemNames(
+  items: { product: BoxProduct & { name?: string } }[],
+  settings: Pick<ShopSettings, "packagePresets">,
+): string[] {
+  const presets = settings.packagePresets || [];
+  const names: string[] = [];
+  for (const { product } of items) {
+    if (product.kind === "digital" || productMeasured(product, presets)) continue;
+    const name = plain(product.name, 80) || "An item";
+    if (!names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
 type ParcelItem = { product: BoxProduct; quantity: number };
 
 /**

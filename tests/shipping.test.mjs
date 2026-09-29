@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildParcel,
+  unmeasuredItemNames,
   checkCartRate,
   defaultSignPack,
   labelReference,
@@ -115,6 +116,30 @@ test("buildParcel: item weight + empty box + allowance, presets or own box", () 
   assert.equal(buildParcel([{ product: product({ weightOz: 0 }), quantity: 1 }], SETTINGS), null);
   assert.equal(buildParcel([{ product: product({ packagePresetId: "nope" }), quantity: 1 }], SETTINGS), null);
   assert.equal(buildParcel([{ product: product({ kind: "digital" }), quantity: 1 }], SETTINGS), null);
+  // Two different items share one box: longest sides, heights stacked, allowance once.
+  assert.deepEqual(
+    buildParcel(
+      [
+        { product: product(), quantity: 1 },
+        { product: product({ weightOz: 4, lengthIn: 8, widthIn: 4, heightIn: 1, boxWeightOz: 1 }), quantity: 1 },
+      ],
+      SETTINGS,
+    ),
+    { length: 10, width: 6, height: 3, weight: 18 },
+  );
+});
+
+test("unmeasuredItemNames lists only physical items that cannot be boxed", () => {
+  const names = unmeasuredItemNames(
+    [
+      { product: { ...product(), name: "Way covers" } },
+      { product: { ...product({ weightOz: 0 }), name: "T-Slot Covers" } },
+      { product: { ...product({ kind: "digital", weightOz: 0 }), name: "Download" } },
+      { product: { ...product({ packagePresetId: "nope", lengthIn: 0 }), name: "Dog 1" } },
+    ],
+    SETTINGS,
+  );
+  assert.deepEqual(names, ["T-Slot Covers", "Dog 1"]);
 });
 
 test("signParcel: w × h × t × density, flat pack + margin, cardboard and allowance", () => {

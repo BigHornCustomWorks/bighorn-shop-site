@@ -8,6 +8,7 @@ import {
   shipFromAddress,
   shippoConfig,
   signParcel,
+  unmeasuredItemNames,
   zip5,
   type Parcel,
 } from "@/lib/shipping";
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   const pickup = store.site.pickupEnabled !== false;
 
   let parcel: Parcel | null;
+  let unmeasured: string[] = [];
   if (body.sign) {
     const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn, {
       finishId: cleanStr(body.sign.finishId),
@@ -62,13 +64,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ mode: "none", pickup });
     }
     parcel = buildParcel(items, store.settings);
+    if (!parcel) unmeasured = unmeasuredItemNames(items, store.settings);
   }
 
   const cfg = shippoConfig();
   if (!cfg) return NextResponse.json({ mode: "flat", reason: "not_configured", pickup });
   const from = shipFromAddress(store.settings);
   if (!from) return NextResponse.json({ mode: "flat", reason: "no_ship_from", pickup });
-  if (!parcel) return NextResponse.json({ mode: "flat", reason: "missing_dimensions", pickup });
+  if (!parcel) return NextResponse.json({ mode: "flat", reason: "missing_dimensions", pickup, unmeasured });
 
   if (!body.address) return NextResponse.json({ mode: "ready", pickup });
 

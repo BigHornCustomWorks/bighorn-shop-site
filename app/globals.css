@@ -189,6 +189,29 @@ button, input, textarea, select { font: inherit; }
   background: var(--bronze);
   color: #fff;
 }
+.ship-card {
+  border: 2px solid var(--bronze);
+  background: #fffdf8;
+  padding: 16px 16px 18px;
+  margin: 0 0 22px;
+  max-width: 640px;
+  display: grid;
+  gap: 12px;
+}
+.ship-card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.ship-rate-btn {
+  min-height: 52px;
+  width: 100%;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+.ship-rate-btn:disabled {
+  opacity: 1;
+  cursor: wait;
+}
 .btn-danger {
   background: #8a2a22;
   color: #f6efe4;

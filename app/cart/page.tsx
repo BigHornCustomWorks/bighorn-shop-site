@@ -34,7 +34,19 @@ function reasonText(reason: string): string {
 }
 
 function ratesNeedSetup(reason: string): boolean {
-  return reason === "not_configured" || reason === "no_ship_from" || reason === "missing_dimensions";
+  return reason === "not_configured" || reason === "no_ship_from";
+}
+
+function nameList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+}
+
+function missingSizeNote(names: string[]): string {
+  if (!names.length) {
+    return "This order ships at the shop's flat rate until every item has a shipping size saved. The shipping price is confirmed when you pay.";
+  }
+  return `This order ships at the shop's flat rate until these items have a shipping size saved: ${names.join(", ")}. The shipping price is confirmed when you pay.`;
 }
 
 export default function CartPage() {
@@ -47,6 +59,7 @@ export default function CartPage() {
   const [picked, setPicked] = useState("");
   const [how, setHow] = useState<"ship" | "pickup">("ship");
   const [addr, setAddr] = useState({ street1: "", city: "", state: "", zip: "" });
+  const [unmeasured, setUnmeasured] = useState<string[]>([]);
 
   const cartRows = useMemo(
     () =>
@@ -67,6 +80,7 @@ export default function CartPage() {
     setRateError("");
     if (!cartRows.length) {
       setRates({ mode: "idle" });
+      setUnmeasured([]);
       return;
     }
     let live = true;
@@ -79,7 +93,9 @@ export default function CartPage() {
       .then((json) => {
         if (!live) return;
         const mode = json.mode === "none" || json.mode === "ready" ? json.mode : "flat";
-        setRates({ mode, pickup: json.pickup === true, reason: typeof json.reason === "string" ? json.reason : "" });
+        const reason = typeof json.reason === "string" ? json.reason : "";
+        setUnmeasured(nameList(json.unmeasured));
+        setRates({ mode, pickup: json.pickup === true, reason });
       })
       .catch(() => live && setRates({ mode: "flat", pickup: false, reason: "api_error" }));
     return () => {
@@ -89,6 +105,10 @@ export default function CartPage() {
   }, [cartKey]);
 
   async function getRates() {
+    if (!addr.zip.trim()) {
+      setRateError("Enter a ZIP code, then click See shipping rates.");
+      return;
+    }
     setRateBusy(true);
     setRateError("");
     setPicked("");
@@ -104,6 +124,7 @@ export default function CartPage() {
         return;
       }
       if (json.mode === "live" && Array.isArray(json.rates) && json.rates.length) {
+        setUnmeasured([]);
         setRates({
           mode: "live",
           pickup: json.pickup === true,
@@ -114,8 +135,10 @@ export default function CartPage() {
         setPicked("");
       } else {
         const reason = typeof json.reason === "string" ? json.reason : "no_rates";
+        const names = nameList(json.unmeasured);
+        setUnmeasured(names);
         setRates({ mode: "flat", pickup: json.pickup === true, reason });
-        setRateError(reasonText(reason));
+        setRateError(reason === "missing_dimensions" ? "" : reasonText(reason));
       }
     } catch {
       setRates({ mode: "flat", pickup: false, reason: "api_error" });
@@ -179,6 +202,101 @@ export default function CartPage() {
         </p>
       ) : (
         <>
+          {rates.mode !== "none" ? (
+            <section className="ship-card" aria-label="Shipping">
+              <h2>Shipping</h2>
+              {rates.mode === "idle" ? <p className="note">Checking shipping…</p> : null}
+              {rates.mode !== "idle" ? (
+                <fieldset className="sign-fulfill">
+                  <legend>How do you want it?</legend>
+                  <label className="radio">
+                    <input type="radio" name="cart-how" checked={how === "ship" || !pickupOn} onChange={() => setHow("ship")} />
+                    Ship it
+                  </label>
+                  {pickupOn ? (
+                    <label className="radio">
+                      <input type="radio" name="cart-how" checked={how === "pickup"} onChange={() => setHow("pickup")} />
+                      Pick up in Sheridan, WY (free)
+                    </label>
+                  ) : null}
+                </fieldset>
+              ) : null}
+              {showRateBox ? (
+                <div className="form">
+                  <p className="note">
+                    Enter where it is going. ZIP is enough for a quote. A street address makes the price exact.
+                  </p>
+                  {"reason" in rates && rates.reason === "missing_dimensions" ? (
+                    <p className="note">{missingSizeNote(unmeasured)}</p>
+                  ) : null}
+                  {"reason" in rates && rates.mode === "flat" && rates.reason !== "missing_dimensions" ? (
+                    <p className="note">{reasonText(rates.reason)}</p>
+                  ) : null}
+                  <label>
+                    Street (optional)
+                    <input
+                      value={addr.street1}
+                      autoComplete="shipping address-line1"
+                      onChange={(e) => setAddr({ ...addr, street1: e.target.value })}
+                    />
+                  </label>
+                  <div className="row-3">
+                    <label>
+                      City (optional)
+                      <input
+                        value={addr.city}
+                        autoComplete="shipping address-level2"
+                        onChange={(e) => setAddr({ ...addr, city: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      State (optional)
+                      <input
+                        value={addr.state}
+                        maxLength={2}
+                        autoComplete="shipping address-level1"
+                        onChange={(e) => setAddr({ ...addr, state: e.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label>
+                      ZIP code
+                      <input
+                        value={addr.zip}
+                        inputMode="numeric"
+                        maxLength={10}
+                        autoComplete="shipping postal-code"
+                        onChange={(e) => setAddr({ ...addr, zip: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <button className="btn btn-bronze ship-rate-btn" type="button" onClick={getRates} disabled={rateBusy}>
+                    {rateBusy ? "Getting rates…" : rates.mode === "live" ? "Update shipping rates" : "See shipping rates"}
+                  </button>
+                  {rates.mode === "live" ? (
+                    <div role="radiogroup" aria-label="Shipping service">
+                      {rates.rates.map((r) => (
+                        <label key={r.id} className="radio">
+                          <input
+                            type="radio"
+                            name="rate"
+                            checked={picked === r.id}
+                            onChange={() => setPicked(r.id)}
+                          />
+                          <span>
+                            {r.displayName} — <strong>{formatUsd(r.amountCents)}</strong>
+                            {r.days ? <span className="muted"> · about {r.days} business day{r.days === 1 ? "" : "s"}</span> : null}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                  {rateError ? <p className="note">{rateError}</p> : null}
+                </div>
+              ) : null}
+              {flatNote && !rateError ? <p className="note">{flatNote}</p> : null}
+            </section>
+          ) : null}
+
           {lines.map((line) => (
             <div key={line.productId + line.variant} className="row" style={{ marginBottom: 12, alignItems: "center" }}>
               <div>
@@ -207,95 +325,6 @@ export default function CartPage() {
           ))}
           <p className="price">Total {formatUsd(totalCents)}</p>
 
-          {rates.mode !== "idle" && rates.mode !== "none" ? (
-            <fieldset className="sign-fulfill" style={{ maxWidth: 560 }}>
-              <legend>How do you want it?</legend>
-              <label className="radio">
-                <input type="radio" name="cart-how" checked={how === "ship" || !pickupOn} onChange={() => setHow("ship")} />
-                Ship it
-              </label>
-              {pickupOn ? (
-                <label className="radio">
-                  <input type="radio" name="cart-how" checked={how === "pickup"} onChange={() => setHow("pickup")} />
-                  Pick up in Sheridan, WY (free)
-                </label>
-              ) : null}
-            </fieldset>
-          ) : null}
-
-          {showRateBox ? (
-            <div className="form" style={{ maxWidth: 560, marginBottom: 16 }}>
-              <p className="section-kicker">Shipping ZIP</p>
-              {rates.mode === "flat" ? <p className="note">{reasonText(rates.reason)}</p> : null}
-              {rates.mode === "ready" || rates.mode === "live" ? (
-                <p className="note">
-                  Enter where it&apos;s going for live USPS and UPS rates from Sheridan, WY. ZIP is enough; the full
-                  street address makes the rate exact. Pick a rate before checkout. Stripe will charge only that rate.
-                </p>
-              ) : null}
-              <label>
-                Street (optional)
-                <input
-                  value={addr.street1}
-                  autoComplete="shipping address-line1"
-                  onChange={(e) => setAddr({ ...addr, street1: e.target.value })}
-                />
-              </label>
-              <div className="row-3">
-                <label>
-                  City (optional)
-                  <input
-                    value={addr.city}
-                    autoComplete="shipping address-level2"
-                    onChange={(e) => setAddr({ ...addr, city: e.target.value })}
-                  />
-                </label>
-                <label>
-                  State (optional)
-                  <input
-                    value={addr.state}
-                    maxLength={2}
-                    autoComplete="shipping address-level1"
-                    onChange={(e) => setAddr({ ...addr, state: e.target.value.toUpperCase() })}
-                  />
-                </label>
-                <label>
-                  ZIP
-                  <input
-                    value={addr.zip}
-                    inputMode="numeric"
-                    maxLength={10}
-                    autoComplete="shipping postal-code"
-                    onChange={(e) => setAddr({ ...addr, zip: e.target.value })}
-                  />
-                </label>
-              </div>
-              <button className="btn-ghost" type="button" onClick={getRates} disabled={rateBusy || !addr.zip.trim()}>
-                {rateBusy ? "Getting rates…" : rates.mode === "live" ? "Update rates" : "See shipping rates"}
-              </button>
-              {rates.mode === "live" ? (
-                <div role="radiogroup" aria-label="Shipping service">
-                  {rates.rates.map((r) => (
-                    <label key={r.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input
-                        type="radio"
-                        name="rate"
-                        checked={picked === r.id}
-                        onChange={() => setPicked(r.id)}
-                      />
-                      <span>
-                        {r.displayName} — <strong>{formatUsd(r.amountCents)}</strong>
-                        {r.days ? <span className="muted"> · about {r.days} business day{r.days === 1 ? "" : "s"}</span> : null}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {rateError ? <p className="note">{rateError}</p> : null}
-          {flatNote && !rateError ? <p className="note">{flatNote}</p> : null}
-
           {chosen ? (
             <p className="price">
               With {chosen.displayName}: {formatUsd(totalCents + chosen.amountCents)} before tax
@@ -305,7 +334,7 @@ export default function CartPage() {
           )}
           <div className="hero-actions">
             <button className="btn btn-bronze" type="button" onClick={checkout} disabled={busy || needsRate}>
-              {busy ? "Opening Stripe…" : needsRate ? "Enter your ZIP to see shipping" : "Checkout with Stripe"}
+              {busy ? "Opening Stripe…" : needsRate ? "See shipping rates above" : "Checkout with Stripe"}
             </button>
             <Link className="btn" href={lines.find((l) => l.shopHref)?.shopHref || "/physical"}>
               Continue shopping
