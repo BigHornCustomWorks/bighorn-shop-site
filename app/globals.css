@@ -92,8 +92,25 @@ button, input, textarea, select { font: inherit; }
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  justify-content: flex-end;
+  gap: 10px 16px;
+}
+.service-list {
+  display: grid;
+  gap: 14px;
+  margin: 28px 0 8px;
+}
+.service-list article {
+  background: #fffdf8;
+  border: 1px solid var(--rule);
+  padding: 16px 18px;
+}
+.service-list h2 { font-size: 1.25rem; }
+#request { scroll-margin-top: 96px; margin-top: 28px; }
+@media (min-width: 800px) {
+  .service-list { grid-template-columns: 1fr 1fr; }
 }
 .nav a {
   text-decoration: none;
@@ -802,7 +819,7 @@ button.mc-stat { font: inherit; color: inherit; }
 }
 
 @media (max-width: 860px) {
-  .grid-3, .grid-2, .footer-inner, .row, .row-3 { grid-template-columns: 1fr; }
+  .grid-3, .grid-2, .footer-inner, .row, .row-3, .service-list { grid-template-columns: 1fr; }
   .grid-catalog,
   .mc-product-grid { grid-template-columns: repeat(2, 1fr); }
   .nav-toggle { display: block; }

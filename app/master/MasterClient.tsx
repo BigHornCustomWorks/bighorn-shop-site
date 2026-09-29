@@ -26,6 +26,7 @@ import { MoneyInput } from "@/components/MoneyInput";
 import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
 import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
+import { contactPreferenceLabel, serviceNeedLabel } from "@/lib/service-lead";
 
 type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "history" | "traffic" | "settings";
 
@@ -2075,7 +2076,15 @@ function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
       <strong>{quote.name}</strong> · {quote.email} · {quote.phone || "no phone"}
       {!quote.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{quote.need}</p>
-      {quote.kind === "sign" ? (
+      {quote.serviceType ? (
+        <p className="muted">
+          Services request · {serviceNeedLabel(quote.serviceType)}
+          {quote.approxSize ? ` · about ${quote.approxSize}` : ""}
+          {quote.preferredContact ? ` · prefers ${contactPreferenceLabel(quote.preferredContact).toLowerCase()}` : ""}
+        </p>
+      ) : null}
+      {quote.fitNotes ? <p style={{ whiteSpace: "pre-wrap" }}>Fit notes: {quote.fitNotes}</p> : null}
+      {quote.kind === "sign" && !quote.serviceType ? (
         <p className="muted">
           Sign request
           {quote.widthIn || quote.heightIn ? ` · ${quote.widthIn} × ${quote.heightIn} in` : ""}
@@ -2091,13 +2100,15 @@ function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
           </a>
         </p>
       ) : null}
-      {quote.photoUrl ? (
-        <p>
-          <a href={quote.photoUrl} rel="noreferrer">
-            Photo
-          </a>
-        </p>
-      ) : null}
+      {(quote.photoUrls && quote.photoUrls.length ? quote.photoUrls : quote.photoUrl ? [quote.photoUrl] : []).map(
+        (url, i) => (
+          <p key={url}>
+            <a href={url} rel="noreferrer">
+              Photo {i + 1}
+            </a>
+          </p>
+        ),
+      )}
       <p className="muted">
         {quote.createdAt} · {quote.emailed ? "email sent" : "saved to inbox only"}
       </p>

@@ -26,6 +26,7 @@ export function Header({ site }: { site: SiteCopy }) {
           <Link href="/signs">Signs</Link>
           <Link href="/physical">Physical</Link>
           <Link href="/digital">Digital</Link>
+          <Link href="/services">Services</Link>
           <Link href="/gallery">Gallery</Link>
           <Link href="/custom">Custom</Link>
           <Link href="/about">About</Link>

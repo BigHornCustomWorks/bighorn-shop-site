@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultMetalSigns, defaultSignFinishes, seedStore } from "./seed";
+import { contactPreferenceLabel, serviceNeedLabel } from "./service-lead";
 import {
   asArray,
   asCents,
@@ -246,6 +247,11 @@ function normalizeQuote(raw: unknown): Quote | null {
     fulfillment: cleanStr(src.fulfillment),
     estimateLabel: cleanStr(src.estimateLabel),
     sampleUrl: safeUrl(src.sampleUrl),
+    serviceType: serviceNeedLabel(cleanStr(src.serviceType)) ? cleanStr(src.serviceType) : "",
+    fitNotes: cleanMultiline(src.fitNotes).slice(0, 4000),
+    approxSize: cleanStr(src.approxSize).slice(0, 160),
+    preferredContact: contactPreferenceLabel(cleanStr(src.preferredContact)) ? cleanStr(src.preferredContact) : "",
+    photoUrls: asArray<unknown>(src.photoUrls).map((url) => safeUrl(url)).filter(Boolean).slice(0, 3),
   };
 }
 

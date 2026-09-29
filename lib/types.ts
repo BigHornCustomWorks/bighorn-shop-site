@@ -146,6 +146,12 @@ export type Quote = {
   fulfillment: string;
   estimateLabel: string;
   sampleUrl: string;
+  /** Services form. Empty on older quote requests. */
+  serviceType?: string;
+  fitNotes?: string;
+  approxSize?: string;
+  preferredContact?: string;
+  photoUrls?: string[];
 };
 
 export type ShippingOption = {

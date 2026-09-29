@@ -129,6 +129,61 @@ function shopInbox(): string {
   return cleanStr(process.env.QUOTE_TO_EMAIL, "bighorncustomworks@gmail.com");
 }
 
+export async function sendShopMail(opts: {
+  subject: string;
+  text: string;
+  replyTo?: string;
+  to?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
+}): Promise<boolean> {
+  const to = cleanStr(opts.to) || shopInbox();
+  const replyTo = cleanStr(opts.replyTo);
+  const attachments = (opts.attachments || []).filter((file) => file.content?.length);
+  const user = cleanStr(process.env.SMTP_USER);
+  const pass = cleanStr(process.env.SMTP_PASS);
+  if (user && pass) {
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host: cleanStr(process.env.SMTP_HOST, "smtp.gmail.com"),
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: true,
+      auth: { user, pass },
+    });
+    const payload = {
+      from: `Big Horn Custom Works <${user}>`,
+      to,
+      replyTo: replyTo || undefined,
+      subject: opts.subject,
+      text: opts.text,
+    };
+    try {
+      await transporter.sendMail({
+        ...payload,
+        attachments: attachments.map((file) => ({
+          filename: file.filename,
+          content: file.content,
+          contentType: file.contentType || "application/octet-stream",
+        })),
+      });
+      return true;
+    } catch (err) {
+      console.error("smtp attachments:", err instanceof Error ? err.message : err);
+      if (attachments.length) {
+        try {
+          await transporter.sendMail({
+            ...payload,
+            text: `${opts.text}\n\nThe photos could not be attached to this email. The links above still open them.`,
+          });
+          return true;
+        } catch (err2) {
+          console.error("smtp:", err2 instanceof Error ? err2.message : err2);
+        }
+      }
+    }
+  }
+  return sendPlainEmail({ subject: opts.subject, text: opts.text, replyTo, to });
+}
+
 export async function sendPlainEmail(opts: {
   subject: string;
   text: string;
