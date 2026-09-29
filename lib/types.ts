@@ -93,6 +93,8 @@ export type Product = {
   category: string;
   kind: ProductKind;
   digitalNote: string;
+  /** HTTPS zip links emailed to the buyer after payment. Never shown on the public product page. */
+  digitalFileUrls: string[];
   variants: ProductVariant[];
   variantNote: string;
   visible: boolean;
@@ -327,6 +329,14 @@ export type ShopOrder = {
   labelService: string;
   labelCents: number;
   labelBoughtAt: string;
+  /** Digital product slugs on this order. Empty on physical orders and orders from before download email. */
+  digitalSlugs?: string[];
+  /** True after the buyer was emailed the download links. A retry must not send those links again. */
+  digitalEmailed?: boolean;
+  /** Empty when the download email succeeded or was not needed. "sending" while a send is in flight. */
+  digitalEmailError?: string;
+  /** True when this order also has a physical or sign item. */
+  includesShippedGoods?: boolean;
 };
 
 

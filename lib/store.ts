@@ -19,6 +19,7 @@ import {
   normalizeShipAddress,
   normalizeSignPack,
 } from "./shipping";
+import { cleanSlugList, honestDigitalNote, httpsFileUrls } from "./digital-delivery";
 import { firstPhoto, splitMedia } from "./video";
 import type {
   FooterLink,
@@ -134,6 +135,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
   const { media, photos, videos } = splitMedia(mediaIn.length ? mediaIn : [...photosIn, ...videosIn]);
   const kind: ProductKind =
     src.kind === "digital" ? "digital" : src.kind === "sign" ? "sign" : "physical";
+  const digitalFileUrls = kind === "digital" ? httpsFileUrls(src.digitalFileUrls) : [];
   return {
     id: cleanStr(src.id, newId("prod")),
     slug: safeSlug(src.slug, safeSlug(name, `part-${i + 1}`)),
@@ -147,12 +149,11 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     videos,
     category: cleanStr(src.category, "Mill accessories"),
     kind,
-    digitalNote: cleanMultiline(
-      src.digitalNote,
+    digitalFileUrls,
+    digitalNote:
       kind === "digital"
-        ? "Digital item. After Stripe payment, Clint emails the file or download link. No shipping."
-        : "",
-    ),
+        ? honestDigitalNote(cleanMultiline(src.digitalNote), digitalFileUrls.length > 0)
+        : cleanMultiline(src.digitalNote),
     variants: asArray<unknown>(src.variants).map(normalizeVariant).slice(0, 48),
     variantNote: cleanMultiline(src.variantNote),
     visible: src.visible !== false,
@@ -195,7 +196,14 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     address: cleanMultiline(src.address),
     sessionId,
     shippingLabel: cleanStr(src.shippingLabel),
-    fulfillment: cleanStr(src.fulfillment) === "pickup" ? "pickup" : cleanStr(src.fulfillment) === "ship" ? "ship" : "",
+    fulfillment:
+      cleanStr(src.fulfillment) === "pickup"
+        ? "pickup"
+        : cleanStr(src.fulfillment) === "ship"
+          ? "ship"
+          : cleanStr(src.fulfillment) === "digital"
+            ? "digital"
+            : "",
     shippingCents: asCents(src.shippingCents, 0),
     taxCents: asCents(src.taxCents, 0),
     trackingCarrier: cleanStr(src.trackingCarrier),
@@ -222,6 +230,10 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     labelService: cleanStr(src.labelService),
     labelCents: asCents(src.labelCents, 0),
     labelBoughtAt: cleanStr(src.labelBoughtAt),
+    digitalSlugs: cleanSlugList(src.digitalSlugs),
+    digitalEmailed: src.digitalEmailed === true,
+    digitalEmailError: cleanStr(src.digitalEmailError).slice(0, 300),
+    includesShippedGoods: src.includesShippedGoods === true,
   };
 }
 
@@ -736,8 +748,14 @@ export async function writeStore(
   }
 }
 
+/** Public pages must not receive the purchased file links. */
+export function withoutDownloadUrls(product: Product): Product {
+  if (!product.digitalFileUrls?.length) return product;
+  return { ...product, digitalFileUrls: [] };
+}
+
 export function visibleProducts(store: ShopStore): Product[] {
-  return store.products.filter((p) => p.visible);
+  return store.products.filter((p) => p.visible).map(withoutDownloadUrls);
 }
 
 export function categorySlug(name: string): string {
@@ -804,7 +822,12 @@ export function physicalProductsInCategory(store: ShopStore, slug: string): { na
 
 export function productBySlug(store: ShopStore, slug: string): Product | undefined {
   const want = safeSlug(slug);
-  return visibleProducts(store).find((p) => p.slug === want);
+  const found = store.products.find((p) => p.slug === want);
+  if (!found) return undefined;
+  // Hidden physical and sign items stay off the site. A hidden digital item
+  // can still be opened by its address so a file can be tested without listing it.
+  if (!found.visible && found.kind !== "digital") return undefined;
+  return withoutDownloadUrls(found);
 }
 
 export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quotes" | "orders"> & {
@@ -813,7 +836,7 @@ export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quo
   orderCount: number;
 } {
   return {
-    products: store.products,
+    products: store.products.map(withoutDownloadUrls),
     categories: store.categories,
     site: store.site,
     gallery: store.gallery,

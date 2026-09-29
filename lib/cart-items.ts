@@ -12,8 +12,10 @@ export function resolveCartItems(store: ShopStore, rows: unknown): CartItem[] {
   const itemsIn = Array.isArray(rows) ? rows : [];
   return itemsIn
     .map((row: { productId?: string; quantity?: number; variant?: string }) => {
-      const product = store.products.find((p) => p.id === cleanStr(row?.productId) && p.visible);
-      if (!product) return null;
+      const product = store.products.find((p) => p.id === cleanStr(row?.productId));
+      // Hidden physical and sign items are not for sale. A hidden digital item
+      // can still be checked out from its own address, so it stays off the catalog.
+      if (!product || (!product.visible && product.kind !== "digital")) return null;
       // Link-out / coming-soon digital services are not Stripe cart items.
       if (product.externalUrl || /coming soon/i.test(product.priceLabel || "")) return null;
       return {

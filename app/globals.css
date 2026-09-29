@@ -588,6 +588,15 @@ textarea { min-height: 140px; resize: vertical; }
 }
 .ok { color: var(--ok); }
 .err { color: var(--danger); }
+.mc-flag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+}
 
 .master {
   max-width: 1180px;

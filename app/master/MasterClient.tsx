@@ -26,6 +26,7 @@ import { MoneyInput } from "@/components/MoneyInput";
 import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
 import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
+import { digitalSlugsForOrder, downloadStatusLabel } from "@/lib/digital-delivery";
 import { contactPreferenceLabel, serviceNeedLabel } from "@/lib/service-lead";
 
 type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "history" | "traffic" | "settings";
@@ -44,6 +45,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   category: kind === "digital" ? "Digital" : kind === "sign" ? "Metal signs" : "Mill accessories",
   kind,
   digitalNote: "",
+  digitalFileUrls: [],
   variants: [],
   variantNote: "",
   visible: true,
@@ -744,6 +746,7 @@ export function MasterClient() {
               <OrderRow
                 key={order.id}
                 order={order}
+                products={store.products}
                 onRead={() => {
                   const orders = store.orders.map((o) => (o.id === order.id ? { ...o, read: true } : o));
                   save({ ...store, orders });
@@ -1709,14 +1712,33 @@ function ProductEditor({
         />
       </label>
       {product.kind === "digital" ? (
-        <label>
-          Digital delivery note (shown on the product page)
-          <textarea
-            value={product.digitalNote}
-            onChange={(e) => onChange({ ...product, digitalNote: e.target.value })}
-            placeholder="Emailed after payment. File format, license, etc."
-          />
-        </label>
+        <>
+          <label>
+            Download file links (HTTPS, one per line)
+            <textarea
+              value={(product.digitalFileUrls || []).join("\n")}
+              onChange={(e) =>
+                onChange({
+                  ...product,
+                  digitalFileUrls: e.target.value.split("\n").map((line) => line.trim()),
+                })
+              }
+              placeholder={"https://….public.blob.vercel-storage.com/file.zip"}
+            />
+          </label>
+          <p className="note">
+            Paste the zip links. After payment they are emailed to the buyer. They are not shown on the product page.
+            Leave this blank if you will email the file yourself. Only https:// lines are kept when you save.
+          </p>
+          <label>
+            Digital delivery note (shown on the product page)
+            <textarea
+              value={product.digitalNote}
+              onChange={(e) => onChange({ ...product, digitalNote: e.target.value })}
+              placeholder="Leave blank for the automatic sentence, or write your own."
+            />
+          </label>
+        </>
       ) : null}
       <MediaField
         urls={media}
@@ -1851,10 +1873,12 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
 
 function OrderRow({
   order,
+  products,
   onRead,
   onShipped,
 }: {
   order: ShopOrder;
+  products: { slug: string; name: string; kind: string }[];
   onRead: () => void;
   onShipped: (fields: Partial<ShopOrder>) => void;
 }) {
@@ -1866,6 +1890,14 @@ function OrderRow({
   const [labelBusy, setLabelBusy] = useState(false);
   const [labelNote, setLabelNote] = useState("");
   const [labelBad, setLabelBad] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadNote, setDownloadNote] = useState("");
+  const [downloadBad, setDownloadBad] = useState(false);
+  const matchedSlugs = (order.digitalSlugs || []).length ? order.digitalSlugs || [] : digitalSlugsForOrder(order, products);
+  const downloadLabel = downloadStatusLabel({
+    ...order,
+    digitalSlugs: matchedSlugs,
+  });
   const [quote, setQuote] = useState<{
     shipmentId: string;
     rateId: string;
@@ -1917,6 +1949,35 @@ function OrderRow({
       setLabelNote("Could not reach the server. Refresh before trying again.");
     } finally {
       setLabelBusy(false);
+    }
+  }
+
+  async function resendDownload() {
+    setDownloadBusy(true);
+    setDownloadNote("");
+    setDownloadBad(false);
+    try {
+      const res = await fetch("/api/master/digital-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        setDownloadBad(true);
+        setDownloadNote(json.error || "The download email was not sent.");
+        if (json.digitalEmailed) {
+          onShipped({ digitalEmailed: true, digitalEmailError: "" });
+        }
+        return;
+      }
+      onShipped({ digitalEmailed: true, digitalEmailError: "" });
+      setDownloadNote("Download links emailed to the buyer.");
+    } catch {
+      setDownloadBad(true);
+      setDownloadNote("Could not reach the server. Refresh before trying again.");
+    } finally {
+      setDownloadBusy(false);
     }
   }
 
@@ -1974,7 +2035,23 @@ function OrderRow({
             ? "Live payment. "
             : ""}
         {order.createdAt} · {order.emailed ? "email sent to the shop inbox" : "email failed — still saved here"}
+        {downloadLabel ? (
+          <span className={order.digitalEmailed ? "mc-flag ok" : order.digitalEmailError && order.digitalEmailError !== "sending" ? "mc-flag err" : "mc-flag"}>
+            {downloadLabel}
+          </span>
+        ) : null}
       </p>
+      {downloadLabel ? (
+        <p>
+          <button type="button" onClick={resendDownload} disabled={downloadBusy || !order.email}>
+            {downloadBusy ? "Sending…" : order.digitalEmailed ? "Resend download links" : "Email download links"}
+          </button>
+          {order.digitalEmailError && order.digitalEmailError !== "sending" ? (
+            <span className="err"> {order.digitalEmailError}</span>
+          ) : null}
+        </p>
+      ) : null}
+      {downloadNote ? <p className={downloadBad ? "err" : "ok"}>{downloadNote}</p> : null}
 
       {order.labelUrl ? (
         <p>

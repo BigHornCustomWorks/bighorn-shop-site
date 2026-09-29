@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { digitalSlugsForOrder, downloadStatusLabel } from "@/lib/digital-delivery";
 import { formatUsd } from "@/lib/money";
 import {
   denverToday,
@@ -229,6 +230,7 @@ export function OrderHistoryTab({
         <HistoryRow
           key={order.id}
           order={order}
+          products={store.products}
           open={openId === order.id}
           onToggle={() => setOpenId(openId === order.id ? null : order.id)}
           onViewCustomer={() => {
@@ -244,22 +246,56 @@ export function OrderHistoryTab({
 
 function HistoryRow({
   order,
+  products,
   open,
   onToggle,
   onViewCustomer,
   onReviewed,
 }: {
   order: ShopOrder;
+  products: { slug: string; name: string; kind: string }[];
   open: boolean;
   onToggle: () => void;
   onViewCustomer: () => void;
   onReviewed: (fields: Partial<ShopOrder>) => void;
 }) {
-  const [busy, setBusy] = useState<"shop" | "repair" | "">("");
+  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "">("");
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
   const phone = orderPhone(order);
   const how = orderFulfillment(order) || "—";
+  const matchedSlugs = (order.digitalSlugs || []).length ? order.digitalSlugs || [] : digitalSlugsForOrder(order, products);
+  const downloadLabel = downloadStatusLabel({
+    ...order,
+    digitalSlugs: matchedSlugs,
+  });
+
+  async function resendDownload() {
+    setBusy("download");
+    setNote("");
+    setBad(false);
+    try {
+      const res = await fetch("/api/master/digital-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        setBad(true);
+        setNote(json.error || "The download email was not sent.");
+        if (json.digitalEmailed) onReviewed({ digitalEmailed: true, digitalEmailError: "" });
+        return;
+      }
+      onReviewed({ digitalEmailed: true, digitalEmailError: "" });
+      setNote("Download links emailed to the buyer.");
+    } catch (err) {
+      setBad(true);
+      setNote(err instanceof Error ? err.message : "Could not reach the server.");
+    } finally {
+      setBusy("");
+    }
+  }
 
   async function sendReview(brand: "shop" | "repair", again = false) {
     setBusy(brand);
@@ -311,6 +347,11 @@ function HistoryRow({
         {order.smsOptIn ? " · SMS OK" : ""}
         {" · "}
         {how}
+        {downloadLabel ? (
+          <span className={order.digitalEmailed ? "mc-flag ok" : order.digitalEmailError && order.digitalEmailError !== "sending" ? "mc-flag err" : "mc-flag"}>
+            {downloadLabel}
+          </span>
+        ) : null}
       </p>
       <p className="muted">Order {order.id}</p>
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
@@ -338,6 +379,11 @@ function HistoryRow({
         <button type="button" className="btn-ghost" onClick={onViewCustomer}>
           View customer
         </button>
+        {downloadLabel ? (
+          <button type="button" className="btn" onClick={resendDownload} disabled={Boolean(busy) || !order.email}>
+            {busy === "download" ? "Sending…" : order.digitalEmailed ? "Resend download links" : "Email download links"}
+          </button>
+        ) : null}
       </div>
       {note ? <p className={bad ? "err" : "ok"}>{note}</p> : null}
       {open ? (

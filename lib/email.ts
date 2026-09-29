@@ -1,3 +1,4 @@
+import { deliveryEmailText, type DigitalDownload } from "./digital-delivery";
 import { cleanMultiline, cleanStr } from "./sanitize";
 import type { Quote } from "./types";
 
@@ -250,6 +251,19 @@ export async function sendPlainEmail(opts: {
 }
 
 /**
+ * Resend's shared onboarding address is not a shop mailbox. Buyer mail uses
+ * Gmail SMTP, or RESEND_FROM once that domain is verified.
+ */
+function verifiedResendFrom(): string {
+  const from = cleanStr(process.env.RESEND_FROM);
+  if (!from || /onboarding@resend\.dev/i.test(from)) return "";
+  const plain = /^[^\s<>]+@[^\s<>]+$/;
+  const named = /^.+<[^\s<>]+@[^\s<>]+>$/;
+  if (!plain.test(from) && !named.test(from)) return "";
+  return from;
+}
+
+/**
  * Mail addressed to a customer rather than to the shop. FormSubmit is
  * deliberately not a fallback here: it delivers to an inbox its owner has to
  * activate, which is fine for Clint's inbox and useless for a stranger's.
@@ -283,13 +297,14 @@ async function sendCustomerEmail(opts: { to: string; subject: string; text: stri
   }
 
   const resendKey = cleanStr(process.env.RESEND_API_KEY);
-  if (resendKey) {
+  const resendFrom = verifiedResendFrom();
+  if (resendKey && resendFrom) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "Big Horn Custom Works <onboarding@resend.dev>",
+          from: resendFrom,
           to: [to],
           reply_to: shopInbox(),
           subject: opts.subject,
@@ -303,6 +318,39 @@ async function sendCustomerEmail(opts: { to: string; subject: string; text: stri
   }
 
   return false;
+}
+
+export async function sendDigitalDeliveryEmail(detail: {
+  to: string;
+  name: string;
+  downloads: DigitalDownload[];
+  alsoPhysical?: boolean;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const downloads = (detail.downloads || [])
+    .map((item) => ({
+      name: cleanStr(item.name, "Download"),
+      urls: (item.urls || []).map((url) => cleanStr(url)).filter((url) => url.startsWith("https://")),
+    }))
+    .filter((item) => item.urls.length);
+  if (!cleanStr(detail.to)) return { ok: false, error: "This order has no customer email." };
+  if (!downloads.length) {
+    return {
+      ok: false,
+      error: "No HTTPS file links are saved on the digital items in this order.",
+    };
+  }
+  const ok = await sendCustomerEmail({
+    to: detail.to,
+    subject: "Your Big Horn Custom Works download",
+    text: deliveryEmailText(cleanStr(detail.name), downloads, Boolean(detail.alsoPhysical)),
+  });
+  if (!ok) {
+    return {
+      ok: false,
+      error: "The download email did not send. SMTP is missing or failed, and no verified Resend domain is set.",
+    };
+  }
+  return { ok: true };
 }
 
 export async function sendShippedEmail(detail: {

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { sendOrderEmail } from "@/lib/email";
+import {
+  cartHasShippedGoods,
+  collectDigitalDownloads,
+  digitalSlugsInCart,
+  webhookDigitalAction,
+  type DigitalDownload,
+} from "@/lib/digital-delivery";
+import { sendDigitalDeliveryEmail, sendOrderEmail } from "@/lib/email";
 import { fulfillmentFromCart, smsOptInFromCustomFields } from "@/lib/order-history";
 import { formatUsd } from "@/lib/money";
 import { newId } from "@/lib/sanitize";
@@ -9,6 +16,54 @@ import { readStore, writeStore } from "@/lib/store";
 import { stripeClient } from "@/lib/stripe";
 
 export const runtime = "nodejs";
+
+/**
+ * One buyer download email. The order row is marked "sending" before the
+ * message goes out, so a Stripe retry during that send does not send a second
+ * copy. `hold` is the request that already wrote "sending".
+ */
+async function deliverDigitalDownload(opts: {
+  orderId: string;
+  email: string;
+  name: string;
+  downloads: DigitalDownload[];
+  alsoPhysical: boolean;
+  digitalSlugs: string[];
+  hold?: boolean;
+}) {
+  if (!opts.downloads.length) return;
+  const claimed = await readStore();
+  const row = claimed.orders.find((o) => o.id === opts.orderId);
+  if (!row || row.digitalEmailed) return;
+  if (!opts.hold) {
+    if (row.digitalEmailError === "sending") return;
+    row.digitalEmailError = "sending";
+    if (opts.digitalSlugs.length && !(row.digitalSlugs || []).length) row.digitalSlugs = opts.digitalSlugs;
+    await writeStore(claimed);
+  }
+
+  let ok = false;
+  let error = "The download email did not send. Use Email download links on the order.";
+  try {
+    const sent = await sendDigitalDeliveryEmail({
+      to: opts.email,
+      name: opts.name,
+      downloads: opts.downloads,
+      alsoPhysical: opts.alsoPhysical,
+    });
+    ok = sent.ok;
+    if (!sent.ok) error = sent.error;
+  } catch (err) {
+    console.error("digital delivery", err instanceof Error ? err.message : err);
+  }
+
+  const after = await readStore();
+  const saved = after.orders.find((o) => o.id === opts.orderId);
+  if (!saved) return;
+  saved.digitalEmailed = ok;
+  saved.digitalEmailError = ok ? "" : error.slice(0, 300);
+  await writeStore(after);
+}
 
 function addressLines(addr?: Stripe.Address | null): string {
   if (!addr) return "";
@@ -95,19 +150,34 @@ export async function POST(req: Request) {
         : emptyShipAddress();
       // Stripe retries this webhook on any timeout or non-2xx. Claim the
       // order row FIRST so a retry sees it and stops, instead of sending a
-      // second copy of the same order to the shop inbox.
+      // second copy of the same order to the shop inbox. A missed download
+      // email can still go out once; a finished one is not sent again.
       const latest = await readStore();
-      if (latest.orders.some((o) => o.sessionId === session.id)) {
-        return NextResponse.json({ received: true });
-      }
-
-      const orderId = newId("order");
       const stockNote = meta.items || "";
       const itemSlugs = stockNote
         .split(",")
         .filter(Boolean)
         .map((part) => part.split(":")[0] || "")
         .filter(Boolean);
+      const downloads = collectDigitalDownloads(itemSlugs, latest.products);
+      const digitalSlugs = digitalSlugsInCart(itemSlugs, latest.products);
+      const alsoPhysical = cartHasShippedGoods(itemSlugs, latest.products);
+      const existing = latest.orders.find((o) => o.sessionId === session.id);
+      if (existing) {
+        if (webhookDigitalAction(existing, downloads.length) === "send") {
+          await deliverDigitalDownload({
+            orderId: existing.id,
+            email,
+            name,
+            downloads,
+            alsoPhysical,
+            digitalSlugs,
+          });
+        }
+        return NextResponse.json({ received: true });
+      }
+
+      const orderId = newId("order");
       const fulfillment = fulfillmentFromCart(
         meta.fulfillment || "",
         itemSlugs,
@@ -172,6 +242,10 @@ export async function POST(req: Request) {
           labelService: "",
           labelCents: 0,
           labelBoughtAt: "",
+          digitalSlugs,
+          digitalEmailed: false,
+          digitalEmailError: downloads.length ? "sending" : "",
+          includesShippedGoods: alsoPhysical,
         },
         ...latest.orders,
       ].slice(0, 400);
@@ -202,6 +276,18 @@ export async function POST(req: Request) {
           row.emailed = true;
           await writeStore(after);
         }
+      }
+
+      if (downloads.length) {
+        await deliverDigitalDownload({
+          orderId,
+          email,
+          name,
+          downloads,
+          alsoPhysical,
+          digitalSlugs,
+          hold: true,
+        });
       }
     } catch (err) {
       console.error("order notify", err instanceof Error ? err.message : err);

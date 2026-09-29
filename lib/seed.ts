@@ -109,6 +109,7 @@ export function defaultProducts(): Product[] {
       category: "Mill accessories",
       kind: "physical",
       digitalNote: "",
+      digitalFileUrls: [],
       variants: [],
       variantNote: "",
       visible: true,
@@ -150,6 +151,7 @@ export function defaultProducts(): Product[] {
       category: "Mill accessories",
       kind: "physical",
       digitalNote: "",
+      digitalFileUrls: [],
       variants: [
         { id: "black", name: "Black", priceCents: 0, onHand: null },
         { id: "blue", name: "Blue", priceCents: 0, onHand: null },
@@ -199,6 +201,7 @@ export function defaultProducts(): Product[] {
       category: "Mill accessories",
       kind: "physical",
       digitalNote: "",
+      digitalFileUrls: [],
       variants: [],
       variantNote: "",
       visible: true,
