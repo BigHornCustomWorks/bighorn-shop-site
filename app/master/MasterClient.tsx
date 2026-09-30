@@ -27,6 +27,7 @@ import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
 import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
 import { digitalSlugsForOrder, downloadStatusLabel } from "@/lib/digital-delivery";
+import { DIGITAL_FILES, DIGITAL_SOFTWARE, digitalSection } from "@/lib/digital-sections";
 import { contactPreferenceLabel, serviceNeedLabel } from "@/lib/service-lead";
 
 type Tab = "physical" | "digital" | "signs" | "gallery" | "copy" | "quotes" | "history" | "traffic" | "settings";
@@ -42,7 +43,7 @@ const emptyProduct = (kind: ProductKind = "physical"): Product => ({
   groupCover: "",
   photos: [],
   videos: [],
-  category: kind === "digital" ? "Digital" : kind === "sign" ? "Metal signs" : "Mill accessories",
+  category: kind === "digital" ? "Software" : kind === "sign" ? "Metal signs" : "Mill accessories",
   kind,
   digitalNote: "",
   digitalFileUrls: [],
@@ -1554,22 +1555,39 @@ function ProductEditor({
         ) : null}
       </div>
       <div className="row-3">
-        <label>
-          Category
-          <select
-            value={product.category}
-            onChange={(e) => onChange({ ...product, category: e.target.value })}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-            {!categories.some((c) => c.name === product.category) && product.category ? (
-              <option value={product.category}>{product.category}</option>
-            ) : null}
-          </select>
-        </label>
+        {product.kind === "digital" ? (
+          <label>
+            Section on the Digital page
+            <select
+              value={digitalSection(product) === "files" ? DIGITAL_FILES : DIGITAL_SOFTWARE}
+              onChange={(e) => onChange({ ...product, category: e.target.value })}
+            >
+              <option value={DIGITAL_SOFTWARE}>Software</option>
+              <option value={DIGITAL_FILES}>Digital files (STL and other downloads)</option>
+            </select>
+            <span className="note">
+              Software is programs. Digital files are STL and other downloads. Paste the file link below and save, and
+              that link is emailed after payment.
+            </span>
+          </label>
+        ) : (
+          <label>
+            Category
+            <select
+              value={product.category}
+              onChange={(e) => onChange({ ...product, category: e.target.value })}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+              {!categories.some((c) => c.name === product.category) && product.category ? (
+                <option value={product.category}>{product.category}</option>
+              ) : null}
+            </select>
+          </label>
+        )}
         <label>
           Type
           <select

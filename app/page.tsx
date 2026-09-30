@@ -59,22 +59,19 @@ export default async function HomePage() {
           <div className="gate-col">
             <div>
               <h2 className="gate-title digital">Digital Products</h2>
-              <p className="gate-title-sub">Software &amp; tools</p>
+              <p className="gate-title-sub">Software and file downloads</p>
             </div>
-            <a className="gate digital" href={rsUrl} rel="noreferrer">
+            <Link className="gate digital" href="/digital">
               <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="" />
               <div className="shade" />
               <div className="content">
-                <span className="badge">Software</span>
-                <h3>Repair Status</h3>
-                <p>Shop software from Big Horn Custom Works. Information and signup are on its own site.</p>
-                <p className="includes">Opens the Repair Status info page. Not sold in this shop.</p>
-                <span className="btn btn-spark">Repair Status info →</span>
+                <span className="badge">Digital</span>
+                <h3>Software &amp; files</h3>
+                <p>Programs in one section. STL files and other downloads in the other.</p>
+                <p className="includes">Software · STL and file downloads</p>
+                <span className="btn btn-spark">Enter digital products →</span>
               </div>
-            </a>
-            <p className="gate-title-sub">
-              <Link href="/digital">Other digital products on this site</Link>
-            </p>
+            </Link>
           </div>
 
           <div className="gate-col">
