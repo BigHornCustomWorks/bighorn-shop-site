@@ -325,7 +325,9 @@ export default function CartPage() {
           ))}
           <p className="price">Total {formatUsd(totalCents)}</p>
 
-          {chosen ? (
+          {rates.mode === "none" ? (
+            <p className="note">Nothing in this cart ships. After payment, the download links are emailed to the address you use at checkout.</p>
+          ) : chosen ? (
             <p className="price">
               With {chosen.displayName}: {formatUsd(totalCents + chosen.amountCents)} before tax
             </p>

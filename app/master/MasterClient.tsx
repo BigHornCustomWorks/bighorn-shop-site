@@ -958,6 +958,8 @@ export function MasterClient() {
             Quote emails go to the contact email above (and QUOTE_TO_EMAIL). SMTP: {envSmtp ? "set" : "not set"}.
             Resend: {envResend ? "set" : "not set"}. If neither is set, the first quote sends a FormSubmit
             confirmation to {store.site.contactEmail} — click that once, then new requests email you.
+            Download links and shipping notices go to the buyer by SMTP, or by Resend only when RESEND_FROM is a
+            verified domain (onboarding@resend.dev is not used). FormSubmit does not email buyers.
           </p>
           <button
             className="btn btn-bronze"

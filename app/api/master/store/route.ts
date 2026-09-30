@@ -37,6 +37,13 @@ const SERVER_ORDER_FIELDS = [
   "labelService",
   "labelCents",
   "labelBoughtAt",
+  // Written by the Stripe webhook and the download-email button. A tab that
+  // was open before the email went out must not clear them on the next save,
+  // or a webhook retry would send the links again.
+  "digitalSlugs",
+  "digitalEmailed",
+  "digitalEmailError",
+  "includesShippedGoods",
 ] as const;
 
 function keepServerOrderFields(incoming: unknown[], current: ShopOrder[]): ShopOrder[] {
