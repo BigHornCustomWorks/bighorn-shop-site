@@ -3,7 +3,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { isMaster } from "@/lib/auth";
 import { safeUrl } from "@/lib/sanitize";
-import { SERVER_UPLOAD_MAX, humanSize } from "@/lib/uploadLimits";
+import { SERVER_UPLOAD_MAX, humanSize, isDownloadFileName } from "@/lib/uploadLimits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,9 +44,13 @@ export async function POST(req: Request) {
     );
   }
   const file = form.get("file");
-  const kind = String(form.get("kind") || "photo") === "video" ? "video" : "photo";
+  const rawKind = String(form.get("kind") || "photo");
+  const kind = rawKind === "video" || rawKind === "download" ? rawKind : "photo";
   if (!(file instanceof File) || !file.size) {
     return NextResponse.json({ error: "No file." }, { status: 400 });
+  }
+  if (kind === "download" && !isDownloadFileName(file.name)) {
+    return NextResponse.json({ error: "Upload an STL, 3MF, STEP, or zip file." }, { status: 400 });
   }
   if (file.size > SERVER_UPLOAD_MAX) {
     return NextResponse.json(
@@ -65,11 +69,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Pick a video file (mp4, webm, mov)." }, { status: 400 });
   }
 
-  const filename = `${Date.now()}-${safeName(file.name, kind === "video" ? "clip.mp4" : "photo.jpg")}`;
+  const filename = `${Date.now()}-${safeName(
+    file.name,
+    kind === "video" ? "clip.mp4" : kind === "download" ? "file.zip" : "photo.jpg",
+  )}`;
 
   try {
     const { put } = await import("@vercel/blob");
-    const blob = await put(`bhcw/${kind}s/${filename}`, file, {
+    const folder = kind === "download" ? "downloads" : `${kind}s`;
+    const blob = await put(`bhcw/${folder}/${filename}`, file, {
       access: "public",
       addRandomSuffix: true,
     });

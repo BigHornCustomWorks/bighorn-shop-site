@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { isMaster } from "@/lib/auth";
-import { PHOTO_MAX, PHOTO_TYPES, VIDEO_MAX, VIDEO_TYPES } from "@/lib/uploadLimits";
+import {
+  DOWNLOAD_TYPES,
+  FILE_MAX,
+  PHOTO_MAX,
+  PHOTO_TYPES,
+  VIDEO_MAX,
+  VIDEO_TYPES,
+  isDownloadFileName,
+} from "@/lib/uploadLimits";
 
 export const runtime = "nodejs";
 
@@ -25,6 +33,16 @@ export async function POST(req: Request): Promise<NextResponse> {
       request: req,
       onBeforeGenerateToken: async (_pathname, clientPayload) => {
         if (!(await isMaster())) throw new Error("Not signed in to Master Control.");
+        if (clientPayload === "download") {
+          if (!isDownloadFileName(_pathname)) {
+            throw new Error("Upload an STL, 3MF, STEP, or zip file.");
+          }
+          return {
+            allowedContentTypes: DOWNLOAD_TYPES,
+            maximumSizeInBytes: FILE_MAX,
+            addRandomSuffix: true,
+          };
+        }
         const isVideo = clientPayload === "video";
         return {
           allowedContentTypes: isVideo ? VIDEO_TYPES : PHOTO_TYPES,

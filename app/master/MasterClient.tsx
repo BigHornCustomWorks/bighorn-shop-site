@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { compressImage } from "@/lib/compressImage";
 import { formatUsd } from "@/lib/money";
-import { SERVER_UPLOAD_MAX, humanSize, maxForKind, safeUploadName } from "@/lib/uploadLimits";
+import { MAX_FILE_URLS, httpsFileUrls } from "@/lib/digital-delivery";
+import {
+  FILE_MAX,
+  SERVER_UPLOAD_MAX,
+  downloadContentType,
+  humanSize,
+  isDownloadFileName,
+  maxForKind,
+  safeUploadName,
+} from "@/lib/uploadLimits";
 import { newId, safeSlug } from "@/lib/sanitize";
 import { nextCloneCode, nextProductCode } from "@/lib/sku";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
@@ -218,15 +227,17 @@ export function MasterClient() {
    * cap is real. Returns "" and sets the error message on failure.
    */
   async function uploadFile(file: File, kind: string): Promise<string> {
-    const fallbackName = kind === "video" ? "clip.mp4" : "photo.jpg";
-    const pathname = "bhcw/" + kind + "s/" + safeUploadName(file.name, fallbackName);
+    const fallbackName = kind === "video" ? "clip.mp4" : kind === "download" ? "file.zip" : "photo.jpg";
+    const folder = kind === "download" ? "downloads" : kind + "s";
+    const pathname = "bhcw/" + folder + "/" + safeUploadName(file.name, fallbackName);
+    const contentType = kind === "download" ? downloadContentType(file.name) : file.type || undefined;
     try {
       const { upload } = await import("@vercel/blob/client");
       const blob = await upload(pathname, file, {
         access: "public",
         handleUploadUrl: "/api/blob-upload",
         clientPayload: kind,
-        contentType: file.type || undefined,
+        contentType,
       });
       if (blob?.url) return blob.url;
     } catch {
@@ -281,6 +292,59 @@ export function MasterClient() {
     await save({ ...store, products });
   }
 
+  /** Stores the print file on the product and saves. The buyer email sends this download. */
+  async function uploadDigitalFiles(productId: string, files: File[]) {
+    if (!store) return;
+    const product = store.products.find((p) => p.id === productId);
+    if (!product) return;
+    const existing = httpsFileUrls(product.digitalFileUrls);
+    const room = MAX_FILE_URLS - existing.length;
+    if (room <= 0) {
+      setStatus("");
+      setError("This product already has " + MAX_FILE_URLS + " files. Remove one, then upload again.");
+      return;
+    }
+    const added: string[] = [];
+    const skipped: string[] = [];
+    for (const file of files) {
+      if (added.length >= room) {
+        skipped.push("Only " + MAX_FILE_URLS + " files can be saved on one product.");
+        break;
+      }
+      if (!isDownloadFileName(file.name)) {
+        skipped.push(file.name + " was skipped. Use an STL, 3MF, STEP, or zip.");
+        continue;
+      }
+      if (file.size > FILE_MAX) {
+        skipped.push(file.name + " is " + humanSize(file.size) + " and the limit is " + humanSize(FILE_MAX) + ".");
+        continue;
+      }
+      setError("");
+      setStatus("Uploading " + file.name + "…");
+      const url = await uploadFile(file, "download");
+      if (url) added.push(url);
+      else skipped.push(file.name + " did not upload.");
+    }
+    if (!added.length) {
+      setStatus("");
+      if (skipped.length) setError(skipped.join(" "));
+      return;
+    }
+    const products = store.products.map((p) =>
+      p.id === productId ? { ...p, digitalFileUrls: [...existing, ...added] } : p,
+    );
+    await save({ ...store, products });
+    if (skipped.length) setError(skipped.join(" "));
+  }
+
+  async function saveDigitalFiles(productId: string, urls: string[]) {
+    if (!store) return;
+    const products = store.products.map((p) =>
+      p.id === productId ? { ...p, digitalFileUrls: httpsFileUrls(urls) } : p,
+    );
+    await save({ ...store, products });
+  }
+
   async function uploadHeroVideo(file: File) {
     if (!store) return;
     setHeroUploading(true);
@@ -321,6 +385,8 @@ export function MasterClient() {
     save,
     uploadTo,
     uploadFile,
+    uploadDigitalFiles,
+    saveDigitalFiles,
     query,
     setQuery,
     filterCat,
@@ -984,6 +1050,8 @@ function ProductsTab({
   save,
   uploadTo,
   uploadFile,
+  uploadDigitalFiles,
+  saveDigitalFiles,
   query,
   setQuery,
   filterCat,
@@ -1005,6 +1073,8 @@ function ProductsTab({
   save: (s: ShopStore) => Promise<void>;
   uploadTo: (id: string, file: File) => Promise<void>;
   uploadFile: (file: File, kind: string) => Promise<string>;
+  uploadDigitalFiles: (id: string, files: File[]) => Promise<void>;
+  saveDigitalFiles: (id: string, urls: string[]) => Promise<void>;
   query: string;
   setQuery: (v: string) => void;
   filterCat: string;
@@ -1221,6 +1291,8 @@ function ProductsTab({
             });
           }}
           onUpload={(file) => uploadTo(open.id, file)}
+          onUploadDownload={(files) => uploadDigitalFiles(open.id, files)}
+          onSaveDownload={(urls) => saveDigitalFiles(open.id, urls)}
           onUploadCover={async (file) => {
             const toSend = await compressImage(file);
             return uploadFile(toSend, "photo");
@@ -1444,6 +1516,15 @@ function PresetsEditor({
   );
 }
 
+function downloadFileLabel(url: string): string {
+  try {
+    const base = decodeURIComponent(new URL(url, "https://bighorncustomworks.com").pathname.split("/").pop() || "");
+    return base || url;
+  } catch {
+    return url;
+  }
+}
+
 function shippingChoice(product: Product, options: ShippingOption[]): string {
   if (product.shippingCents <= 0) return "shop";
   const matches = options.filter((o) => o.amountCents === product.shippingCents);
@@ -1460,6 +1541,8 @@ function ProductEditor({
   onChange,
   onMove,
   onUpload,
+  onUploadDownload,
+  onSaveDownload,
   onUploadCover,
   onRemove,
   onClone,
@@ -1473,6 +1556,8 @@ function ProductEditor({
   onChange: (p: Product) => void;
   onMove: (dir: number) => void;
   onUpload: (file: File) => void;
+  onUploadDownload: (files: File[]) => Promise<void>;
+  onSaveDownload: (urls: string[]) => Promise<void>;
   onUploadCover: (file: File) => Promise<string>;
   onRemove: () => void;
   onClone: () => void;
@@ -1480,6 +1565,8 @@ function ProductEditor({
 }) {
   const media = orderedMedia(product);
   const shipChoice = shippingChoice(product, shippingOptions);
+  const [fileBusy, setFileBusy] = useState(false);
+  const savedFiles = (product.digitalFileUrls || []).map((url) => url.trim()).filter(Boolean);
 
   return (
     <form
@@ -1733,8 +1820,54 @@ function ProductEditor({
       </label>
       {product.kind === "digital" ? (
         <>
+          <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+            <p className="section-kicker">Print file</p>
+            <label className="btn btn-bronze" style={{ marginTop: 8 }}>
+              {fileBusy ? "Uploading…" : "Upload print file"}
+              <input
+                type="file"
+                multiple
+                accept=".stl,.3mf,.step,.stp,.zip"
+                disabled={fileBusy}
+                style={{ display: "none" }}
+                onChange={async (e) => {
+                  const picked = Array.from(e.target.files || []);
+                  e.target.value = "";
+                  if (!picked.length) return;
+                  setFileBusy(true);
+                  try {
+                    await onUploadDownload(picked);
+                  } finally {
+                    setFileBusy(false);
+                  }
+                }}
+              />
+            </label>
+            <p className="note">
+              STL, 3MF, STEP, or a zip of those. Up to {MAX_FILE_URLS} files, {humanSize(FILE_MAX)} each. Uploading
+              saves this product. After payment the download is emailed. The file is not attached to the email and is
+              not shown on the product page.
+            </p>
+            {savedFiles.length ? (
+              <ul>
+                {savedFiles.map((url) => (
+                  <li key={url}>
+                    {downloadFileLabel(url)}{" "}
+                    <button
+                      type="button"
+                      onClick={() => void onSaveDownload(savedFiles.filter((item) => item !== url))}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">No print file uploaded yet.</p>
+            )}
+          </div>
           <label>
-            Download file links (HTTPS, one per line)
+            Or paste a download link (HTTPS, one per line)
             <textarea
               value={(product.digitalFileUrls || []).join("\n")}
               onChange={(e) =>
@@ -1747,8 +1880,8 @@ function ProductEditor({
             />
           </label>
           <p className="note">
-            Paste the zip links. After payment they are emailed to the buyer. They are not shown on the product page.
-            Leave this blank if you will email the file yourself. Only https:// lines are kept when you save.
+            A pasted link is kept when you click Save item. Only https:// lines are kept. Leave this blank if you will
+            email the file yourself.
           </p>
           <label>
             Digital delivery note (shown on the product page)

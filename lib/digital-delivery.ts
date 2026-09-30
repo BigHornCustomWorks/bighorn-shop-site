@@ -12,7 +12,7 @@ const LEGACY_DIGITAL_NOTES = new Set([
   "Digital item. After Stripe payment, Clint emails the file or download link. No shipping.",
 ]);
 
-const MAX_FILE_URLS = 8;
+export const MAX_FILE_URLS = 8;
 const MAX_URL_LENGTH = 2000;
 
 export type DigitalDownload = { name: string; urls: string[] };
