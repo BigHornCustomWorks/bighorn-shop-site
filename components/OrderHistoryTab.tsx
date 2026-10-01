@@ -259,7 +259,7 @@ function HistoryRow({
   onViewCustomer: () => void;
   onReviewed: (fields: Partial<ShopOrder>) => void;
 }) {
-  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "">("");
+  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "receipt" | "">("");
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
   const phone = orderPhone(order);
@@ -269,6 +269,47 @@ function HistoryRow({
     ...order,
     digitalSlugs: matchedSlugs,
   });
+
+  async function sendReceipt() {
+    setBusy("receipt");
+    setNote("");
+    setBad(false);
+    let again = false;
+    try {
+      for (;;) {
+        const res = await fetch("/api/master/order-receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId: order.id, again }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 409 && json.already && !again) {
+          const ok = window.confirm(json.error || "Send this receipt again?");
+          if (!ok) {
+            setBad(true);
+            setNote(json.error || "Already sent.");
+            return;
+          }
+          again = true;
+          continue;
+        }
+        if (!res.ok || !json.ok) {
+          setBad(true);
+          setNote(json.error || "The receipt was not sent.");
+          if (json.receiptEmailedAt) onReviewed({ receiptEmailedAt: json.receiptEmailedAt });
+          return;
+        }
+        onReviewed({ receiptEmailedAt: json.receiptEmailedAt });
+        setNote("Receipt emailed to the customer.");
+        return;
+      }
+    } catch (err) {
+      setBad(true);
+      setNote(err instanceof Error ? err.message : "Could not reach the server.");
+    } finally {
+      setBusy("");
+    }
+  }
 
   async function resendDownload() {
     setBusy("download");
@@ -353,7 +394,10 @@ function HistoryRow({
           </span>
         ) : null}
       </p>
-      <p className="muted">Order {order.id}</p>
+      <p className="muted">
+        Order {order.id}
+        {order.receiptEmailedAt ? ` · receipt emailed ${orderWhen(order.receiptEmailedAt)}` : " · no shop receipt emailed yet"}
+      </p>
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       <p className={order.reviewRequestedAt ? "note" : "muted"}>
         {order.reviewRequestedAt
@@ -378,6 +422,9 @@ function HistoryRow({
         </button>
         <button type="button" className="btn-ghost" onClick={onViewCustomer}>
           View customer
+        </button>
+        <button type="button" className="btn" onClick={() => void sendReceipt()} disabled={Boolean(busy) || !order.email}>
+          {busy === "receipt" ? "Sending…" : order.receiptEmailedAt ? "Send receipt again" : "Email receipt"}
         </button>
         {downloadLabel ? (
           <button type="button" className="btn" onClick={resendDownload} disabled={Boolean(busy) || !order.email}>

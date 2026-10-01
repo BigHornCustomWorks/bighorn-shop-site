@@ -44,6 +44,8 @@ const SERVER_ORDER_FIELDS = [
   "digitalEmailed",
   "digitalEmailError",
   "includesShippedGoods",
+  // Written when Clint emails a receipt. A tab opened before that must not clear it.
+  "receiptEmailedAt",
 ] as const;
 
 function keepServerOrderFields(incoming: unknown[], current: ShopOrder[]): ShopOrder[] {

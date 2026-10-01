@@ -234,6 +234,7 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     digitalEmailed: src.digitalEmailed === true,
     digitalEmailError: cleanStr(src.digitalEmailError).slice(0, 300),
     includesShippedGoods: src.includesShippedGoods === true,
+    receiptEmailedAt: cleanStr(src.receiptEmailedAt),
   };
 }
 

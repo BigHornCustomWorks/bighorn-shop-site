@@ -1,4 +1,5 @@
 import { deliveryEmailText, type DigitalDownload } from "./digital-delivery";
+import { receiptEmailText, type ReceiptOrder } from "./receipt";
 import { cleanMultiline, cleanStr } from "./sanitize";
 import type { Quote } from "./types";
 
@@ -348,6 +349,24 @@ export async function sendDigitalDeliveryEmail(detail: {
     return {
       ok: false,
       error: "The download email did not send. SMTP is missing or failed, and no verified Resend domain is set.",
+    };
+  }
+  return { ok: true };
+}
+
+export async function sendReceiptEmail(
+  detail: ReceiptOrder & { to: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!cleanStr(detail.to)) return { ok: false, error: "This order has no customer email." };
+  const ok = await sendCustomerEmail({
+    to: detail.to,
+    subject: "Your receipt from Big Horn Custom Works",
+    text: receiptEmailText(detail),
+  });
+  if (!ok) {
+    return {
+      ok: false,
+      error: "The receipt did not send. SMTP is missing or failed, and no verified Resend domain is set.",
     };
   }
   return { ok: true };

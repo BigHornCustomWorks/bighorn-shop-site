@@ -337,6 +337,8 @@ export type ShopOrder = {
   digitalEmailError?: string;
   /** True when this order also has a physical or sign item. */
   includesShippedGoods?: boolean;
+  /** ISO time the owner emailed this customer a shop receipt. Empty until then. */
+  receiptEmailedAt?: string;
 };
 
 

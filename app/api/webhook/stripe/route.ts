@@ -246,6 +246,7 @@ export async function POST(req: Request) {
           digitalEmailed: false,
           digitalEmailError: downloads.length ? "sending" : "",
           includesShippedGoods: alsoPhysical,
+          receiptEmailedAt: "",
         },
         ...latest.orders,
       ].slice(0, 400);
