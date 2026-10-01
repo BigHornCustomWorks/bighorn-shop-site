@@ -221,7 +221,13 @@ export async function createCheckoutSession(
     if (!needsShipping) params.billing_address_collection = "required";
   }
 
-  if (customerEmail) params.customer_email = customerEmail;
+  if (customerEmail) {
+    params.customer_email = customerEmail;
+    // Checkout usually collects the email on Stripe's page, so this only runs
+    // when the shop already has one. It makes Stripe email its own receipt
+    // even if the Dashboard "Successful payments" toggle is off.
+    params.payment_intent_data = { receipt_email: customerEmail };
+  }
   Object.assign(params, checkoutContactParams());
 
   try {
@@ -330,7 +336,10 @@ export async function createSignCheckoutSession(
   if (store.settings.taxEnabled) {
     params.automatic_tax = { enabled: true };
   }
-  if (customerEmail) params.customer_email = customerEmail;
+  if (customerEmail) {
+    params.customer_email = customerEmail;
+    params.payment_intent_data = { receipt_email: customerEmail };
+  }
   Object.assign(params, checkoutContactParams());
 
   try {

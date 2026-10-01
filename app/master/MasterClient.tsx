@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
+import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
@@ -2047,9 +2048,6 @@ function OrderRow({
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadNote, setDownloadNote] = useState("");
   const [downloadBad, setDownloadBad] = useState(false);
-  const [receiptBusy, setReceiptBusy] = useState(false);
-  const [receiptNote, setReceiptNote] = useState("");
-  const [receiptBad, setReceiptBad] = useState(false);
   const matchedSlugs = (order.digitalSlugs || []).length ? order.digitalSlugs || [] : digitalSlugsForOrder(order, products);
   const downloadLabel = downloadStatusLabel({
     ...order,
@@ -2106,47 +2104,6 @@ function OrderRow({
       setLabelNote("Could not reach the server. Refresh before trying again.");
     } finally {
       setLabelBusy(false);
-    }
-  }
-
-  async function sendReceipt() {
-    setReceiptBusy(true);
-    setReceiptNote("");
-    setReceiptBad(false);
-    let again = false;
-    try {
-      for (;;) {
-        const res = await fetch("/api/master/order-receipt", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: order.id, again }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (res.status === 409 && json.already && !again) {
-          const ok = window.confirm(json.error || "Send this receipt again?");
-          if (!ok) {
-            setReceiptBad(true);
-            setReceiptNote(json.error || "Already sent.");
-            return;
-          }
-          again = true;
-          continue;
-        }
-        if (!res.ok || !json.ok) {
-          setReceiptBad(true);
-          setReceiptNote(json.error || "The receipt was not sent.");
-          if (json.receiptEmailedAt) onShipped({ receiptEmailedAt: json.receiptEmailedAt });
-          return;
-        }
-        onShipped({ receiptEmailedAt: json.receiptEmailedAt });
-        setReceiptNote("Receipt emailed to the customer.");
-        return;
-      }
-    } catch {
-      setReceiptBad(true);
-      setReceiptNote("Could not reach the server. Refresh before trying again.");
-    } finally {
-      setReceiptBusy(false);
     }
   }
 
@@ -2251,12 +2208,12 @@ function OrderRow({
         </p>
       ) : null}
       {downloadNote ? <p className={downloadBad ? "err" : "ok"}>{downloadNote}</p> : null}
-      <p>
-        <button type="button" onClick={() => void sendReceipt()} disabled={receiptBusy || !order.email}>
-          {receiptBusy ? "Sending…" : order.receiptEmailedAt ? "Send receipt again" : "Email receipt"}
-        </button>
-      </p>
-      {receiptNote ? <p className={receiptBad ? "err" : "ok"}>{receiptNote}</p> : null}
+      <ReceiptComposer
+        orderId={order.id}
+        email={order.email}
+        receiptEmailedAt={order.receiptEmailedAt}
+        onSent={(sentAt) => onShipped({ receiptEmailedAt: sentAt })}
+      />
 
       {order.labelUrl ? (
         <p>

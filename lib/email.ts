@@ -1,5 +1,5 @@
 import { deliveryEmailText, type DigitalDownload } from "./digital-delivery";
-import { receiptEmailText, type ReceiptOrder } from "./receipt";
+import { receiptComment, receiptEmailHtml, receiptEmailText, type ReceiptOrder } from "./receipt";
 import { cleanMultiline, cleanStr } from "./sanitize";
 import type { Quote } from "./types";
 
@@ -269,9 +269,15 @@ function verifiedResendFrom(): string {
  * deliberately not a fallback here: it delivers to an inbox its owner has to
  * activate, which is fine for Clint's inbox and useless for a stranger's.
  */
-async function sendCustomerEmail(opts: { to: string; subject: string; text: string }): Promise<boolean> {
+async function sendCustomerEmail(opts: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}): Promise<boolean> {
   const to = cleanStr(opts.to);
   if (!to) return false;
+  const html = opts.html?.trim() || "";
 
   const user = cleanStr(process.env.SMTP_USER);
   const pass = cleanStr(process.env.SMTP_PASS);
@@ -290,6 +296,7 @@ async function sendCustomerEmail(opts: { to: string; subject: string; text: stri
         replyTo: shopInbox(),
         subject: opts.subject,
         text: opts.text,
+        ...(html ? { html } : {}),
       });
       return true;
     } catch {
@@ -310,6 +317,7 @@ async function sendCustomerEmail(opts: { to: string; subject: string; text: stri
           reply_to: shopInbox(),
           subject: opts.subject,
           text: opts.text,
+          ...(html ? { html } : {}),
         }),
       });
       return res.ok;
@@ -355,13 +363,15 @@ export async function sendDigitalDeliveryEmail(detail: {
 }
 
 export async function sendReceiptEmail(
-  detail: ReceiptOrder & { to: string },
+  detail: ReceiptOrder & { to: string; logoUrl?: string },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!cleanStr(detail.to)) return { ok: false, error: "This order has no customer email." };
+  const order: ReceiptOrder = { ...detail, comment: receiptComment(detail.comment || "") };
   const ok = await sendCustomerEmail({
     to: detail.to,
     subject: "Your receipt from Big Horn Custom Works",
-    text: receiptEmailText(detail),
+    text: receiptEmailText(order),
+    html: receiptEmailHtml(order, detail.logoUrl || ""),
   });
   if (!ok) {
     return {
