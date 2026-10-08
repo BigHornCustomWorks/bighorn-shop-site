@@ -34,6 +34,7 @@ import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
+import { SignSamplesPanel } from "@/components/SignSamplesPanel";
 import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
 import { shopDay, sumDays, daysAgo } from "@/lib/visit-stats";
@@ -127,7 +128,7 @@ function cloneProduct(source: Product, products: Product[]): Product {
 
 export function MasterClient() {
   const [tab, setTab] = useState<Tab>("physical");
-  const [signsPanel, setSignsPanel] = useState<"premade" | "custom">("premade");
+  const [signsPanel, setSignsPanel] = useState<"premade" | "samples" | "custom">("premade");
   const [store, setStore] = useState<ShopStore | null>(null);
   const [persistence, setPersistence] = useState("");
   const [storageDurable, setStorageDurable] = useState(true);
@@ -506,7 +507,8 @@ export function MasterClient() {
             <h2>Signs shop</h2>
             <p className="note">
               Premade pieces (jack-o-lanterns, plaques, yard ornaments) are listed here once and show on /signs.
-              Custom size, rate, and finishes are the other section — not Physical products.
+              I want this samples are the pictures customers pick for a custom sign. Custom size, rate, and finishes
+              are the other section — not Physical products.
             </p>
           </div>
           <div className="mc-subtabs">
@@ -519,6 +521,16 @@ export function MasterClient() {
               }}
             >
               Premade signs
+            </button>
+            <button
+              type="button"
+              className={signsPanel === "samples" ? "on" : ""}
+              onClick={() => {
+                setSignsPanel("samples");
+                setOpenId(null);
+              }}
+            >
+              I want this samples
             </button>
             <button
               type="button"
@@ -538,6 +550,8 @@ export function MasterClient() {
               kicker="Ready to buy on /signs"
               {...productTabProps}
             />
+          ) : signsPanel === "samples" ? (
+            <SignSamplesPanel urls={store.metalSigns.media || []} />
           ) : (
             <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
           )}
@@ -2334,16 +2348,18 @@ function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
       ) : null}
       {quote.sampleUrl ? (
         <p>
-          <a href={quote.sampleUrl} rel="noreferrer">
-            Sample they picked
+          <a href={quote.sampleUrl} target="_blank" rel="noreferrer">
+            <img className="mc-quote-photo" src={quote.sampleUrl} alt="Sample they picked" />
+            Open the sample they picked
           </a>
         </p>
       ) : null}
       {(quote.photoUrls && quote.photoUrls.length ? quote.photoUrls : quote.photoUrl ? [quote.photoUrl] : []).map(
         (url, i) => (
           <p key={url}>
-            <a href={url} rel="noreferrer">
-              Photo {i + 1}
+            <a href={url} target="_blank" rel="noreferrer">
+              <img className="mc-quote-photo" src={url} alt={`Photo ${i + 1}`} />
+              Open photo {i + 1}
             </a>
           </p>
         ),

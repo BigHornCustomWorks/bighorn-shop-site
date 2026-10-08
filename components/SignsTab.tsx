@@ -302,7 +302,11 @@ export function SignsTab({
 
       <div className="card" style={{ marginTop: 18, padding: 16 }}>
         <p className="section-kicker">Photos &amp; videos</p>
-        <h3>Shown on the Signs page</h3>
+        <h3>I want this pictures</h3>
+        <p className="note">
+          Every photo here gets an “I want this” button on the live Signs page. The same pictures are listed under I
+          want this samples.
+        </p>
         <MediaField
           urls={signs.media}
           onChange={(media) => patch({ media })}
