@@ -20,6 +20,7 @@ import {
   normalizeSignPack,
 } from "./shipping";
 import { cleanSlugList, honestDigitalNote, httpsFileUrls } from "./digital-delivery";
+import { normalizePaymentQuote } from "./payment-quote";
 import { firstPhoto, splitMedia } from "./video";
 import type {
   FooterLink,
@@ -27,6 +28,7 @@ import type {
   GallerySection,
   ShippingOption,
   MetalSignsConfig,
+  PaymentQuote,
   Product,
   ProductKind,
   ProductVariant,
@@ -586,6 +588,10 @@ export function normalizeStore(raw: unknown): ShopStore {
       .map(normalizeQuote)
       .filter((q): q is Quote => Boolean(q))
       .slice(0, 400),
+    paymentQuotes: asArray<unknown>(src.paymentQuotes)
+      .map(normalizePaymentQuote)
+      .filter((q): q is PaymentQuote => Boolean(q))
+      .slice(0, 200),
     orders: asArray<unknown>(src.orders)
       .map(normalizeOrder)
       .filter((o): o is ShopOrder => Boolean(o))
@@ -831,7 +837,7 @@ export function productBySlug(store: ShopStore, slug: string): Product | undefin
   return withoutDownloadUrls(found);
 }
 
-export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quotes" | "orders"> & {
+export function publicStore(store: ShopStore): Omit<ShopStore, "settings" | "quotes" | "orders" | "paymentQuotes"> & {
   settings: { stripeMode: "test" | "live"; stripeConfigured: boolean };
   quoteCount: number;
   orderCount: number;

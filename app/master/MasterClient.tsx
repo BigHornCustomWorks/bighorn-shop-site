@@ -34,6 +34,7 @@ import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
+import { PaymentQuotesPanel } from "@/components/PaymentQuotesPanel";
 import { SignSamplesPanel } from "@/components/SignSamplesPanel";
 import { SignsTab } from "@/components/SignsTab";
 import { TrafficTab } from "@/components/TrafficTab";
@@ -821,6 +822,12 @@ export function MasterClient() {
 
       {tab === "quotes" ? (
         <div>
+          <PaymentQuotesPanel
+            quotes={store.paymentQuotes || []}
+            onQuotes={(paymentQuotes) =>
+              setStore((current) => (current ? { ...current, paymentQuotes } : current))
+            }
+          />
           <h2>Orders</h2>
           {!(store.orders && store.orders.length) ? (
             <p>No catalog orders yet. Paid Stripe checkouts land here even if email fails.</p>
@@ -845,7 +852,7 @@ export function MasterClient() {
               />
             ))
           )}
-          <h2>Quotes</h2>
+          <h2>Quote requests</h2>
           {!store.quotes.length ? <p>No quote requests yet.</p> : null}
           {store.quotes.map((quote) => (
             <QuoteRow

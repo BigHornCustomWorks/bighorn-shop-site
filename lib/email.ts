@@ -1,4 +1,5 @@
 import { deliveryEmailText, type DigitalDownload } from "./digital-delivery";
+import { paymentLinkEmailText } from "./payment-quote";
 import { receiptComment, receiptEmailHtml, receiptEmailText, type ReceiptOrder } from "./receipt";
 import { cleanMultiline, cleanStr } from "./sanitize";
 import type { Quote } from "./types";
@@ -377,6 +378,30 @@ export async function sendReceiptEmail(
     return {
       ok: false,
       error: "The receipt did not send. SMTP is missing or failed, and no verified Resend domain is set.",
+    };
+  }
+  return { ok: true };
+}
+
+export async function sendPaymentQuoteEmail(detail: {
+  to: string;
+  name: string;
+  title: string;
+  detail: string;
+  amountLabel: string;
+  url: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!cleanStr(detail.to)) return { ok: false, error: "Enter the customer's email." };
+  if (!cleanStr(detail.url)) return { ok: false, error: "This quote has no payment link." };
+  const ok = await sendCustomerEmail({
+    to: detail.to,
+    subject: "Your quote from Big Horn Custom Works",
+    text: paymentLinkEmailText(detail),
+  });
+  if (!ok) {
+    return {
+      ok: false,
+      error: "The email did not send. The link is saved — use Copy link and send it yourself.",
     };
   }
   return { ok: true };

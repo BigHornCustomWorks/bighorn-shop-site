@@ -9,6 +9,7 @@ import {
   stripeKeyMode,
   writeStore,
 } from "@/lib/store";
+import { mergePaymentQuotes } from "@/lib/payment-quote";
 import { shipFromAddress, shippoKey, shippoKeyMode } from "@/lib/shipping";
 import { syncCatalogToStripe } from "@/lib/stripe-catalog";
 import type { ShopOrder } from "@/lib/types";
@@ -114,6 +115,7 @@ export async function PUT(req: Request) {
         nextKey && !nextKey.includes("•") ? nextKey : current.settings.stripeSecretKey,
     },
     quotes: Array.isArray(incoming.quotes) ? incoming.quotes : current.quotes,
+    paymentQuotes: mergePaymentQuotes(incoming.paymentQuotes, current.paymentQuotes || []),
     orders: Array.isArray(incoming.orders)
       ? keepServerOrderFields(incoming.orders, current.orders)
       : current.orders,

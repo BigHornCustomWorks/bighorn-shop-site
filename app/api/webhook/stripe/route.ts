@@ -10,6 +10,7 @@ import {
 import { sendDigitalDeliveryEmail, sendOrderEmail } from "@/lib/email";
 import { fulfillmentFromCart, smsOptInFromCustomFields } from "@/lib/order-history";
 import { formatUsd } from "@/lib/money";
+import { markPaymentQuotePaid } from "@/lib/payment-quote";
 import { newId } from "@/lib/sanitize";
 import { emptyShipAddress, normalizeShipAddress } from "@/lib/shipping";
 import { readStore, writeStore } from "@/lib/store";
@@ -108,6 +109,9 @@ export async function POST(req: Request) {
             return `• ${qty} × ${name}`;
           })
           .join("\n") + signNote;
+      const quoteNote =
+        meta.kind === "payment-quote" && meta.quoteDetail ? `\n  ${meta.quoteDetail}` : "";
+      const itemText = items + quoteNote;
       const extra = session as Stripe.Checkout.Session & {
         shipping_details?: { name?: string | null; address?: Stripe.Address | null };
       };
@@ -164,6 +168,9 @@ export async function POST(req: Request) {
       const alsoPhysical = cartHasShippedGoods(itemSlugs, latest.products);
       const existing = latest.orders.find((o) => o.sessionId === session.id);
       if (existing) {
+        if (markPaymentQuotePaid(latest.paymentQuotes, meta, session.id)) {
+          await writeStore(latest);
+        }
         if (webhookDigitalAction(existing, downloads.length) === "send") {
           await deliverDigitalDownload({
             orderId: existing.id,
@@ -200,6 +207,7 @@ export async function POST(req: Request) {
         if (product.onHand == null || product.onHand <= 0) continue;
         product.onHand = Math.max(0, product.onHand - qty);
       }
+      markPaymentQuotePaid(latest.paymentQuotes, meta, session.id);
       latest.orders = [
         {
           id: orderId,
@@ -211,7 +219,7 @@ export async function POST(req: Request) {
           reviewRequestedAt: "",
           repairReviewRequestedAt: "",
           amountCents,
-          items,
+          items: itemText,
           address,
           sessionId: session.id,
           shippingLabel,
@@ -245,7 +253,7 @@ export async function POST(req: Request) {
           digitalSlugs,
           digitalEmailed: false,
           digitalEmailError: downloads.length ? "sending" : "",
-          includesShippedGoods: alsoPhysical,
+          includesShippedGoods: meta.kind === "payment-quote" ? true : alsoPhysical,
           receiptEmailedAt: "",
         },
         ...latest.orders,
@@ -261,7 +269,7 @@ export async function POST(req: Request) {
         email,
         name,
         amountLabel: formatUsd(amountCents),
-        items,
+        items: itemText,
         address,
         sessionId: session.id,
         paid: session.payment_status === "paid",

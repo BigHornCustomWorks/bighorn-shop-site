@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/shipping.test.mjs tests/order-history.test.mjs tests/service-lead.test.mjs tests/digital-delivery.test.mjs tests/digital-sections.test.mjs tests/download-upload.test.mjs tests/receipt.test.mjs"
+    "test": "node --test tests/shipping.test.mjs tests/order-history.test.mjs tests/service-lead.test.mjs tests/digital-delivery.test.mjs tests/digital-sections.test.mjs tests/download-upload.test.mjs tests/receipt.test.mjs tests/payment-quote.test.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^1.1.1",

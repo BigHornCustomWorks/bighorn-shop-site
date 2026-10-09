@@ -274,6 +274,7 @@ export function seedStore(): ShopStore {
     products: defaultProducts(),
     categories: defaultCategories(),
     quotes: [],
+    paymentQuotes: [],
     orders: [],
     site: defaultSite(),
     gallery: defaultGallery(),

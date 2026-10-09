@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { randomBytes } from "node:crypto";
-import type { Product, ShopStore } from "./types";
+import { chargedCents, paymentLinkOrigin, paymentLinkUrl, paymentQuoteMetadata } from "./payment-quote";
+import type { PaymentQuote, Product, ShopStore } from "./types";
 import type { SignQuote } from "./sign-price";
 import { stripeSecret } from "./store";
 import { cleanStr, safeUrl } from "./sanitize";
@@ -339,6 +340,78 @@ export async function createSignCheckoutSession(
   if (customerEmail) {
     params.customer_email = customerEmail;
     params.payment_intent_data = { receipt_email: customerEmail };
+  }
+  Object.assign(params, checkoutContactParams());
+
+  try {
+    return await stripe.checkout.sessions.create({
+      ...params,
+      integration_identifier: integrationId(),
+    } as Stripe.Checkout.SessionCreateParams);
+  } catch {
+    return await stripe.checkout.sessions.create(params);
+  }
+}
+
+/**
+ * One stored quote, plus the shipping the customer already chose.
+ * The goods price is chargedCents(quote.amountCents). A price on the request is not read.
+ */
+export async function createPaymentQuoteCheckoutSession(
+  store: ShopStore,
+  quote: Pick<PaymentQuote, "id" | "title" | "detail" | "amountCents" | "email" | "token">,
+  fulfillment: "ship" | "pickup",
+  liveRate?: LiveRate | null,
+) {
+  const stripe = stripeClient(store);
+  if (!stripe) throw new Error("Stripe is not configured.");
+  const origin = paymentLinkOrigin();
+  const unitAmount = chargedCents(quote.amountCents);
+  if (!unitAmount) throw new Error("This quote has no price.");
+
+  const params: Stripe.Checkout.SessionCreateParams = {
+    mode: "payment",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "usd",
+          unit_amount: unitAmount,
+          tax_behavior: "exclusive",
+          product_data: {
+            name: quote.title,
+            description: quote.detail.replace(/\s+/g, " ").trim().slice(0, 400) || undefined,
+          },
+        },
+      },
+    ],
+    success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: paymentLinkUrl(origin, quote.id, quote.token),
+    shipping_address_collection: { allowed_countries: ["US"] },
+    customer_email: quote.email,
+    payment_intent_data: { receipt_email: quote.email },
+    metadata: paymentQuoteMetadata(quote, fulfillment),
+  };
+
+  const options =
+    fulfillment === "pickup"
+      ? pickupOnlyOptions(store)
+      : liveRate
+        ? liveShippingOptions(liveRate)
+        : shippingOptionsFor(store, []);
+  if (!options.length) {
+    throw new Error(
+      fulfillment === "pickup"
+        ? "Local pickup is not offered."
+        : "Shipping rates are not available right now. Pick up in Sheridan, or try the address again.",
+    );
+  }
+  params.shipping_options = options;
+  if (fulfillment === "ship" && liveRate && params.metadata) {
+    Object.assign(params.metadata, liveRateMetadata(liveRate));
+  }
+  if (store.settings.taxEnabled) {
+    params.automatic_tax = { enabled: true };
   }
   Object.assign(params, checkoutContactParams());
 

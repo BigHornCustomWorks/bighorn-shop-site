@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parcelForCheckout, payableQuote } from "@/lib/payment-quote";
 import { resolveCartItems } from "@/lib/cart-items";
 import { cleanStr } from "@/lib/sanitize";
 import {
@@ -20,8 +21,10 @@ export const runtime = "nodejs";
 /**
  * Live USPS/UPS rates for the cart or a custom sign, via Shippo.
  *
- * Body: { items: [...] } for the cart, or { sign: { widthIn, heightIn } } for
- * the sign estimator, plus an optional { address: { zip, street1?, city?, state? } }.
+ * Body: { items: [...] } for the cart, { sign: { widthIn, heightIn } } for the
+ * sign estimator, or { paymentQuote: { id, token } } for a quote Clint sent.
+ * A payment quote uses the box saved with that quote. Plus an optional
+ * { address: { zip, street1?, city?, state? } }.
  *
  * Every "can't do live rates" case answers 200 with mode "flat" and a reason,
  * never an error, so the cart simply carries on to the existing flat/per-item
@@ -52,7 +55,11 @@ export async function POST(req: Request) {
 
   let parcel: Parcel | null;
   let unmeasured: string[] = [];
-  if (body.sign) {
+  if (body.paymentQuote) {
+    const found = payableQuote(store.paymentQuotes || [], body.paymentQuote.id, body.paymentQuote.token);
+    if (!found.ok) return NextResponse.json({ error: found.error }, { status: found.status });
+    parcel = parcelForCheckout(found.quote, body.paymentQuote);
+  } else if (body.sign) {
     const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn, {
       finishId: cleanStr(body.sign.finishId),
     });

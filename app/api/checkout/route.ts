@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createCheckoutSession, createSignCheckoutSession } from "@/lib/stripe";
+import { parcelForCheckout, payableQuote } from "@/lib/payment-quote";
+import { createCheckoutSession, createPaymentQuoteCheckoutSession, createSignCheckoutSession } from "@/lib/stripe";
 import { resolveCartItems } from "@/lib/cart-items";
 import { cleanStr } from "@/lib/sanitize";
 import {
@@ -61,6 +62,29 @@ export async function POST(req: Request) {
     const how = checkoutFulfillment(requested, store.site.pickupEnabled !== false);
     if (!how) {
       return NextResponse.json({ error: "Local pickup is not offered." }, { status: 400 });
+    }
+
+    if (body.paymentQuote) {
+      const found = payableQuote(store.paymentQuotes || [], body.paymentQuote.id, body.paymentQuote.token);
+      if (!found.ok) return NextResponse.json({ error: found.error }, { status: found.status });
+      const quote = found.quote;
+      const parcel = parcelForCheckout(quote, body.paymentQuote);
+      const live =
+        how === "ship" ? await lookupLiveRate(store, body, parcel) : { rate: null, invalid: false };
+      if (live.invalid) return rateChanged();
+      if (how === "ship" && !live.rate && !store.site.shippingOptions.length) {
+        return NextResponse.json(
+          { error: "Shipping rates are not available right now. Pick up in Sheridan, or try the address again." },
+          { status: 400 },
+        );
+      }
+      const session = await createPaymentQuoteCheckoutSession(
+        store,
+        quote,
+        how,
+        how === "ship" ? live.rate : null,
+      );
+      return NextResponse.json({ url: session.url });
     }
 
     if (body.sign) {

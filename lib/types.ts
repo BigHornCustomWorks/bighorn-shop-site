@@ -131,6 +131,32 @@ export type Product = {
   externalUrl: string;
 };
 
+/**
+ * A price Clint sends to one customer. The public pay page needs `token`.
+ * The goods price and the packed box stay on this record; the browser cannot replace them.
+ */
+export type PaymentQuote = {
+  id: string;
+  token: string;
+  name: string;
+  email: string;
+  /** Stripe line name and the pay-page heading. */
+  title: string;
+  detail: string;
+  amountCents: number;
+  /** Packed weight in ounces, box included. */
+  weightOz: number;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  status: "open" | "paid" | "void";
+  createdAt: string;
+  /** ISO time the pay-link email went out. Empty when the send failed. */
+  emailedAt: string;
+  paidAt: string;
+  paidSessionId: string;
+};
+
 export type Quote = {
   id: string;
   name: string;
@@ -363,6 +389,8 @@ export type ShopStore = {
   products: Product[];
   categories: ShopCategory[];
   quotes: Quote[];
+  /** Prices Clint emailed as a pay link. Absent on stores saved before that feature. */
+  paymentQuotes: PaymentQuote[];
   orders: ShopOrder[];
   site: SiteCopy;
   gallery: GallerySection[];
