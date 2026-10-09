@@ -1,4 +1,4 @@
-import type { Product, ShopOrder } from "./types";
+import type { PaymentQuote, Product, Quote, ShopOrder } from "./types";
 
 export type HistoryProduct = Pick<Product, "id" | "name" | "slug" | "sku"> & { category?: string };
 
@@ -130,7 +130,7 @@ export function filterOrders(
   const inCategory = filters.category
     ? products.filter((p) => (p.category || "").trim().toLowerCase() === filters.category.trim().toLowerCase())
     : [];
-  const q = filters.itemQuery.trim().toLowerCase();
+  const q = filters.itemQuery.trim();
   const rows = orders.filter((order) => {
     if (!filters.allTime) {
       const day = orderDay(order.createdAt);
@@ -139,7 +139,7 @@ export function filterOrders(
     }
     if (filters.category && !inCategory.some((p) => orderMatchesProduct(order, p))) return false;
     if (selected.length && !selected.some((p) => orderMatchesProduct(order, p))) return false;
-    if (q && !order.items.toLowerCase().includes(q)) return false;
+    if (q && !textHits(orderHaystack(order), q)) return false;
     if (filters.fulfillment && orderFulfillment(order) !== filters.fulfillment) return false;
     if (filters.smsOnly && order.smsOptIn !== true) return false;
     if (filters.reviewPending && (order.reviewRequestedAt || "").trim()) return false;
@@ -170,6 +170,71 @@ export function filterOrders(
     }
   });
   return rows;
+}
+
+export function isArchived(row: { archivedAt?: string } | null | undefined): boolean {
+  return Boolean((row?.archivedAt || "").trim());
+}
+
+/** Name, email, phone, items, address, tracking, and the Stripe session. */
+export function orderHaystack(order: ShopOrder): string {
+  const ship = order.shipTo;
+  return [
+    order.id,
+    order.name,
+    order.email,
+    order.phone,
+    order.items,
+    order.address,
+    order.trackingNumber,
+    order.trackingCarrier,
+    order.shippingLabel,
+    order.sessionId,
+    ship?.name,
+    ship?.phone,
+    ship?.email,
+    ship?.street1,
+    ship?.street2,
+    ship?.city,
+    ship?.state,
+    ship?.zip,
+  ]
+    .filter((part) => part)
+    .join("\n");
+}
+
+export function quoteHaystack(quote: Pick<Quote, "id" | "name" | "email" | "phone" | "need"> & Partial<Quote>): string {
+  return [quote.id, quote.name, quote.email, quote.phone, quote.need, quote.serviceType, quote.fitNotes, quote.approxSize, quote.finishName, quote.estimateLabel]
+    .filter((part) => part)
+    .join("\n");
+}
+
+/** Payment-link tokens stay out of this text so a search cannot surface one. */
+export function paymentHaystack(quote: Pick<PaymentQuote, "id" | "name" | "email" | "title" | "detail">): string {
+  return [quote.id, quote.name, quote.email, quote.title, quote.detail].filter((part) => part).join("\n");
+}
+
+export function textHits(haystack: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (haystack.toLowerCase().includes(q)) return true;
+  const digits = q.replace(/\D/g, "");
+  if (digits.length >= 3 && haystack.replace(/\D/g, "").includes(digits)) return true;
+  return false;
+}
+
+/**
+ * With no search, history shows messages that were archived out of the inbox.
+ * A search looks through every message, archived or not.
+ */
+export function visibleMessages<T extends { archivedAt?: string; createdAt?: string }>(
+  rows: T[],
+  query: string,
+  haystack: (row: T) => string,
+): T[] {
+  const q = query.trim();
+  const picked = q ? rows.filter((row) => textHits(haystack(row), q)) : rows.filter((row) => isArchived(row));
+  return [...picked].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
 export function customerKey(order: ShopOrder): string {

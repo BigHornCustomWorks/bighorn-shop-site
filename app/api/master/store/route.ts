@@ -9,6 +9,7 @@ import {
   stripeKeyMode,
   writeStore,
 } from "@/lib/store";
+import { keepIncomingArchive } from "@/lib/archive";
 import { mergePaymentQuotes } from "@/lib/payment-quote";
 import { shipFromAddress, shippoKey, shippoKeyMode } from "@/lib/shipping";
 import { syncCatalogToStripe } from "@/lib/stripe-catalog";
@@ -47,6 +48,8 @@ const SERVER_ORDER_FIELDS = [
   "includesShippedGoods",
   // Written when Clint emails a receipt. A tab opened before that must not clear it.
   "receiptEmailedAt",
+  // Written by the archive route. A tab that never archived this order must not clear it.
+  "archivedAt",
 ] as const;
 
 function keepServerOrderFields(incoming: unknown[], current: ShopOrder[]): ShopOrder[] {
@@ -114,7 +117,7 @@ export async function PUT(req: Request) {
       stripeSecretKey:
         nextKey && !nextKey.includes("•") ? nextKey : current.settings.stripeSecretKey,
     },
-    quotes: Array.isArray(incoming.quotes) ? incoming.quotes : current.quotes,
+    quotes: Array.isArray(incoming.quotes) ? keepIncomingArchive(incoming.quotes, current.quotes) : current.quotes,
     paymentQuotes: mergePaymentQuotes(incoming.paymentQuotes, current.paymentQuotes || []),
     orders: Array.isArray(incoming.orders)
       ? keepServerOrderFields(incoming.orders, current.orders)

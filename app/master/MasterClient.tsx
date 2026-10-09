@@ -151,6 +151,7 @@ export function MasterClient() {
   const [dragProd, setDragProd] = useState<string | null>(null);
   const [heroVideoFile, setHeroVideoFile] = useState<File | null>(null);
   const [heroUploading, setHeroUploading] = useState(false);
+  const [inboxFocus, setInboxFocus] = useState("");
 
   useEffect(() => {
     fetch("/api/master/store")
@@ -182,6 +183,67 @@ export function MasterClient() {
       })
       .catch(() => setError("Could not load Master Control."));
   }, []);
+
+  useEffect(() => {
+    if (!inboxFocus || tab !== "quotes") return;
+    const node = document.getElementById(inboxFocus);
+    if (!node) return;
+    node.scrollIntoView({ block: "center" });
+    setInboxFocus("");
+  }, [inboxFocus, tab, store]);
+
+  async function setArchived(kind: "order" | "quote" | "payment", id: string, archived: boolean): Promise<boolean> {
+    try {
+      const res = await fetch("/api/master/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, id, archived }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json.error || "Could not update that.");
+        return false;
+      }
+      const archivedAt = typeof json.archivedAt === "string" ? json.archivedAt : "";
+      setStore((current) => {
+        if (!current) return current;
+        if (kind === "order") {
+          return {
+            ...current,
+            orders: (current.orders || []).map((row) => (row.id === id ? { ...row, archivedAt } : row)),
+          };
+        }
+        if (kind === "quote") {
+          return {
+            ...current,
+            quotes: current.quotes.map((row) => (row.id === id ? { ...row, archivedAt } : row)),
+          };
+        }
+        return {
+          ...current,
+          paymentQuotes: (current.paymentQuotes || []).map((row) => (row.id === id ? { ...row, archivedAt } : row)),
+        };
+      });
+      setError("");
+      return true;
+    } catch {
+      setError("Could not reach the server.");
+      return false;
+    }
+  }
+
+  async function openInInbox(kind: "order" | "quote" | "payment", id: string) {
+    const list =
+      kind === "order" ? store?.orders || [] : kind === "quote" ? store?.quotes || [] : store?.paymentQuotes || [];
+    const row = list.find((item) => item.id === id);
+    if (row && (row.archivedAt || "").trim()) {
+      const ok = await setArchived(kind, id, false);
+      if (!ok) return;
+    }
+    const prefix = kind === "order" ? "inbox-order" : kind === "quote" ? "inbox-quote" : "inbox-pay";
+    setInboxFocus(`${prefix}-${id}`);
+    setTab("quotes");
+  }
 
   async function save(next: ShopStore, extra?: { stripeSecretKey?: string }) {
     setStatus("Saving…");
@@ -380,8 +442,9 @@ export function MasterClient() {
     );
   }
 
-  const unread =
-    store.quotes.filter((q) => !q.read).length + (store.orders || []).filter((o) => !o.read).length;
+  const inboxOrders = (store.orders || []).filter((order) => !(order.archivedAt || "").trim());
+  const inboxQuotes = store.quotes.filter((quote) => !(quote.archivedAt || "").trim());
+  const unread = inboxQuotes.filter((q) => !q.read).length + inboxOrders.filter((o) => !o.read).length;
 
   const productTabProps = {
     store,
@@ -817,22 +880,33 @@ export function MasterClient() {
               orders: store.orders.map((order) => (order.id === orderId ? { ...order, ...fields } : order)),
             })
           }
+          onArchive={setArchived}
+          onOpen={openInInbox}
         />
       ) : null}
 
       {tab === "quotes" ? (
         <div>
+          <p className="note">
+            Archive hides an order or message from this inbox. Order history can search it and open it here again so
+            you can buy a label, mark it shipped, or send the receipt.
+          </p>
           <PaymentQuotesPanel
             quotes={store.paymentQuotes || []}
             onQuotes={(paymentQuotes) =>
               setStore((current) => (current ? { ...current, paymentQuotes } : current))
             }
+            onArchive={(id, archived) => setArchived("payment", id, archived)}
           />
           <h2>Orders</h2>
-          {!(store.orders && store.orders.length) ? (
-            <p>No catalog orders yet. Paid Stripe checkouts land here even if email fails.</p>
+          {!inboxOrders.length ? (
+            <p>
+              {(store.orders || []).length
+                ? "Every order is archived. Search them under Order history."
+                : "No catalog orders yet. Paid Stripe checkouts land here even if email fails."}
+            </p>
           ) : (
-            store.orders.map((order) => (
+            inboxOrders.map((order) => (
               <OrderRow
                 key={order.id}
                 order={order}
@@ -849,21 +923,30 @@ export function MasterClient() {
                     orders: store.orders.map((o) => (o.id === order.id ? { ...o, ...fields } : o)),
                   });
                 }}
+                onArchive={() => setArchived("order", order.id, true)}
               />
             ))
           )}
           <h2>Quote requests</h2>
-          {!store.quotes.length ? <p>No quote requests yet.</p> : null}
-          {store.quotes.map((quote) => (
-            <QuoteRow
-              key={quote.id}
-              quote={quote}
-              onRead={() => {
-                const quotes = store.quotes.map((q) => (q.id === quote.id ? { ...q, read: true } : q));
-                save({ ...store, quotes });
-              }}
-            />
-          ))}
+          {!inboxQuotes.length ? (
+            <p>
+              {store.quotes.length
+                ? "Every quote request is archived. Search them under Order history."
+                : "No quote requests yet."}
+            </p>
+          ) : (
+            inboxQuotes.map((quote) => (
+              <QuoteRow
+                key={quote.id}
+                quote={quote}
+                onRead={() => {
+                  const quotes = store.quotes.map((q) => (q.id === quote.id ? { ...q, read: true } : q));
+                  save({ ...store, quotes });
+                }}
+                onArchive={() => setArchived("quote", quote.id, true)}
+              />
+            ))
+          )}
         </div>
       ) : null}
 
@@ -2052,11 +2135,13 @@ function OrderRow({
   products,
   onRead,
   onShipped,
+  onArchive,
 }: {
   order: ShopOrder;
   products: { slug: string; name: string; kind: string }[];
   onRead: () => void;
   onShipped: (fields: Partial<ShopOrder>) => void;
+  onArchive: () => Promise<boolean>;
 }) {
   const [carrier, setCarrier] = useState(order.trackingCarrier || "usps");
   const [tracking, setTracking] = useState(order.trackingNumber || "");
@@ -2069,6 +2154,7 @@ function OrderRow({
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadNote, setDownloadNote] = useState("");
   const [downloadBad, setDownloadBad] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const matchedSlugs = (order.digitalSlugs || []).length ? order.digitalSlugs || [] : digitalSlugsForOrder(order, products);
   const downloadLabel = downloadStatusLabel({
     ...order,
@@ -2192,7 +2278,7 @@ function OrderRow({
   }
 
   return (
-    <div className="quote-item">
+    <div className="quote-item" id={`inbox-order-${order.id}`}>
       <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
       {order.phone || order.shipTo?.phone ? ` · ${order.phone || order.shipTo?.phone}` : ""}
       {order.smsOptIn ? " · SMS OK" : ""}
@@ -2325,14 +2411,26 @@ function OrderRow({
         <button type="button" onClick={onRead}>
           Mark read
         </button>
-      ) : null}
+      ) : null}{" "}
+      <button
+        type="button"
+        disabled={archiveBusy}
+        onClick={async () => {
+          setArchiveBusy(true);
+          await onArchive();
+          setArchiveBusy(false);
+        }}
+      >
+        {archiveBusy ? "Archiving…" : "Archive"}
+      </button>
     </div>
   );
 }
 
-function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
+function QuoteRow({ quote, onRead, onArchive }: { quote: Quote; onRead: () => void; onArchive: () => Promise<boolean> }) {
+  const [archiveBusy, setArchiveBusy] = useState(false);
   return (
-    <div className="quote-item">
+    <div className="quote-item" id={`inbox-quote-${quote.id}`}>
       <strong>{quote.name}</strong> · {quote.email} · {quote.phone || "no phone"}
       {!quote.read ? <span className="muted"> · new</span> : null}
       <p style={{ whiteSpace: "pre-wrap" }}>{quote.need}</p>
@@ -2378,7 +2476,18 @@ function QuoteRow({ quote, onRead }: { quote: Quote; onRead: () => void }) {
         <button type="button" onClick={onRead}>
           Mark read
         </button>
-      ) : null}
+      ) : null}{" "}
+      <button
+        type="button"
+        disabled={archiveBusy}
+        onClick={async () => {
+          setArchiveBusy(true);
+          await onArchive();
+          setArchiveBusy(false);
+        }}
+      >
+        {archiveBusy ? "Archiving…" : "Archive"}
+      </button>
     </div>
   );
 }

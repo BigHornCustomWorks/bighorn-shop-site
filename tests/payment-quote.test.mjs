@@ -122,6 +122,26 @@ test("a save cannot un-pay a quote, rewrite its token, or drop one the tab never
   assert.equal(invented.some((row) => row.id === "pay_new"), false);
 });
 
+test("a save cannot clear archivedAt on a payment link", () => {
+  const open = sample({ archivedAt: "2026-10-02T12:00:00.000Z" });
+  assert.ok(open);
+  assert.equal(open.archivedAt, "2026-10-02T12:00:00.000Z");
+  const merged = mergePaymentQuotes([{ ...open, archivedAt: "", amountCents: 100 }], [open]);
+  assert.equal(merged[0].archivedAt, "2026-10-02T12:00:00.000Z");
+  assert.equal(merged[0].amountCents, 100);
+  const paid = sample({
+    id: "pay_paid",
+    status: "paid",
+    archivedAt: "2026-10-03T00:00:00.000Z",
+    paidAt: "2026-10-03T00:00:00.000Z",
+    paidSessionId: "cs_x",
+  });
+  assert.ok(paid);
+  const mergedPaid = mergePaymentQuotes([{ ...paid, archivedAt: "", status: "open" }], [paid]);
+  assert.equal(mergedPaid[0].archivedAt, "2026-10-03T00:00:00.000Z");
+  assert.equal(mergedPaid[0].status, "paid");
+});
+
 test("checkout metadata does not look like a catalog line", () => {
   const meta = paymentQuoteMetadata({ id: "pay_test", detail: "One steel bracket" }, "ship");
   assert.equal(meta.kind, "payment-quote");

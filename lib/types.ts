@@ -155,6 +155,8 @@ export type PaymentQuote = {
   emailedAt: string;
   paidAt: string;
   paidSessionId: string;
+  /** ISO time this link was archived out of the inbox. Empty while it is in the inbox. */
+  archivedAt?: string;
 };
 
 export type Quote = {
@@ -180,6 +182,8 @@ export type Quote = {
   approxSize?: string;
   preferredContact?: string;
   photoUrls?: string[];
+  /** ISO time this request was archived out of the inbox. Empty while it is in the inbox. */
+  archivedAt?: string;
 };
 
 export type ShippingOption = {
@@ -365,6 +369,8 @@ export type ShopOrder = {
   includesShippedGoods?: boolean;
   /** ISO time the owner emailed this customer a shop receipt. Empty until then. */
   receiptEmailedAt?: string;
+  /** ISO time this order was archived out of the inbox. Empty while it is in the inbox. */
+  archivedAt?: string;
 };
 
 

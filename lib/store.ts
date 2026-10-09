@@ -237,6 +237,7 @@ function normalizeOrder(raw: unknown): ShopOrder | null {
     digitalEmailError: cleanStr(src.digitalEmailError).slice(0, 300),
     includesShippedGoods: src.includesShippedGoods === true,
     receiptEmailedAt: cleanStr(src.receiptEmailedAt),
+    archivedAt: cleanStr(src.archivedAt).slice(0, 40),
   };
 }
 
@@ -267,6 +268,7 @@ function normalizeQuote(raw: unknown): Quote | null {
     approxSize: cleanStr(src.approxSize).slice(0, 160),
     preferredContact: contactPreferenceLabel(cleanStr(src.preferredContact)) ? cleanStr(src.preferredContact) : "",
     photoUrls: asArray<unknown>(src.photoUrls).map((url) => safeUrl(url)).filter(Boolean).slice(0, 3),
+    archivedAt: cleanStr(src.archivedAt).slice(0, 40),
   };
 }
 

@@ -7,25 +7,36 @@ import { formatUsd } from "@/lib/money";
 import {
   denverToday,
   filterOrders,
+  isArchived,
   orderFulfillment,
   orderPhone,
   orderStatus,
   orderWhen,
   ordersForCustomer,
   ordersToCsv,
+  paymentHaystack,
+  quoteHaystack,
   shiftDay,
+  visibleMessages,
   type OrderSort,
 } from "@/lib/order-history";
-import type { ShopOrder, ShopStore } from "@/lib/types";
+import { quotePayable } from "@/lib/payment-quote-view";
+import type { PaymentQuote, ShopOrder, ShopStore } from "@/lib/types";
+
+type ArchiveKind = "order" | "quote" | "payment";
 
 const today = denverToday();
 
 export function OrderHistoryTab({
   store,
   onOrderUpdated,
+  onArchive,
+  onOpen,
 }: {
   store: ShopStore;
   onOrderUpdated: (orderId: string, fields: Partial<ShopOrder>) => void;
+  onArchive: (kind: ArchiveKind, id: string, archived: boolean) => Promise<boolean>;
+  onOpen: (kind: ArchiveKind, id: string) => void;
 }) {
   const [from, setFrom] = useState(shiftDay(today, -90));
   const [to, setTo] = useState(today);
@@ -62,6 +73,15 @@ export function OrderHistoryTab({
         sort,
       }),
     [orders, products, from, to, allTime, productId, category, itemQuery, fulfillment, smsOnly, reviewPending, hasPhone, hasEmail, sort],
+  );
+
+  const quoteMessages = useMemo(
+    () => visibleMessages(store.quotes || [], itemQuery, quoteHaystack),
+    [store.quotes, itemQuery],
+  );
+  const paymentMessages = useMemo(
+    () => visibleMessages(store.paymentQuotes || [], itemQuery, paymentHaystack),
+    [store.paymentQuotes, itemQuery],
   );
 
   const customerSource = orders.find((order) => order.id === customerId) || null;
@@ -107,7 +127,11 @@ export function OrderHistoryTab({
   return (
     <div>
       <h2>Order history</h2>
-      <p className="note">Filters work together. Times are Sheridan time.</p>
+      <p className="note">
+        Search finds a name, email, phone, order number, or what they ordered. The dates above still apply — check All
+        time for older orders. Archived orders stay in this list. Open in inbox puts one back on the Inbox tab so you
+        can buy a label or mark it shipped. Times are Sheridan time.
+      </p>
 
       <div className="oh-bar">
         <label>
@@ -155,8 +179,12 @@ export function OrderHistoryTab({
           </select>
         </label>
         <label>
-          Item name contains
-          <input value={itemQuery} onChange={(e) => setItemQuery(e.target.value)} />
+          Search
+          <input
+            value={itemQuery}
+            placeholder="Name, email, phone, order, or item"
+            onChange={(e) => setItemQuery(e.target.value)}
+          />
         </label>
         <label>
           Fulfillment
@@ -239,10 +267,54 @@ export function OrderHistoryTab({
             setOpenId(order.id);
           }}
           onReviewed={(fields) => onOrderUpdated(order.id, fields)}
+          onArchive={onArchive}
+          onOpen={onOpen}
+        />
+      ))}
+
+      <h2>Messages</h2>
+      <p className="note">
+        {itemQuery.trim()
+          ? "Quote requests and payment links matching that search, including ones still in the inbox."
+          : "Archived quote requests and payment links. Type a search to find one that is still in the inbox too."}
+      </p>
+      {!quoteMessages.length && !paymentMessages.length ? <p>No messages in this view.</p> : null}
+      {quoteMessages.map((quote) => (
+        <HistoryMessage
+          key={quote.id}
+          kind="quote"
+          id={quote.id}
+          archived={isArchived(quote)}
+          title={quote.name || "Quote request"}
+          meta={`${quote.email || "no email"}${quote.phone ? ` · ${quote.phone}` : ""} · ${orderWhen(quote.createdAt)}`}
+          body={quote.need}
+          onArchive={onArchive}
+          onOpen={onOpen}
+        />
+      ))}
+      {paymentMessages.map((quote) => (
+        <HistoryMessage
+          key={quote.id}
+          kind="payment"
+          id={quote.id}
+          archived={isArchived(quote)}
+          title={`${quote.title} · ${formatUsd(quote.amountCents)}`}
+          meta={`${quote.name || "No name"} · ${quote.email} · ${orderWhen(quote.createdAt)} · ${paymentState(quote)}`}
+          body={quote.detail}
+          onArchive={onArchive}
+          onOpen={onOpen}
         />
       ))}
     </div>
   );
+}
+
+function paymentState(quote: PaymentQuote): string {
+  const state = quotePayable(quote.status, quote.createdAt);
+  if (state === "paid") return "Paid";
+  if (state === "void") return "Canceled";
+  if (state === "expired") return "Expired";
+  return "Waiting for payment";
 }
 
 function HistoryRow({
@@ -252,6 +324,8 @@ function HistoryRow({
   onToggle,
   onViewCustomer,
   onReviewed,
+  onArchive,
+  onOpen,
 }: {
   order: ShopOrder;
   products: { slug: string; name: string; kind: string }[];
@@ -259,8 +333,10 @@ function HistoryRow({
   onToggle: () => void;
   onViewCustomer: () => void;
   onReviewed: (fields: Partial<ShopOrder>) => void;
+  onArchive: (kind: ArchiveKind, id: string, archived: boolean) => Promise<boolean>;
+  onOpen: (kind: ArchiveKind, id: string) => void;
 }) {
-  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "">("");
+  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "archive" | "">("");
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
   const phone = orderPhone(order);
@@ -356,6 +432,7 @@ function HistoryRow({
       </p>
       <p className="muted">
         Order {order.id}
+        {isArchived(order) ? " · archived" : ""}
         {order.receiptEmailedAt ? ` · receipt emailed ${orderWhen(order.receiptEmailedAt)}` : " · no shop receipt emailed yet"}
       </p>
       <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
@@ -370,6 +447,27 @@ function HistoryRow({
           : "Repair Status review not requested"}
       </p>
       <div className="hero-actions">
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={Boolean(busy)}
+          onClick={async () => {
+            setBusy("archive");
+            setNote("");
+            setBad(false);
+            const ok = await onArchive("order", order.id, !isArchived(order));
+            if (!ok) {
+              setBad(true);
+              setNote("Could not update that.");
+            }
+            setBusy("");
+          }}
+        >
+          {busy === "archive" ? "Saving…" : isArchived(order) ? "Put back in inbox" : "Archive"}
+        </button>
+        <button type="button" className="btn-ghost" onClick={() => onOpen("order", order.id)} disabled={Boolean(busy)}>
+          Open in inbox
+        </button>
         <button type="button" className="btn" onClick={() => sendReview("shop")} disabled={Boolean(busy) || !order.email}>
           {busy === "shop" ? "Sending…" : order.reviewRequestedAt ? "Send Big Horn review again" : "Send Big Horn review"}
         </button>
@@ -423,6 +521,58 @@ function HistoryRow({
           <p className="muted">Stripe session {order.sessionId || "—"}</p>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function HistoryMessage({
+  kind,
+  id,
+  archived,
+  title,
+  meta,
+  body,
+  onArchive,
+  onOpen,
+}: {
+  kind: ArchiveKind;
+  id: string;
+  archived: boolean;
+  title: string;
+  meta: string;
+  body: string;
+  onArchive: (kind: ArchiveKind, id: string, archived: boolean) => Promise<boolean>;
+  onOpen: (kind: ArchiveKind, id: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  return (
+    <div className="quote-item">
+      <strong>{title}</strong>
+      {archived ? <span className="muted"> · archived</span> : null}
+      <p>{meta}</p>
+      {body ? <p style={{ whiteSpace: "pre-wrap" }}>{body}</p> : null}
+      <div className="hero-actions">
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setNote("");
+            const ok = await onArchive(kind, id, !archived);
+            if (!ok) setNote("Could not update that.");
+            setBusy(false);
+          }}
+        >
+          {busy ? "Saving…" : archived ? "Put back in inbox" : "Archive"}
+        </button>
+        <button type="button" className="btn-ghost" disabled={busy} onClick={() => onOpen(kind, id)}>
+          Open in inbox
+        </button>
+      </div>
+      {note ? <p className="err">{note}</p> : null}
     </div>
   );
 }

@@ -30,9 +30,11 @@ function payUrl(quote: PaymentQuote): string {
 export function PaymentQuotesPanel({
   quotes,
   onQuotes,
+  onArchive,
 }: {
   quotes: PaymentQuote[];
   onQuotes: (quotes: PaymentQuote[]) => void;
+  onArchive: (id: string, archived: boolean) => Promise<boolean>;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,6 +47,7 @@ export function PaymentQuotesPanel({
   const [widthIn, setWidthIn] = useState("");
   const [heightIn, setHeightIn] = useState("");
   const [busy, setBusy] = useState(false);
+  const [archiveId, setArchiveId] = useState("");
   const [note, setNote] = useState("");
   const [noteBad, setNoteBad] = useState(false);
 
@@ -143,6 +146,18 @@ export function PaymentQuotesPanel({
     }
   }
 
+  async function archive(quote: PaymentQuote) {
+    setArchiveId(quote.id);
+    setNote("");
+    setNoteBad(false);
+    const ok = await onArchive(quote.id, true);
+    if (!ok) {
+      setNoteBad(true);
+      setNote("Could not archive that link.");
+    }
+    setArchiveId("");
+  }
+
   async function copyLink(quote: PaymentQuote) {
     const url = payUrl(quote);
     try {
@@ -154,6 +169,8 @@ export function PaymentQuotesPanel({
       setNote(url);
     }
   }
+
+  const visible = quotes.filter((quote) => !(quote.archivedAt || "").trim());
 
   return (
     <div>
@@ -221,11 +238,13 @@ export function PaymentQuotesPanel({
       {note ? <p className={noteBad ? "err" : "ok"}>{note}</p> : null}
 
       <h2>Payment links</h2>
-      {!quotes.length ? <p>No payment links yet.</p> : null}
-      {quotes.map((quote) => {
+      {!visible.length ? (
+        <p>{quotes.length ? "Every payment link is archived. Search them under Order history." : "No payment links yet."}</p>
+      ) : null}
+      {visible.map((quote) => {
         const state = quotePayable(quote.status, quote.createdAt);
         return (
-          <div key={quote.id} className="quote-item">
+          <div key={quote.id} id={`inbox-pay-${quote.id}`} className="quote-item">
             <strong>{quote.title}</strong> · {formatUsd(quote.amountCents)}
             <p>
               {quote.name || "No name"} · {quote.email}
@@ -244,10 +263,13 @@ export function PaymentQuotesPanel({
               </button>
             ) : null}
             {state === "open" ? (
-              <button type="button" onClick={() => cancelQuote(quote)} disabled={busy}>
+              <button type="button" onClick={() => cancelQuote(quote)} disabled={busy || archiveId === quote.id}>
                 Cancel link
               </button>
             ) : null}
+            <button type="button" onClick={() => archive(quote)} disabled={busy || archiveId === quote.id}>
+              {archiveId === quote.id ? "Archiving…" : "Archive"}
+            </button>
           </div>
         );
       })}

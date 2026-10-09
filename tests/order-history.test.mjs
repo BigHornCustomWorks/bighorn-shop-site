@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkoutContactParams } from "../lib/checkout-contact.ts";
+import { keepIncomingArchive } from "../lib/archive.ts";
 import {
   customerKey,
   filterOrders,
   fulfillmentFromCart,
   ordersForCustomer,
   ordersToCsv,
+  paymentHaystack,
+  quoteHaystack,
   smsOptInFromCustomFields,
+  visibleMessages,
 } from "../lib/order-history.ts";
 
 const shipTo = {
@@ -179,6 +183,72 @@ test("date range, product, and item text filter together", () => {
     { ...baseFilters, reviewPending: true },
   );
   assert.equal(asked.length, 0);
+});
+
+test("search matches a name and a phone typed as digits, and an archived order stays listed", () => {
+  const rows = [
+    order(),
+    order({
+      id: "order_phone",
+      name: "Cam",
+      email: "cam@example.com",
+      phone: "406-555-0199",
+      items: "• 1 × Widget",
+    }),
+    order({ id: "order_arch", name: "Dee", archivedAt: "2026-09-02T00:00:00.000Z" }),
+  ];
+  const byName = filterOrders(rows, products, { ...baseFilters, itemQuery: "Cam" });
+  assert.deepEqual(
+    byName.map((row) => row.id),
+    ["order_phone"],
+  );
+  const byPhone = filterOrders(rows, products, { ...baseFilters, itemQuery: "406555" });
+  assert.deepEqual(
+    byPhone.map((row) => row.id),
+    ["order_phone"],
+  );
+  const listed = filterOrders(rows, products, baseFilters);
+  assert.equal(listed.some((row) => row.id === "order_arch"), true);
+});
+
+test("history messages show archived rows until a search, and a payment token is not searchable", () => {
+  const quotes = [
+    { id: "q1", name: "Ada", email: "a@example.com", need: "a sign", createdAt: "2026-10-02T00:00:00.000Z", archivedAt: "" },
+    { id: "q2", name: "Bea", email: "b@example.com", need: "a bracket", createdAt: "2026-10-01T00:00:00.000Z", archivedAt: "2026-10-03T00:00:00.000Z" },
+  ];
+  assert.deepEqual(
+    visibleMessages(quotes, "", quoteHaystack).map((row) => row.id),
+    ["q2"],
+  );
+  assert.deepEqual(
+    visibleMessages(quotes, "Ada", quoteHaystack).map((row) => row.id),
+    ["q1"],
+  );
+  const link = {
+    id: "pay_1",
+    name: "Ada",
+    email: "a@example.com",
+    title: "Bracket",
+    detail: "steel",
+    token: "secret-token-value",
+    createdAt: "2026-10-01T00:00:00.000Z",
+    archivedAt: "",
+  };
+  assert.equal(paymentHaystack(link).includes("secret-token-value"), false);
+  assert.equal(visibleMessages([link], "secret-token-value", paymentHaystack).length, 0);
+  assert.equal(visibleMessages([link], "Bracket", paymentHaystack).length, 1);
+});
+
+test("a master save keeps the server archive stamp on a quote and clears it on a new one", () => {
+  const kept = keepIncomingArchive(
+    [
+      { id: "q1", name: "Ada", archivedAt: "" },
+      { id: "q2", name: "New", archivedAt: "2026-10-09T00:00:00.000Z" },
+    ],
+    [{ id: "q1", archivedAt: "2026-10-02T00:00:00.000Z" }],
+  );
+  assert.equal(kept[0].archivedAt, "2026-10-02T00:00:00.000Z");
+  assert.equal(kept[1].archivedAt, "");
 });
 
 test("sort by amount and group a customer by email", () => {

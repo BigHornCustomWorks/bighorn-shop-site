@@ -260,6 +260,7 @@ export function normalizePaymentQuote(raw: unknown): PaymentQuote | null {
     emailedAt: plain(src.emailedAt, 40),
     paidAt: status === "paid" ? plain(src.paidAt, 40) : "",
     paidSessionId: status === "paid" ? plain(src.paidSessionId, 120) : "",
+    archivedAt: plain(src.archivedAt, 40),
   };
 }
 
@@ -306,6 +307,7 @@ export function mergePaymentQuotes(incoming: unknown, current: PaymentQuote[]): 
       emailedAt: server.emailedAt,
       paidAt: "",
       paidSessionId: "",
+      archivedAt: server.archivedAt || "",
     });
     merged.push(next || server);
   }
