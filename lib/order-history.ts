@@ -1,4 +1,4 @@
-import type { PaymentQuote, Product, Quote, ShopOrder } from "./types";
+import type { PaymentQuote, Product, Quote, ShopOrder, ShopStore } from "./types";
 
 export type HistoryProduct = Pick<Product, "id" | "name" | "slug" | "sku"> & { category?: string };
 
@@ -235,6 +235,43 @@ export function visibleMessages<T extends { archivedAt?: string; createdAt?: str
   const q = query.trim();
   const picked = q ? rows.filter((row) => textHits(haystack(row), q)) : rows.filter((row) => isArchived(row));
   return [...picked].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+}
+
+/**
+ * Inbox can stay open while someone pays. Add rows the server has that this
+ * page never loaded, and mark a payment link paid when Stripe has. Leave every
+ * row already on the page as it is, so a slow read cannot undo an archive.
+ */
+export function mergeInboxFromServer(current: ShopStore, next: ShopStore): ShopStore {
+  const orderIds = new Set((current.orders || []).map((order) => order.id));
+  const newOrders = (next.orders || []).filter((order) => order && !orderIds.has(order.id));
+  const quoteIds = new Set((current.quotes || []).map((quote) => quote.id));
+  const newQuotes = (next.quotes || []).filter((quote) => quote && !quoteIds.has(quote.id));
+  const localPays = current.paymentQuotes || [];
+  const seenPays = new Set(localPays.map((quote) => quote.id));
+  let payChanged = false;
+  const paymentQuotes = localPays.map((quote) => {
+    const server = (next.paymentQuotes || []).find((row) => row.id === quote.id);
+    if (!server) return quote;
+    if ((server.status === "paid" || server.status === "void") && server.status !== quote.status) {
+      payChanged = true;
+      return {
+        ...quote,
+        status: server.status,
+        paidAt: server.paidAt || quote.paidAt,
+        paidSessionId: server.paidSessionId || quote.paidSessionId,
+      };
+    }
+    return quote;
+  });
+  const newPays = (next.paymentQuotes || []).filter((quote) => quote && !seenPays.has(quote.id));
+  if (!newOrders.length && !newQuotes.length && !newPays.length && !payChanged) return current;
+  return {
+    ...current,
+    orders: [...newOrders, ...(current.orders || [])],
+    quotes: [...newQuotes, ...(current.quotes || [])],
+    paymentQuotes: [...newPays, ...paymentQuotes],
+  };
 }
 
 export function customerKey(order: ShopOrder): string {

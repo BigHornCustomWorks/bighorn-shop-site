@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { compressImage } from "@/lib/compressImage";
 import { formatUsd } from "@/lib/money";
 import { MAX_FILE_URLS, httpsFileUrls } from "@/lib/digital-delivery";
@@ -31,7 +31,7 @@ import type {
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
-import { orderWhen } from "@/lib/order-history";
+import { mergeInboxFromServer, orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PaymentQuotesPanel } from "@/components/PaymentQuotesPanel";
@@ -191,6 +191,44 @@ export function MasterClient() {
     node.scrollIntoView({ block: "center" });
     setInboxFocus("");
   }, [inboxFocus, tab, store]);
+
+  const storeRef = useRef(store);
+  storeRef.current = store;
+
+  useEffect(() => {
+    if (tab !== "quotes" && tab !== "history") return;
+    let cancel = false;
+    async function pullNew() {
+      try {
+        const res = await fetch("/api/master/store");
+        if (!res.ok || cancel) return;
+        const json = await res.json();
+        const next = json.store as ShopStore | undefined;
+        const current = storeRef.current;
+        if (!next || !current || cancel) return;
+        const merged = mergeInboxFromServer(current, next);
+        if (merged === current) return;
+        const added = (merged.orders || []).length - (current.orders || []).length;
+        setStore(merged);
+        if (added > 0) {
+          setStatus(added === 1 ? "A paid order just came in. It is under Orders." : `${added} new orders came in. They are under Orders.`);
+        }
+      } catch {
+        /* leave the open page alone */
+      }
+    }
+    pullNew();
+    const timer = window.setInterval(pullNew, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") pullNew();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancel = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [tab]);
 
   async function setArchived(kind: "order" | "quote" | "payment", id: string, archived: boolean): Promise<boolean> {
     try {

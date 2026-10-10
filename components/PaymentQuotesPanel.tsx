@@ -17,7 +17,9 @@ function weightLabel(oz: number): string {
 
 function statusLabel(quote: PaymentQuote): string {
   const state = quotePayable(quote.status, quote.createdAt);
-  if (state === "paid") return quote.paidAt ? `Paid ${orderWhen(quote.paidAt)}` : "Paid";
+  if (state === "paid") {
+    return quote.paidAt ? `Paid ${orderWhen(quote.paidAt)}. The order is listed under Orders.` : "Paid. The order is listed under Orders.";
+  }
   if (state === "void") return "Canceled";
   if (state === "expired") return "Expired — send a new quote";
   return quote.emailedAt ? "Waiting for payment" : "Saved — email did not send";

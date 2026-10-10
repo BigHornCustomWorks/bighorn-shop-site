@@ -9,7 +9,7 @@ import {
   stripeKeyMode,
   writeStore,
 } from "@/lib/store";
-import { keepIncomingArchive } from "@/lib/archive";
+import { keepIncomingArchive, keepServerRows } from "@/lib/archive";
 import { mergePaymentQuotes } from "@/lib/payment-quote";
 import { shipFromAddress, shippoKey, shippoKeyMode } from "@/lib/shipping";
 import { syncCatalogToStripe } from "@/lib/stripe-catalog";
@@ -117,10 +117,12 @@ export async function PUT(req: Request) {
       stripeSecretKey:
         nextKey && !nextKey.includes("•") ? nextKey : current.settings.stripeSecretKey,
     },
-    quotes: Array.isArray(incoming.quotes) ? keepIncomingArchive(incoming.quotes, current.quotes) : current.quotes,
+    quotes: Array.isArray(incoming.quotes)
+      ? keepServerRows(keepIncomingArchive(incoming.quotes, current.quotes), current.quotes)
+      : current.quotes,
     paymentQuotes: mergePaymentQuotes(incoming.paymentQuotes, current.paymentQuotes || []),
     orders: Array.isArray(incoming.orders)
-      ? keepServerOrderFields(incoming.orders, current.orders)
+      ? keepServerRows(keepServerOrderFields(incoming.orders, current.orders), current.orders)
       : current.orders,
     products: Array.isArray(incoming.products) ? incoming.products : current.products,
     categories: Array.isArray(incoming.categories) ? incoming.categories : current.categories,

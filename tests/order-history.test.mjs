@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkoutContactParams } from "../lib/checkout-contact.ts";
-import { keepIncomingArchive } from "../lib/archive.ts";
+import { keepIncomingArchive, keepServerRows } from "../lib/archive.ts";
 import {
   customerKey,
   filterOrders,
   fulfillmentFromCart,
+  mergeInboxFromServer,
   ordersForCustomer,
   ordersToCsv,
   paymentHaystack,
@@ -249,6 +250,42 @@ test("a master save keeps the server archive stamp on a quote and clears it on a
   );
   assert.equal(kept[0].archivedAt, "2026-10-02T00:00:00.000Z");
   assert.equal(kept[1].archivedAt, "");
+});
+
+test("a save keeps an order the open tab never loaded", () => {
+  const kept = keepServerRows([{ id: "order_old", name: "Ada" }], [
+    { id: "order_old", name: "Ada" },
+    { id: "order_new", name: "Jeffery" },
+  ]);
+  assert.deepEqual(
+    kept.map((row) => row.id),
+    ["order_old", "order_new"],
+  );
+});
+
+test("an open inbox picks up a paid order without dropping the row already on screen", () => {
+  const current = {
+    orders: [{ id: "order_old", archivedAt: "2026-10-10T00:00:00.000Z" }],
+    quotes: [],
+    paymentQuotes: [{ id: "pay_1", status: "open", paidAt: "", paidSessionId: "" }],
+  };
+  const next = {
+    orders: [
+      { id: "order_new", archivedAt: "" },
+      { id: "order_old", archivedAt: "" },
+    ],
+    quotes: [{ id: "quote_new" }],
+    paymentQuotes: [{ id: "pay_1", status: "paid", paidAt: "2026-10-10T19:28:24.757Z", paidSessionId: "cs_live_x" }],
+  };
+  const merged = mergeInboxFromServer(current, next);
+  assert.deepEqual(
+    merged.orders.map((row) => row.id),
+    ["order_new", "order_old"],
+  );
+  assert.equal(merged.orders[1].archivedAt, "2026-10-10T00:00:00.000Z");
+  assert.equal(merged.paymentQuotes[0].status, "paid");
+  assert.equal(merged.quotes[0].id, "quote_new");
+  assert.equal(mergeInboxFromServer(merged, next), merged);
 });
 
 test("sort by amount and group a customer by email", () => {
