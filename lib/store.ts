@@ -21,6 +21,7 @@ import {
 } from "./shipping";
 import { cleanSlugList, honestDigitalNote, httpsFileUrls } from "./digital-delivery";
 import { normalizePaymentQuote } from "./payment-quote";
+import { customMetalCategoryName } from "./sign-category";
 import { normalizeSignDesigns } from "./sign-designs";
 import { firstPhoto, splitMedia } from "./video";
 import type {
@@ -150,7 +151,7 @@ function normalizeProduct(raw: unknown, i: number): Product | null {
     groupCover: safeUrl(src.groupCover),
     photos,
     videos,
-    category: cleanStr(src.category, "Mill accessories"),
+    category: customMetalCategoryName(cleanStr(src.category, "Mill accessories")),
     kind,
     digitalFileUrls,
     digitalNote:
@@ -409,7 +410,7 @@ function normalizeSettings(raw: unknown): ShopSettings {
 
 function normalizeCategory(raw: unknown, i: number): ShopCategory | null {
   const src = (raw && typeof raw === "object" ? raw : {}) as Partial<ShopCategory>;
-  const name = cleanStr(src.name);
+  const name = customMetalCategoryName(cleanStr(src.name));
   if (!name) return null;
   return {
     id: cleanStr(src.id, newId("cat")),

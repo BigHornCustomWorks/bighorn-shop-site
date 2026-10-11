@@ -49,7 +49,7 @@ export default async function PhysicalPage() {
         <div className="gallery-cta-panel">
           <span className="badge">Metal signs</span>
           <h2>{store.metalSigns.heading || "CNC plasma-cut signs"}</h2>
-          <p>Premade signs and custom sizes. Local pickup in Sheridan — no shipping charge.</p>
+          <p>Custom metal signs, cut when you order. Local pickup in Sheridan — no shipping charge.</p>
           <span className="btn btn-spark">Shop metal signs →</span>
         </div>
       </Link>

@@ -55,8 +55,9 @@ export function SignsTab({
         <p className="section-kicker">Custom size &amp; rate</p>
         <h2>Estimator, finishes, and sample photos</h2>
         <p className="note">
-          This is for made-to-order sizes on /signs. Premade pieces (fixed sizes, painted vs unpainted) are in the
-          Premade signs section, not here. Set $/sq ft or $/sq in; the customer’s size is recalculated on the server.
+          This is for a size the customer types in on /signs. Listed signs, with sizes and finishes already on the
+          item, are in Custom metal signs, not here. Set $/sq ft or $/sq in; the customer’s size is recalculated on the
+          server.
         </p>
       </div>
 

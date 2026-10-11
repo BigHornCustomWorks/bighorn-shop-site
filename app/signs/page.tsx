@@ -29,11 +29,10 @@ export default async function SignsPage() {
       {signs.note ? <p className="note">{signs.note}</p> : null}
 
       <section style={{ marginTop: 28 }}>
-        <p className="section-kicker">Premade signs</p>
-        <h2>Ready to buy</h2>
+        <p className="section-kicker">Cut to order</p>
+        <h2>Custom metal signs</h2>
         <p className="muted">
-          Pieces Clint has already cut — buy as listed. Local pickup is free of shipping. New photos land here as he
-          makes them.
+          Cut when you order them, in the size and finish you pick. Local pickup in Sheridan has no shipping charge.
         </p>
         {catalog.length ? (
           <CatalogShelf entries={shelfEntries(catalog)} />

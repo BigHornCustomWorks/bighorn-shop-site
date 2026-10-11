@@ -626,9 +626,9 @@ export function MasterClient() {
             <p className="section-kicker">Metal signs</p>
             <h2>Signs shop</h2>
             <p className="note">
-              Premade pieces (jack-o-lanterns, plaques, yard ornaments) are listed here once and show on /signs.
-              I want this samples are the pictures customers pick for a custom sign, and where you set sizes and
-              prices on artwork that is ready to cut. Custom size, rate, and finishes are the other section.
+              Custom metal signs are the listed pieces on /signs. They are cut when someone orders a size and finish.
+              I want this samples are the pictures customers pick, and where you set sizes and prices on artwork that
+              is ready to cut. Custom size, rate, and finishes are the other section.
             </p>
           </div>
           <div className="mc-subtabs">
@@ -640,7 +640,7 @@ export function MasterClient() {
                 setOpenId(null);
               }}
             >
-              Premade signs
+              Custom metal signs
             </button>
             <button
               type="button"
@@ -666,8 +666,8 @@ export function MasterClient() {
           {signsPanel === "premade" ? (
             <ProductsTab
               kind="sign"
-              heading="Premade signs"
-              kicker="Ready to buy on /signs"
+              heading="Custom metal signs"
+              kicker="Listed on /signs"
               {...productTabProps}
             />
           ) : signsPanel === "samples" ? (
@@ -1281,7 +1281,7 @@ function ProductsTab({
   }
 
   const addLabel =
-    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add premade sign" : "Add physical product";
+    kind === "digital" ? "Add digital product" : kind === "sign" ? "Add custom metal sign" : "Add physical product";
 
   return (
     <div>
@@ -1290,7 +1290,7 @@ function ProductsTab({
         <h2>{heading}</h2>
         <p className="note">
           {kind === "sign"
-            ? "List jack-o-lanterns, plaques, and other finished pieces here. Use variants for sizes and painted vs unpainted. They appear in Premade signs on /signs — not in Physical."
+            ? "These are the signs listed on /signs. Use variants for sizes and finishes. They are cut when ordered, and they stay off the Physical page."
             : "Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder."}
         </p>
       </div>
@@ -1919,10 +1919,10 @@ function ProductEditor({
           >
             <option value="physical">Physical (ships)</option>
             <option value="digital">Digital (no shipping)</option>
-            <option value="sign">Premade metal sign (shows on /signs)</option>
+            <option value="sign">Custom metal sign (shows on /signs)</option>
           </select>
           <span className="note">
-            Premade signs belong in Metal signs → Premade signs, not Physical. This type puts the item on /signs.
+            Custom metal signs belong under Metal signs, not Physical. This type puts the item on /signs.
           </span>
         </label>
         <label>

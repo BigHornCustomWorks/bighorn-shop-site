@@ -67,7 +67,7 @@ export function defaultMetalSigns(): MetalSignsConfig {
   return {
     visible: true,
     heading: "CNC plasma-cut metal signs",
-    lede: "Ready-made signs as Clint cuts them, plus custom sizes priced from the finished width and height.",
+    lede: "Custom metal signs, cut when you order, plus sizes priced from the finished width and height.",
     note: "Local pickup in Sheridan — no shipping charge. Odd shapes and extra work may still need a custom quote.",
     unit: "sqft",
     rateCents: 0,
