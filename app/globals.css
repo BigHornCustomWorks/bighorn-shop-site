@@ -1152,24 +1152,36 @@ button.mc-stat { font: inherit; color: inherit; }
   .cat-doors { grid-template-columns: 1fr; }
 }
 .mc-sign-doors { margin: 8px 0 18px; }
+.mc-sign-door-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
 .mc-sign-door {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  margin: 0 0 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--rule);
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  background: #fffdf8;
 }
+.mc-sign-door > * { min-width: 0; }
 .mc-sign-door img {
-  width: 96px;
-  height: 96px;
+  width: 100%;
+  height: 140px;
   object-fit: cover;
   background: #1b2830;
 }
-.mc-sign-door input[type="file"] { width: 100%; max-width: 100%; min-width: 0; }
-@media (max-width: 640px) {
-  .mc-sign-door { grid-template-columns: 1fr; }
+.mc-sign-door label,
+.mc-sign-door input[type="file"],
+.mc-sign-door .btn-ghost {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .mc-sign-door-grid { grid-template-columns: 1fr; }
 }
 .gate-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .gate-title {

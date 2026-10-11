@@ -1214,6 +1214,7 @@ function SignDoorPictures({
         This is the picture customers see for that category on the Signs page. Upload one, then click Save products.
         Until you do, the door uses a photo from a sign in that category.
       </p>
+      <div className="mc-sign-door-grid">
       {categories.map((c) => {
         const sample = products.find(
           (p) => p.kind === "sign" && p.category.toLowerCase() === c.name.toLowerCase() && firstPhoto(p),
@@ -1246,6 +1247,7 @@ function SignDoorPictures({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
