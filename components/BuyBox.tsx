@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 import type { Product } from "@/lib/types";
 import { formatUsd } from "@/lib/money";
+import { safeSlug } from "@/lib/sanitize";
 import { stockLabel, stockText } from "@/lib/stock";
 import { listedVariants, lowestVariantPrice, variantPriceSpread, variantUnitPrice } from "@/lib/variant-price";
 
@@ -43,7 +44,11 @@ export function BuyBox({ product }: { product: Product }) {
         photo: product.photos[0] || product.media[0] || "",
         variant,
         shopHref:
-          product.kind === "sign" ? "/signs" : product.kind === "digital" ? "/digital" : "/physical",
+          product.kind === "sign"
+            ? `/signs/${safeSlug(product.category, "all")}`
+            : product.kind === "digital"
+              ? "/digital"
+              : "/physical",
       },
       qty,
     );

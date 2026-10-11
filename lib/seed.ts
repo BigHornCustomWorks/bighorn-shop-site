@@ -48,9 +48,9 @@ export function defaultSite(): SiteCopy {
 
 export function defaultCategories(): ShopCategory[] {
   return [
-    { id: "cat_mill", name: "Mill accessories", sortOrder: 1 },
-    { id: "cat_digital", name: "Digital", sortOrder: 2 },
-    { id: "cat_signs", name: "Metal signs", sortOrder: 3 },
+    { id: "cat_mill", name: "Mill accessories", image: "", sortOrder: 1 },
+    { id: "cat_digital", name: "Digital", image: "", sortOrder: 2 },
+    { id: "cat_signs", name: "Metal signs", image: "", sortOrder: 3 },
   ];
 }
 

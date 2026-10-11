@@ -1195,6 +1195,61 @@ export function MasterClient() {
   );
 }
 
+function SignDoorPictures({
+  categories,
+  products,
+  onImage,
+  onClear,
+}: {
+  categories: ShopCategory[];
+  products: Product[];
+  onImage: (id: string, file: File) => Promise<void>;
+  onClear: (id: string) => void;
+}) {
+  if (!categories.length) return null;
+  return (
+    <div className="mc-sign-doors">
+      <p className="section-kicker">Category doors</p>
+      <p className="note">
+        This is the picture customers see for that category on the Signs page. Upload one, then click Save products.
+        Until you do, the door uses a photo from a sign in that category.
+      </p>
+      {categories.map((c) => {
+        const sample = products.find(
+          (p) => p.kind === "sign" && p.category.toLowerCase() === c.name.toLowerCase() && firstPhoto(p),
+        );
+        const photo = c.image || (sample && firstPhoto(sample)) || "/logo.png";
+        return (
+          <div className="mc-sign-door" key={c.id}>
+            <img src={photo} alt="" />
+            <div>
+              <strong>{c.name}</strong>
+              <p className="note">{c.image ? "Your door picture." : "Using a sign photo until you upload one."}</p>
+              <label>
+                Door picture
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) await onImage(c.id, file);
+                  }}
+                />
+              </label>
+              {c.image ? (
+                <button type="button" className="btn-ghost" onClick={() => onClear(c.id)}>
+                  Use a sign photo instead
+                </button>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProductsTab({
   kind,
   heading,
@@ -1290,7 +1345,7 @@ function ProductsTab({
         <h2>{heading}</h2>
         <p className="note">
           {kind === "sign"
-            ? "These are the signs listed on /signs. Use variants for sizes and finishes. They are cut when ordered, and they stay off the Physical page."
+            ? "Customers pick a category on /signs, then see only those signs. Add a category, put signs in it, set the door picture, and click Save products. Drag a chip to change the order of the doors."
             : "Categories you add here show on the shop once they have a visible product. Drag a chip or a card to reorder."}
         </p>
       </div>
@@ -1342,7 +1397,7 @@ function ProductsTab({
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();
           }}
-          placeholder="New category (Office, Tools…)"
+          placeholder={kind === "sign" ? "New category (Halloween, Christmas…)" : "New category (Office, Tools…)"}
         />
         <button
           type="button"
@@ -1357,6 +1412,7 @@ function ProductsTab({
             const cat: ShopCategory = {
               id: `cat_${Date.now().toString(36)}`,
               name,
+              image: "",
               sortOrder: categories.length + 1,
             };
             setStore({ ...store, categories: [...categories, cat] });
@@ -1367,6 +1423,32 @@ function ProductsTab({
           Add category
         </button>
       </div>
+
+      {kind === "sign" ? (
+        <SignDoorPictures
+          categories={categories.filter((c) =>
+            store.products.some(
+              (p) => p.kind === "sign" && p.category.toLowerCase() === c.name.toLowerCase(),
+            ),
+          )}
+          products={store.products}
+          onImage={async (id, file) => {
+            const toSend = await compressImage(file);
+            const url = await uploadFile(toSend, "photo");
+            if (!url) return;
+            setStore({
+              ...store,
+              categories: categories.map((c) => (c.id === id ? { ...c, image: url } : c)),
+            });
+          }}
+          onClear={(id) => {
+            setStore({
+              ...store,
+              categories: categories.map((c) => (c.id === id ? { ...c, image: "" } : c)),
+            });
+          }}
+        />
+      ) : null}
 
       <label className="search-box">
         Search products

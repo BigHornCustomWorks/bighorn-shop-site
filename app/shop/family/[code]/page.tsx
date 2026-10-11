@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
 import { familyLead, productsInFamily } from "@/lib/families";
-import { readStore, visibleProducts } from "@/lib/store";
+import { categorySlug, readStore, visibleProducts } from "@/lib/store";
 
 export default async function FamilyPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -13,6 +13,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ code: s
   const title = lead.name.replace(/^Copy of\s+/i, "");
   const back =
     lead.kind === "sign" ? "/signs" : lead.kind === "digital" ? "/digital" : "/physical";
+  const cat = categorySlug(lead.category);
 
   return (
     <div className="wrap">
@@ -23,6 +24,11 @@ export default async function FamilyPage({ params }: { params: Promise<{ code: s
         <Link className="back-link" href={back}>
           {lead.kind === "sign" ? "Signs" : "Physical"}
         </Link>
+        {lead.kind === "sign" ? (
+          <Link className="back-link" href={`/signs/${cat}`}>
+            {lead.category}
+          </Link>
+        ) : null}
       </p>
       <p className="section-kicker">Item {code}</p>
       <h1>{title}</h1>

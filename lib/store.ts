@@ -21,7 +21,7 @@ import {
 } from "./shipping";
 import { cleanSlugList, honestDigitalNote, httpsFileUrls } from "./digital-delivery";
 import { normalizePaymentQuote } from "./payment-quote";
-import { customMetalCategoryName } from "./sign-category";
+import { customMetalCategoryName, signDoorPhoto } from "./sign-category";
 import { normalizeSignDesigns } from "./sign-designs";
 import { firstPhoto, splitMedia } from "./video";
 import type {
@@ -415,6 +415,7 @@ function normalizeCategory(raw: unknown, i: number): ShopCategory | null {
   return {
     id: cleanStr(src.id, newId("cat")),
     name,
+    image: safeUrl(src.image),
     sortOrder: asInt(src.sortOrder, i + 1),
   };
 }
@@ -430,6 +431,7 @@ function mergeCategories(raw: unknown, products: Product[]): ShopCategory[] {
       const extra: ShopCategory = {
         id: newId("cat"),
         name: label,
+        image: "",
         sortOrder: byName.size + 1,
       };
       byName.set(label.toLowerCase(), extra);
@@ -820,6 +822,43 @@ export function physicalCategoryDoors(store: ShopStore): CategoryDoor[] {
     if (ao !== bo) return ao - bo;
     return a.name.localeCompare(b.name);
   });
+}
+
+export function signCategoryDoors(store: ShopStore): CategoryDoor[] {
+  const products = visibleProducts(store).filter((p) => p.kind === "sign");
+  const cats = store.categories || [];
+  const order = new Map(cats.map((c, i) => [c.name.toLowerCase(), c.sortOrder || i + 1]));
+  const covers = new Map(cats.map((c) => [c.name.toLowerCase(), c.image || ""]));
+  const buckets = new Map<string, CategoryDoor>();
+  for (const p of products) {
+    const name = p.category || "Other";
+    const slug = categorySlug(name);
+    const chosen = covers.get(name.toLowerCase()) || "";
+    const fallback = firstPhoto(p) || "";
+    const existing = buckets.get(slug);
+    if (existing) {
+      existing.count += 1;
+      if (!chosen && (existing.photo === "/logo.png" || !existing.photo) && fallback) existing.photo = fallback;
+    } else {
+      buckets.set(slug, { slug, name, count: 1, photo: signDoorPhoto(chosen, fallback) });
+    }
+  }
+  return [...buckets.values()].sort((a, b) => {
+    const ao = order.get(a.name.toLowerCase()) ?? 999;
+    const bo = order.get(b.name.toLowerCase()) ?? 999;
+    if (ao !== bo) return ao - bo;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function signProductsInCategory(store: ShopStore, slug: string): { name: string; products: Product[] } | null {
+  const want = safeSlug(slug);
+  if (!want || want === "all") return null;
+  const products = visibleProducts(store).filter(
+    (p) => p.kind === "sign" && categorySlug(p.category) === want,
+  );
+  if (!products.length) return null;
+  return { name: products[0].category || "Signs", products };
 }
 
 export function physicalProductsInCategory(store: ShopStore, slug: string): { name: string; products: Product[] } | null {

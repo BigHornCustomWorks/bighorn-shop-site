@@ -31,7 +31,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             product.kind === "digital"
               ? "/digital"
               : product.kind === "sign"
-                ? "/signs"
+                ? `/signs/${cat}`
                 : `/physical/${cat}`
           }
         >

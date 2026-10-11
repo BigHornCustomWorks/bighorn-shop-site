@@ -98,6 +98,8 @@ export type SignPackConfig = {
 export type ShopCategory = {
   id: string;
   name: string;
+  /** Picture on the Signs page door. Empty until you upload one. */
+  image: string;
   sortOrder: number;
 };
 

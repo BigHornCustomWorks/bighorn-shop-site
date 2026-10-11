@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { CatalogShelf } from "@/components/CatalogShelf";
 import { PickupBanner } from "@/components/PickupBanner";
 import { SignDesigns } from "@/components/SignDesigns";
 import { SignsCustom } from "@/components/SignsCustom";
-import { shelfEntries } from "@/lib/families";
-import { readStore, visibleProducts } from "@/lib/store";
+import { readStore, signCategoryDoors } from "@/lib/store";
 
 export default async function SignsPage() {
   const store = await readStore();
   const signs = store.metalSigns;
-  const catalog = visibleProducts(store).filter((p) => p.kind === "sign");
+  const doors = signCategoryDoors(store);
   const pickupOn = store.site.pickupEnabled !== false;
 
   return (
@@ -32,10 +30,25 @@ export default async function SignsPage() {
         <p className="section-kicker">Cut to order</p>
         <h2>Custom metal signs</h2>
         <p className="muted">
-          Cut when you order them, in the size and finish you pick. Local pickup in Sheridan has no shipping charge.
+          Pick a category. Each sign is cut when you order it, in the size and finish listed. Local pickup in Sheridan
+          has no shipping charge.
         </p>
-        {catalog.length ? (
-          <CatalogShelf entries={shelfEntries(catalog)} />
+        {doors.length ? (
+          <div className="cat-doors">
+            {doors.map((d) => (
+              <Link key={d.slug} className="cat-door" href={`/signs/${d.slug}`}>
+                <img className="bg" src={d.photo} alt="" />
+                <div className="shade" />
+                <div className="content">
+                  <span className="badge">
+                    {d.count} {d.count === 1 ? "sign" : "signs"}
+                  </span>
+                  <h2>{d.name}</h2>
+                  <span className="btn btn-bronze">Open {d.name} →</span>
+                </div>
+              </Link>
+            ))}
+          </div>
         ) : (
           <div className="card">
             <p className="muted">Nothing listed yet. Request a custom sign below.</p>
