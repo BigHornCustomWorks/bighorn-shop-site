@@ -275,8 +275,8 @@ export function OrderHistoryTab({
       <h2>Messages</h2>
       <p className="note">
         {itemQuery.trim()
-          ? "Quote requests and payment links matching that search, including ones still in the inbox."
-          : "Archived quote requests and payment links. Type a search to find one that is still in the inbox too."}
+          ? "Estimate requests and payment links matching that search, including ones still in the inbox."
+          : "Archived estimate requests and payment links. Type a search to find one that is still in the inbox too."}
       </p>
       {!quoteMessages.length && !paymentMessages.length ? <p>No messages in this view.</p> : null}
       {quoteMessages.map((quote) => (
@@ -285,8 +285,10 @@ export function OrderHistoryTab({
           kind="quote"
           id={quote.id}
           archived={isArchived(quote)}
-          title={quote.name || "Quote request"}
-          meta={`${quote.email || "no email"}${quote.phone ? ` · ${quote.phone}` : ""} · ${orderWhen(quote.createdAt)}`}
+          title={quote.name || "Estimate request"}
+          meta={orderWhen(quote.createdAt)}
+          email={quote.email}
+          phone={quote.phone}
           body={quote.need}
           onArchive={onArchive}
           onOpen={onOpen}
@@ -298,9 +300,11 @@ export function OrderHistoryTab({
           kind="payment"
           id={quote.id}
           archived={isArchived(quote)}
-          title={`${quote.title} · ${formatUsd(quote.amountCents)}`}
-          meta={`${quote.name || "No name"} · ${quote.email} · ${orderWhen(quote.createdAt)} · ${paymentState(quote)}`}
+          title={quote.name || quote.title}
+          meta={`${quote.title} · ${formatUsd(quote.amountCents)} · ${orderWhen(quote.createdAt)} · ${paymentState(quote)}`}
+          email={quote.email}
           body={quote.detail}
+          askLabel="What the link covers"
           onArchive={onArchive}
           onOpen={onOpen}
         />
@@ -336,7 +340,7 @@ function HistoryRow({
   onArchive: (kind: ArchiveKind, id: string, archived: boolean) => Promise<boolean>;
   onOpen: (kind: ArchiveKind, id: string) => void;
 }) {
-  const [busy, setBusy] = useState<"shop" | "repair" | "download" | "archive" | "">("");
+  const [busy, setBusy] = useState<"shop" | "download" | "archive" | "">("");
   const [note, setNote] = useState("");
   const [bad, setBad] = useState(false);
   const phone = orderPhone(order);
@@ -374,21 +378,20 @@ function HistoryRow({
     }
   }
 
-  async function sendReview(brand: "shop" | "repair", again = false) {
-    setBusy(brand);
+  async function sendReview(again = false) {
+    setBusy("shop");
     setNote("");
     setBad(false);
-    const label = brand === "repair" ? "Repair Status" : "Big Horn";
     try {
       const res = await fetch("/api/master/review-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, brand, again }),
+        body: JSON.stringify({ orderId: order.id, brand: "shop", again }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 409 && json.already) {
-        const againOk = window.confirm(json.error || `Send the ${label} review request again?`);
-        if (againOk) return sendReview(brand, true);
+        const againOk = window.confirm(json.error || "Send the Big Horn review request again?");
+        if (againOk) return sendReview(true);
         setBad(true);
         setNote(json.error || "Already sent.");
         return;
@@ -397,13 +400,11 @@ function HistoryRow({
       if (!res.ok) {
         setBad(true);
         setNote(json.error || "The review email was not sent.");
-        if (json.reviewRequestedAt) {
-          onReviewed(brand === "repair" ? { repairReviewRequestedAt: sentAt } : { reviewRequestedAt: sentAt });
-        }
+        if (json.reviewRequestedAt) onReviewed({ reviewRequestedAt: sentAt });
         return;
       }
-      onReviewed(brand === "repair" ? { repairReviewRequestedAt: sentAt } : { reviewRequestedAt: sentAt });
-      setNote(`${label} review request sent.`);
+      onReviewed({ reviewRequestedAt: sentAt });
+      setNote("Big Horn review request sent.");
     } catch (err) {
       setBad(true);
       setNote(err instanceof Error ? err.message : "Could not reach the server.");
@@ -412,39 +413,54 @@ function HistoryRow({
     }
   }
 
+  const howLabel = how === "ship" ? "Ship" : how === "pickup" ? "Pickup in Sheridan" : how === "digital" ? "Digital download" : "Not set";
+
   return (
-    <div className="quote-item">
-      <button type="button" className="btn-ghost" onClick={onToggle}>
-        {open ? "Hide" : "Details"}
-      </button>{" "}
-      <strong>{orderWhen(order.createdAt)}</strong> · {formatUsd(order.amountCents)} · {orderStatus(order)}
-      <p>
-        {order.name || "Customer"} · {order.email || "no email"}
-        {phone ? ` · ${phone}` : " · no phone"}
-        {order.smsOptIn ? " · SMS OK" : ""}
-        {" · "}
-        {how}
+    <article className="mc-sale">
+      <header className="mc-sale-head">
+        <div>
+          <p className="mc-sale-kicker">
+            {orderWhen(order.createdAt)} · {orderStatus(order)}
+            {isArchived(order) ? " · archived" : ""}
+          </p>
+          <h3>{order.name || "Customer"}</h3>
+        </div>
+        <p className="mc-sale-total">{formatUsd(order.amountCents)}</p>
+      </header>
+      <div className="mc-contact">
+        <div>
+          <span>Email</span>
+          {order.email ? <a href={`mailto:${order.email}`}>{order.email}</a> : <strong>No email</strong>}
+        </div>
+        <div>
+          <span>Phone</span>
+          {phone ? <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a> : <strong>No phone</strong>}
+        </div>
+        <div>
+          <span>How it goes out</span>
+          <strong>
+            {howLabel}
+            {order.smsOptIn ? " · OK to text" : ""}
+          </strong>
+        </div>
+      </div>
+      <div className="mc-sale-ask">
+        <p className="mc-sale-kicker">What they ordered</p>
+        <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
+      </div>
+      <p className="muted">
+        Order {order.id}
+        {order.receiptEmailedAt ? ` · receipt emailed ${orderWhen(order.receiptEmailedAt)}` : " · no shop receipt emailed yet"}
         {downloadLabel ? (
           <span className={order.digitalEmailed ? "mc-flag ok" : order.digitalEmailError && order.digitalEmailError !== "sending" ? "mc-flag err" : "mc-flag"}>
             {downloadLabel}
           </span>
         ) : null}
       </p>
-      <p className="muted">
-        Order {order.id}
-        {isArchived(order) ? " · archived" : ""}
-        {order.receiptEmailedAt ? ` · receipt emailed ${orderWhen(order.receiptEmailedAt)}` : " · no shop receipt emailed yet"}
-      </p>
-      <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       <p className={order.reviewRequestedAt ? "note" : "muted"}>
         {order.reviewRequestedAt
           ? `Big Horn review requested ${orderWhen(order.reviewRequestedAt)}`
           : "Big Horn review not requested"}
-      </p>
-      <p className={order.repairReviewRequestedAt ? "note" : "muted"}>
-        {order.repairReviewRequestedAt
-          ? `Repair Status review requested ${orderWhen(order.repairReviewRequestedAt)}`
-          : "Repair Status review not requested"}
       </p>
       <div className="hero-actions">
         <button
@@ -468,15 +484,11 @@ function HistoryRow({
         <button type="button" className="btn-ghost" onClick={() => onOpen("order", order.id)} disabled={Boolean(busy)}>
           Open in inbox
         </button>
-        <button type="button" className="btn" onClick={() => sendReview("shop")} disabled={Boolean(busy) || !order.email}>
-          {busy === "shop" ? "Sending…" : order.reviewRequestedAt ? "Send Big Horn review again" : "Send Big Horn review"}
+        <button type="button" className="btn-ghost" onClick={onToggle}>
+          {open ? "Hide address" : "Show address"}
         </button>
-        <button type="button" className="btn" onClick={() => sendReview("repair")} disabled={Boolean(busy) || !order.email}>
-          {busy === "repair"
-            ? "Sending…"
-            : order.repairReviewRequestedAt
-              ? "Send Repair Status review again"
-              : "Send Repair Status review"}
+        <button type="button" className="btn" onClick={() => sendReview()} disabled={Boolean(busy) || !order.email}>
+          {busy === "shop" ? "Sending…" : order.reviewRequestedAt ? "Send Big Horn review again" : "Send Big Horn review"}
         </button>
         <button type="button" className="btn-ghost" onClick={onViewCustomer}>
           View customer
@@ -495,7 +507,8 @@ function HistoryRow({
       />
       {note ? <p className={bad ? "err" : "ok"}>{note}</p> : null}
       {open ? (
-        <div>
+        <div className="mc-sale-ask">
+          <p className="mc-sale-kicker">Ship to</p>
           <p style={{ whiteSpace: "pre-wrap" }}>{order.address || "No shipping address"}</p>
           {order.shipTo?.email || order.shipTo?.phone ? (
             <p className="muted">
@@ -521,7 +534,7 @@ function HistoryRow({
           <p className="muted">Stripe session {order.sessionId || "—"}</p>
         </div>
       ) : null}
-    </div>
+    </article>
   );
 }
 
@@ -531,7 +544,10 @@ function HistoryMessage({
   archived,
   title,
   meta,
+  email,
+  phone,
   body,
+  askLabel,
   onArchive,
   onOpen,
 }: {
@@ -540,19 +556,46 @@ function HistoryMessage({
   archived: boolean;
   title: string;
   meta: string;
+  email?: string;
+  phone?: string;
   body: string;
+  askLabel?: string;
   onArchive: (kind: ArchiveKind, id: string, archived: boolean) => Promise<boolean>;
   onOpen: (kind: ArchiveKind, id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const trimmedPhone = (phone || "").trim();
 
   return (
-    <div className="quote-item">
-      <strong>{title}</strong>
-      {archived ? <span className="muted"> · archived</span> : null}
-      <p>{meta}</p>
-      {body ? <p style={{ whiteSpace: "pre-wrap" }}>{body}</p> : null}
+    <article className="mc-sale">
+      <header className="mc-sale-head">
+        <div>
+          <p className="mc-sale-kicker">
+            {meta}
+            {archived ? " · archived" : ""}
+          </p>
+          <h3>{title}</h3>
+        </div>
+      </header>
+      {email || trimmedPhone ? (
+        <div className="mc-contact">
+          <div>
+            <span>Email</span>
+            {email ? <a href={`mailto:${email}`}>{email}</a> : <strong>No email</strong>}
+          </div>
+          <div>
+            <span>Phone</span>
+            {trimmedPhone ? <a href={`tel:${trimmedPhone.replace(/[^\d+]/g, "")}`}>{trimmedPhone}</a> : <strong>No phone</strong>}
+          </div>
+        </div>
+      ) : null}
+      {body ? (
+        <div className="mc-sale-ask">
+          <p className="mc-sale-kicker">{askLabel || "What they asked for"}</p>
+          <p style={{ whiteSpace: "pre-wrap" }}>{body}</p>
+        </div>
+      ) : null}
       <div className="hero-actions">
         <button
           type="button"
@@ -573,6 +616,6 @@ function HistoryMessage({
         </button>
       </div>
       {note ? <p className="err">{note}</p> : null}
-    </div>
+    </article>
   );
 }

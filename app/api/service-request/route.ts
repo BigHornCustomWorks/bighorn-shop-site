@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     quote.emailed = await sendShopMail({
       to: store.site.contactEmail,
       replyTo: email,
-      subject: `Service request from ${name}`,
+      subject: `New estimate request — ${name || email}`,
       text: serviceLeadText({
         name,
         email,

@@ -31,7 +31,7 @@ import type {
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
-import { mergeInboxFromServer, orderWhen } from "@/lib/order-history";
+import { mergeInboxFromServer, orderFulfillment, orderPhone, orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
 import { MoneyInput } from "@/components/MoneyInput";
 import { PaymentQuotesPanel } from "@/components/PaymentQuotesPanel";
@@ -482,7 +482,9 @@ export function MasterClient() {
 
   const inboxOrders = (store.orders || []).filter((order) => !(order.archivedAt || "").trim());
   const inboxQuotes = store.quotes.filter((quote) => !(quote.archivedAt || "").trim());
-  const unread = inboxQuotes.filter((q) => !q.read).length + inboxOrders.filter((o) => !o.read).length;
+  const newOrders = inboxOrders.filter((order) => !order.read).length;
+  const newQuotes = inboxQuotes.filter((quote) => !quote.read).length;
+  const unread = newOrders + newQuotes;
 
   const productTabProps = {
     store,
@@ -504,6 +506,8 @@ export function MasterClient() {
     setDragCat,
     dragProd,
     setDragProd,
+    status,
+    error,
   };
 
   return (
@@ -524,6 +528,19 @@ export function MasterClient() {
         </p>
       )}
       {blobNote ? <p className="note">{blobNote}</p> : null}
+      {newOrders || newQuotes ? (
+        <button
+          type="button"
+          className="mc-alert"
+          onClick={() => {
+            setTab("quotes");
+            setOpenId(null);
+          }}
+        >
+          <strong>{inboxAlert(newOrders, newQuotes)}</strong>
+          <span>Open inbox</span>
+        </button>
+      ) : null}
       {(() => {
         const days = store.stats?.days || [];
         const today = days.find((d) => d.date === shopDay());
@@ -965,12 +982,12 @@ export function MasterClient() {
               />
             ))
           )}
-          <h2>Quote requests</h2>
+          <h2>Estimate requests</h2>
           {!inboxQuotes.length ? (
             <p>
               {store.quotes.length
-                ? "Every quote request is archived. Search them under Order history."
-                : "No quote requests yet."}
+                ? "Every estimate request is archived. Search them under Order history."
+                : "No estimate requests yet."}
             </p>
           ) : (
             inboxQuotes.map((quote) => (
@@ -1153,17 +1170,9 @@ export function MasterClient() {
               placeholder="https://g.page/r/…/review"
             />
           </label>
-          <label>
-            Repair Status review link
-            <input
-              value={store.site.repairReviewUrl || ""}
-              onChange={(e) => setStore({ ...store, site: { ...store.site, repairReviewUrl: e.target.value } })}
-              placeholder="https://g.page/r/…/review"
-            />
-          </label>
           <p className="note">
-            Order history has a button for each link. Paste both, then Save settings. Nothing is sent until you click
-            a button.
+            Order history has a Send Big Horn review button. Paste the Google review link, then Save settings. Nothing
+            is sent until you click that button. Repair Status reviews stay on the Repair Status site.
           </p>
           <p className="note">
             Quote emails go to the contact email above (and QUOTE_TO_EMAIL). SMTP: {envSmtp ? "set" : "not set"}.
@@ -1208,6 +1217,8 @@ function ProductsTab({
   setDragCat,
   dragProd,
   setDragProd,
+  status,
+  error,
 }: {
   kind: ProductKind;
   heading: string;
@@ -1231,6 +1242,8 @@ function ProductsTab({
   setDragCat: (v: number | null) => void;
   dragProd: string | null;
   setDragProd: (v: string | null) => void;
+  status: string;
+  error: string;
 }) {
   const categories = store.categories || [];
   const q = query.trim().toLowerCase();
@@ -1453,6 +1466,9 @@ function ProductsTab({
             await save(next);
           }}
           onSave={() => save(store)}
+          onClose={() => setOpenId(null)}
+          notice={status}
+          problem={error}
           onClone={async () => {
             const copy = cloneProduct(open, store.products);
             const next = { ...store, products: [...store.products, copy] };
@@ -1461,9 +1477,11 @@ function ProductsTab({
             await save(next);
           }}
         />
-      ) : (
-        <p className="note">Click a card to edit. Drag cards to reorder. Save when you are done.</p>
-      )}
+      ) : null}
+      <p className="note">
+        Click a card. Price, weight, and the rest open in a window. Save item is in that window. Drag cards to
+        reorder.
+      </p>
     </div>
   );
 }
@@ -1691,6 +1709,9 @@ function ProductEditor({
   onRemove,
   onClone,
   onSave,
+  onClose,
+  notice,
+  problem,
 }: {
   product: Product;
   categories: ShopCategory[];
@@ -1706,19 +1727,88 @@ function ProductEditor({
   onRemove: () => void;
   onClone: () => void;
   onSave: () => void;
+  onClose: () => void;
+  notice: string;
+  problem: string;
 }) {
   const media = orderedMedia(product);
   const shipChoice = shippingChoice(product, shippingOptions);
   const [fileBusy, setFileBusy] = useState(false);
   const savedFiles = (product.digitalFileUrls || []).map((url) => url.trim()).filter(Boolean);
+  const windowRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    windowRef.current?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !windowRef.current) return;
+      const list = [...windowRef.current.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")].filter(
+        (el) => !el.hasAttribute("disabled"),
+      );
+      if (!list.length) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      const inside = active instanceof Node && windowRef.current.contains(active);
+      if (!inside) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   return (
-    <form
-      className="admin-product"
-      onSubmit={(e) => {
-        e.preventDefault();
-      }}
-    >
+    <div className="mc-modal">
+      <div
+        className="mc-modal-window"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mc-item-title"
+        tabIndex={-1}
+        ref={windowRef}
+      >
+        <div className="mc-modal-bar">
+          <div>
+            <p className="section-kicker">{product.sku ? `Item ${product.sku}` : "Item"}</p>
+            <h2 id="mc-item-title">{product.name.trim() || "Untitled item"}</h2>
+            {notice ? <p className="ok">{notice}</p> : null}
+            {problem ? <p className="err">{problem}</p> : null}
+          </div>
+          <div className="hero-actions">
+            <button type="button" className="btn btn-bronze" onClick={onSave}>
+              Save item
+            </button>
+            <button type="button" className="btn" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+        <form
+          className="admin-product mc-modal-body"
+          onSubmit={(e) => {
+            e.preventDefault();
+          }}
+        >
       {product.kind !== tabKind ? (
         <p className="err">
           This item is now typed as{" "}
@@ -1726,11 +1816,6 @@ function ProductEditor({
           under that tab after you finish. Stay here to keep editing — the form will not reset.
         </p>
       ) : null}
-      <div className="hero-actions" style={{ marginBottom: 12 }}>
-        <button type="button" className="btn btn-bronze" onClick={onSave}>
-          Save item
-        </button>
-      </div>
       <div className="row">
         <label>
           Name
@@ -2055,9 +2140,12 @@ function ProductEditor({
       </div>
       <p className="note">
         Clone already saves and lists the copy (221 becomes 221b). Use Save item after you rename it or change photos.
-        Faces that share a number (221, 221b, 221c) show as one picture on the category page.
+        Faces that share a number (221, 221b, 221c) show as one picture on the category page. Close keeps what you
+        typed on this page. Save item writes it to the shop.
       </p>
-    </form>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -2166,6 +2254,27 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
       </details>
     </div>
   );
+}
+
+function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+}
+
+function fulfillmentLabel(order: ShopOrder): string {
+  const how = orderFulfillment(order);
+  if (how === "pickup") return "Pickup in Sheridan";
+  if (how === "digital") return "Digital download";
+  if (how === "ship") return "Ship";
+  return "Not set";
+}
+
+function inboxAlert(orders: number, quotes: number): string {
+  const parts: string[] = [];
+  if (orders === 1) parts.push("1 new paid order");
+  else if (orders > 1) parts.push(`${orders} new paid orders`);
+  if (quotes === 1) parts.push("1 new estimate request");
+  else if (quotes > 1) parts.push(`${quotes} new estimate requests`);
+  return parts.join(" and ");
 }
 
 function OrderRow({
@@ -2315,14 +2424,46 @@ function OrderRow({
     );
   }
 
+  const phone = orderPhone(order);
+
   return (
-    <div className="quote-item" id={`inbox-order-${order.id}`}>
-      <strong>{formatUsd(order.amountCents)}</strong> · {order.name || "Customer"} · {order.email || "no email"}
-      {order.phone || order.shipTo?.phone ? ` · ${order.phone || order.shipTo?.phone}` : ""}
-      {order.smsOptIn ? " · SMS OK" : ""}
-      {!order.read ? <span className="muted"> · new</span> : null}
-      <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
-      {order.address ? <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p> : null}
+    <article className={order.read ? "mc-sale" : "mc-sale mc-sale-new"} id={`inbox-order-${order.id}`}>
+      <header className="mc-sale-head">
+        <div>
+          <p className="mc-sale-kicker">
+            {order.read ? "Order" : "New order"} · {orderWhen(order.createdAt)}
+          </p>
+          <h3>{order.name || "Customer"}</h3>
+        </div>
+        <p className="mc-sale-total">{formatUsd(order.amountCents)}</p>
+      </header>
+      <div className="mc-contact">
+        <div>
+          <span>Email</span>
+          {order.email ? <a href={`mailto:${order.email}`}>{order.email}</a> : <strong>No email</strong>}
+        </div>
+        <div>
+          <span>Phone</span>
+          {phone ? <a href={telHref(phone)}>{phone}</a> : <strong>No phone</strong>}
+        </div>
+        <div>
+          <span>How it goes out</span>
+          <strong>
+            {fulfillmentLabel(order)}
+            {order.smsOptIn ? " · OK to text" : ""}
+          </strong>
+        </div>
+      </div>
+      <div className="mc-sale-ask">
+        <p className="mc-sale-kicker">What they ordered</p>
+        <p style={{ whiteSpace: "pre-wrap" }}>{order.items || "No items listed."}</p>
+      </div>
+      {order.address ? (
+        <div className="mc-sale-ask">
+          <p className="mc-sale-kicker">Ship to</p>
+          <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p>
+        </div>
+      ) : null}
       {order.shippingLabel ? (
         <p className="muted">
           Paid for shipping: {order.shippingLabel} ({formatUsd(order.shippingCents)}) — buy this label
@@ -2461,34 +2602,59 @@ function OrderRow({
       >
         {archiveBusy ? "Archiving…" : "Archive"}
       </button>
-    </div>
+    </article>
   );
 }
 
 function QuoteRow({ quote, onRead, onArchive }: { quote: Quote; onRead: () => void; onArchive: () => Promise<boolean> }) {
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const phone = (quote.phone || "").trim();
   return (
-    <div className="quote-item" id={`inbox-quote-${quote.id}`}>
-      <strong>{quote.name}</strong> · {quote.email} · {quote.phone || "no phone"}
-      {!quote.read ? <span className="muted"> · new</span> : null}
-      <p style={{ whiteSpace: "pre-wrap" }}>{quote.need}</p>
-      {quote.serviceType ? (
-        <p className="muted">
-          Services request · {serviceNeedLabel(quote.serviceType)}
-          {quote.approxSize ? ` · about ${quote.approxSize}` : ""}
-          {quote.preferredContact ? ` · prefers ${contactPreferenceLabel(quote.preferredContact).toLowerCase()}` : ""}
-        </p>
-      ) : null}
-      {quote.fitNotes ? <p style={{ whiteSpace: "pre-wrap" }}>Fit notes: {quote.fitNotes}</p> : null}
-      {quote.kind === "sign" && !quote.serviceType ? (
-        <p className="muted">
-          Sign request
-          {quote.widthIn || quote.heightIn ? ` · ${quote.widthIn} × ${quote.heightIn} in` : ""}
-          {quote.finishName ? ` · ${quote.finishName}` : ""}
-          {quote.fulfillment ? ` · ${quote.fulfillment}` : ""}
-          {quote.estimateLabel ? ` · estimate ${quote.estimateLabel}` : ""}
-        </p>
-      ) : null}
+    <article className={quote.read ? "mc-sale" : "mc-sale mc-sale-new"} id={`inbox-quote-${quote.id}`}>
+      <header className="mc-sale-head">
+        <div>
+          <p className="mc-sale-kicker">
+            {quote.read ? "Estimate request" : "New estimate request"} · {orderWhen(quote.createdAt)}
+          </p>
+          <h3>{quote.name || "No name"}</h3>
+        </div>
+      </header>
+      <div className="mc-contact">
+        <div>
+          <span>Email</span>
+          {quote.email ? <a href={`mailto:${quote.email}`}>{quote.email}</a> : <strong>No email</strong>}
+        </div>
+        <div>
+          <span>Phone</span>
+          {phone ? <a href={telHref(phone)}>{phone}</a> : <strong>No phone</strong>}
+        </div>
+        {quote.preferredContact ? (
+          <div>
+            <span>Prefers</span>
+            <strong>{contactPreferenceLabel(quote.preferredContact)}</strong>
+          </div>
+        ) : null}
+      </div>
+      <div className="mc-sale-ask">
+        <p className="mc-sale-kicker">What they asked for</p>
+        <p style={{ whiteSpace: "pre-wrap" }}>{quote.need || "No description."}</p>
+        {quote.serviceType ? (
+          <p className="muted">
+            {serviceNeedLabel(quote.serviceType)}
+            {quote.approxSize ? ` · about ${quote.approxSize}` : ""}
+          </p>
+        ) : null}
+        {quote.fitNotes ? <p style={{ whiteSpace: "pre-wrap" }}>Fit notes: {quote.fitNotes}</p> : null}
+        {quote.kind === "sign" && !quote.serviceType ? (
+          <p className="muted">
+            Custom metal sign
+            {quote.widthIn || quote.heightIn ? ` · ${quote.widthIn} × ${quote.heightIn} in` : ""}
+            {quote.finishName ? ` · ${quote.finishName}` : ""}
+            {quote.fulfillment ? ` · ${quote.fulfillment}` : ""}
+            {quote.estimateLabel ? ` · estimate ${quote.estimateLabel}` : ""}
+          </p>
+        ) : null}
+      </div>
       {quote.sampleUrl ? (
         <p>
           <a href={quote.sampleUrl} target="_blank" rel="noreferrer">
@@ -2507,9 +2673,7 @@ function QuoteRow({ quote, onRead, onArchive }: { quote: Quote; onRead: () => vo
           </p>
         ),
       )}
-      <p className="muted">
-        {quote.createdAt} · {quote.emailed ? "email sent" : "saved to inbox only"}
-      </p>
+      <p className="muted">{quote.emailed ? "Email sent to the shop inbox." : "Saved here. The shop email did not go out."}</p>
       {!quote.read ? (
         <button type="button" onClick={onRead}>
           Mark read
@@ -2526,6 +2690,6 @@ function QuoteRow({ quote, onRead, onArchive }: { quote: Quote; onRead: () => vo
       >
         {archiveBusy ? "Archiving…" : "Archive"}
       </button>
-    </div>
+    </article>
   );
 }

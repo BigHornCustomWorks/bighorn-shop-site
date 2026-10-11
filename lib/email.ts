@@ -1,8 +1,13 @@
 import { deliveryEmailText, type DigitalDownload } from "./digital-delivery";
+import { orderNoticeSubject, orderNoticeText, type OrderNotice } from "./order-notice";
 import { paymentLinkEmailText } from "./payment-quote";
 import { receiptComment, receiptEmailHtml, receiptEmailText, type ReceiptOrder } from "./receipt";
 import { cleanMultiline, cleanStr } from "./sanitize";
 import type { Quote } from "./types";
+
+function quoteSubject(quote: Quote): string {
+  return `New estimate request — ${quote.name || quote.email || "a customer"}`;
+}
 
 function quoteBody(quote: Quote): string {
   return [
@@ -25,7 +30,7 @@ function quoteBody(quote: Quote): string {
     "",
     `Submitted: ${quote.createdAt}`,
     "",
-    "Open Master Control → Quotes to read the full request.",
+    "Open Master Control. The request is marked on the main page and listed under Inbox.",
   ].join("\n");
 }
 
@@ -45,7 +50,7 @@ async function sendViaSmtp(quote: Quote, to: string): Promise<boolean> {
       from: `Big Horn Custom Works <${user}>`,
       to,
       replyTo: quote.email || undefined,
-      subject: `Quote request from ${quote.name || quote.email}`,
+      subject: quoteSubject(quote),
       text: quoteBody(quote),
     });
     return true;
@@ -68,7 +73,7 @@ async function sendViaResend(quote: Quote, to: string): Promise<boolean> {
         from: "Big Horn Custom Works <onboarding@resend.dev>",
         to: [to],
         reply_to: quote.email || undefined,
-        subject: `Quote request from ${quote.name || quote.email}`,
+        subject: quoteSubject(quote),
         text: quoteBody(quote),
       }),
     });
@@ -117,7 +122,7 @@ async function sendViaFormSubmit(quote: Quote, to: string): Promise<boolean> {
     phone: quote.phone,
     message: quoteBody(quote),
     _replyto: quote.email,
-    _subject: `Quote request from ${quote.name || quote.email}`,
+    _subject: quoteSubject(quote),
   });
 }
 
@@ -509,43 +514,10 @@ export async function sendReviewRequestEmail(opts: {
   }
 }
 
-export async function sendOrderEmail(detail: {
-  email: string;
-  name: string;
-  amountLabel: string;
-  items: string;
-  address: string;
-  sessionId: string;
-  paid: boolean;
-  shippingLabel?: string;
-  shippingLabelCost?: string;
-  taxLabel?: string;
-}): Promise<boolean> {
-  const text = [
-    "New catalog order — Big Horn Custom Works",
-    "",
-    `Paid: ${detail.paid ? "yes (Stripe)" : "no"}`,
-    `Total: ${detail.amountLabel}`,
-    `Customer: ${detail.name || "(none)"}`,
-    `Email: ${detail.email || "(none)"}`,
-    "",
-    "Items:",
-    detail.items || "(none listed)",
-    "",
-    detail.shippingLabel
-      ? `Shipping paid: ${detail.shippingLabel} — ${detail.shippingLabelCost || ""} (buy this label)`
-      : "Shipping paid: none selected",
-    detail.taxLabel ? `Sales tax collected: ${detail.taxLabel}` : "",
-    "",
-    detail.address ? `Ship to:\n${detail.address}` : "No shipping address (digital or not collected).",
-    "",
-    `Stripe session: ${detail.sessionId}`,
-    "",
-    "This is the Sheridan shop inbox. Stripe also shows the payment in the Dashboard.",
-  ].join("\n");
+export async function sendOrderEmail(detail: OrderNotice): Promise<boolean> {
   return sendPlainEmail({
-    subject: `Order ${detail.amountLabel} from ${detail.email || detail.name || "checkout"}`,
-    text,
+    subject: orderNoticeSubject(detail),
+    text: orderNoticeText(detail),
     replyTo: detail.email,
   });
 }

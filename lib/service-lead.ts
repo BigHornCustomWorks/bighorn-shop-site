@@ -54,6 +54,6 @@ export function serviceLeadText(input: {
     "",
     `Submitted: ${input.createdAt}`,
     "",
-    "Open Master Control → Quotes to read the full request.",
+    "Open Master Control. The request is marked on the main page and listed under Inbox.",
   ].join("\n");
 }
