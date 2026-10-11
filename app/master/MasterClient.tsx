@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types";
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
+import { LabelBuy } from "@/components/LabelBuy";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { mergeInboxFromServer, orderFulfillment, orderPhone, orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
@@ -2295,9 +2296,6 @@ function OrderRow({
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [noteBad, setNoteBad] = useState(false);
-  const [labelBusy, setLabelBusy] = useState(false);
-  const [labelNote, setLabelNote] = useState("");
-  const [labelBad, setLabelBad] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadNote, setDownloadNote] = useState("");
   const [downloadBad, setDownloadBad] = useState(false);
@@ -2307,60 +2305,6 @@ function OrderRow({
     ...order,
     digitalSlugs: matchedSlugs,
   });
-  const [quote, setQuote] = useState<{
-    shipmentId: string;
-    rateId: string;
-    carrier: string;
-    service: string;
-    oldCents: number;
-    newCents: number;
-    sameService: boolean;
-    reason: string;
-  } | null>(null);
-
-  const canBuyLabel = order.paymentStatus === "paid" && Boolean(order.rateId && order.rateShipmentId) && !order.labelUrl;
-
-  async function generateLabel(confirm?: { shipmentId: string; rateId: string }) {
-    setLabelBusy(true);
-    setLabelNote("");
-    setLabelBad(false);
-    try {
-      const res = await fetch("/api/master/order-label", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id, confirm }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json.needsConfirm && json.quote) {
-        setQuote(json.quote);
-        return;
-      }
-      if (!res.ok || !json.ok) {
-        setLabelBad(true);
-        setLabelNote(json.error || "Could not buy the label.");
-        return;
-      }
-      setQuote(null);
-      if (json.order) {
-        onShipped(json.order);
-        if (json.order.trackingNumber) setTracking(json.order.trackingNumber);
-        if (json.order.trackingCarrier) setCarrier(json.order.trackingCarrier);
-      }
-      setLabelBad(Boolean(json.storageWarning));
-      setLabelNote(
-        json.storageWarning ||
-          (json.already
-            ? "This order already had a label — nothing new was bought."
-            : "Label bought. Print it, then use “Mark shipped & email tracking” below when it goes out."),
-      );
-    } catch {
-      setLabelBad(true);
-      setLabelNote("Could not reach the server. Refresh before trying again.");
-    } finally {
-      setLabelBusy(false);
-    }
-  }
-
   async function resendDownload() {
     setDownloadBusy(true);
     setDownloadNote("");
@@ -2464,11 +2408,14 @@ function OrderRow({
           <p style={{ whiteSpace: "pre-wrap" }}>{order.address}</p>
         </div>
       ) : null}
-      {order.shippingLabel ? (
-        <p className="muted">
-          Paid for shipping: {order.shippingLabel} ({formatUsd(order.shippingCents)}) — buy this label
-        </p>
-      ) : null}
+      <LabelBuy
+        order={order}
+        onBought={(fields) => {
+          onShipped(fields);
+          if (fields.trackingNumber) setTracking(fields.trackingNumber);
+          if (fields.trackingCarrier) setCarrier(fields.trackingCarrier);
+        }}
+      />
       <p className="muted">
         {order.sessionId.startsWith("cs_test_")
           ? "TEST checkout — no real card was charged. "
@@ -2500,59 +2447,6 @@ function OrderRow({
         receiptEmailedAt={order.receiptEmailedAt}
         onSent={(sentAt) => onShipped({ receiptEmailedAt: sentAt })}
       />
-
-      {order.labelUrl ? (
-        <p>
-          <strong>Label:</strong> {order.labelCarrier} {order.labelService}
-          {order.labelCents ? ` (${formatUsd(order.labelCents)})` : ""} · Tracking {order.trackingNumber || "—"} ·{" "}
-          <a href={order.labelUrl} target="_blank" rel="noopener noreferrer">
-            Open label PDF
-          </a>
-          {order.labelTrackingUrl ? (
-            <>
-              {" "}·{" "}
-              <a href={order.labelTrackingUrl} target="_blank" rel="noopener noreferrer">
-                Tracking page
-              </a>
-            </>
-          ) : null}
-        </p>
-      ) : null}
-      {canBuyLabel ? (
-        <div>
-          {quote ? (
-            <div className="banner">
-              <p>
-                {quote.reason} New price: <strong>{formatUsd(quote.newCents)}</strong> for {quote.carrier}{" "}
-                {quote.service} (customer paid {formatUsd(quote.oldCents)}
-                {quote.newCents !== quote.oldCents
-                  ? `, ${quote.newCents > quote.oldCents ? "+" : "−"}${formatUsd(Math.abs(quote.newCents - quote.oldCents))}`
-                  : ", no change"}
-                ).
-                {!quote.sameService ? " The original service is not offered for this address — this is the closest match." : ""}
-              </p>
-              <button
-                type="button"
-                disabled={labelBusy}
-                onClick={() => generateLabel({ shipmentId: quote.shipmentId, rateId: quote.rateId })}
-              >
-                {labelBusy ? "Buying…" : `Buy label at ${formatUsd(quote.newCents)}`}
-              </button>{" "}
-              <button type="button" disabled={labelBusy} onClick={() => setQuote(null)}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button type="button" disabled={labelBusy} onClick={() => generateLabel()}>
-              {labelBusy ? "Working…" : `Generate shipping label (${order.rateCarrier} ${order.rateService})`}
-            </button>
-          )}
-          {order.labelStatus === "error" && order.labelError && !labelNote ? (
-            <p className="err">Last try failed: {order.labelError}</p>
-          ) : null}
-        </div>
-      ) : null}
-      {labelNote ? <p className={labelBad ? "err" : "ok"}>{labelNote}</p> : null}
 
       {order.shippedAt ? (
         <p className="muted">

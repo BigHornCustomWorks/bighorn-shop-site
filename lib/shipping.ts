@@ -621,8 +621,18 @@ function streetKey(s: unknown): string {
 
 /** Same street line and ZIP — enough to trust a quote was for this door. */
 export function sameDestination(shippoTo: Json, to: ShipAddress): boolean {
-  if (!shippoTo || !to.street1) return false;
+  if (!shippoTo || typeof shippoTo !== "object" || !to.street1) return false;
   return streetKey(shippoTo.street1) === streetKey(to.street1) && zip5(shippoTo.zip) === zip5(to.zip);
+}
+
+/**
+ * Shippo will sell a label only when the rate was quoted with a name, street,
+ * city, state, and ZIP. A ZIP-only quote, or a quote with no recipient name,
+ * has to be priced again from the address saved on the order.
+ */
+export function rateAddressPurchasable(shippoTo: Json): boolean {
+  if (!shippoTo || typeof shippoTo !== "object") return false;
+  return Boolean(plain(shippoTo.name) && plain(shippoTo.street1) && plain(shippoTo.city) && plain(shippoTo.state) && zip5(shippoTo.zip));
 }
 
 export type LabelOrder = {
@@ -693,10 +703,11 @@ async function buyOnce(cfg: ShippoConfig, order: LabelOrder, rate: LiveRate): Pr
  *
  * - If any rate tied to this order already has a successful Shippo
  *   transaction, return that label instead of buying again.
- * - If the checkout quote was for the full delivery address and is under
- *   ~7 days old (Shippo's limit), buy that exact rate.
- * - If it expired, or the quote was ZIP-only / for another address, re-rate
- *   for the real address and ask Clint to confirm the difference first.
+ * - If the checkout quote has a complete address (name, street, city, state,
+ *   ZIP) for this door and is under ~7 days old, buy that exact rate.
+ * - If it expired, or the quote was ZIP-only or had no recipient name, price
+ *   it again from the address on the order. Buy immediately when the same
+ *   service comes back at the same price. Ask before buying a different price.
  * - With a confirm rate, buy it only if its shipment was made for this order.
  */
 export async function planLabel(
@@ -758,16 +769,25 @@ export async function planLabel(
     return { kind: "error", message: "The original box size could not be read back from Shippo." };
   }
 
-  let reason = "Checkout was quoted on the ZIP code only, so it was re-rated for the full address.";
-  if (sameDestination(original.address_to, order.shipTo)) {
+  let reason = "The checkout quote did not have the full address, so this is priced again for the address on the order.";
+  const sameDoor = sameDestination(original.address_to, order.shipTo);
+  if (sameDoor && rateAddressPurchasable(original.address_to)) {
     const rate = toLiveRate(await retrieveRate(cfg, order.rateId));
     const created = Date.parse(rate?.createdAt || "");
     const fresh = rate && (!Number.isFinite(created) || now - created <= RATE_MAX_AGE_MS);
     if (rate && fresh) return buyOnce(cfg, order, rate);
-    reason = "The checkout rate is older than Shippo allows (7 days), so it was re-rated.";
+    reason = "The checkout rate is older than Shippo allows (7 days), so it was priced again.";
+  } else if (sameDoor) {
+    reason = "The checkout quote was missing the customer name, so it was priced again for the full address.";
   }
 
   const shp = await createShipment(cfg, from, order.shipTo, parcel, labelReference(order.id));
   const shipmentId = plain(shp?.object_id);
-  return confirmFrom(order, shipmentId, offeredRates(shp?.rates, shipmentId), reason);
+  const rates = offeredRates(shp?.rates, shipmentId);
+  const outcome = confirmFrom(order, shipmentId, rates, reason);
+  if (outcome.kind === "confirm" && outcome.sameService && outcome.newCents === order.rateCents) {
+    const pick = rates.find((rate) => rate.id === outcome.rateId);
+    if (pick) return buyOnce(cfg, order, pick);
+  }
+  return outcome;
 }

@@ -339,6 +339,34 @@ test("planLabel reports a Shippo label error instead of retrying blindly", async
   assert.match(out.message, /Address not deliverable/);
 });
 
+test("planLabel re-prices a nameless quote and buys when that service is the same price", async () => {
+  const nameless = shipment({ address_to: { ...TO, name: "" } });
+  const freshRates = [rate("rate_new_pri", "USPS", "Priority Mail", "usps_priority", "11.01", "shp_2")];
+  const fresh = shipment({
+    object_id: "shp_2",
+    metadata: labelReference("order_1"),
+    rates: freshRates,
+    address_to: { ...TO },
+  });
+  const { cfg, calls } = fakeShippo({
+    "GET /transactions/?*": noTransactions,
+    "GET /shipments/shp_1": () => [200, nameless],
+    "POST /shipments/": () => [201, fresh],
+    "POST /transactions/": (b) => [201, success(b.rate)],
+  });
+  const out = await planLabel(cfg, ORDER, FROM, undefined, NOW);
+  assert.equal(out.kind, "bought");
+  assert.equal(out.label.trackingNumber, "9400TEST");
+  assert.equal(out.label.cents, 1101);
+  const buys = calls.filter((c) => c.key === "POST /transactions/");
+  assert.equal(buys.length, 1);
+  assert.equal(buys[0].body.rate, "rate_new_pri");
+  const created = calls.find((c) => c.key === "POST /shipments/");
+  assert.equal(created.body.address_to.name, "Pat Buyer");
+  assert.equal(created.body.address_to.street1, "179 N. Harbor Dr.");
+  assert.equal(created.body.address_to.email, "pat@example.com");
+});
+
 test("planLabel refuses orders without a live rate", async () => {
   const { cfg } = fakeShippo({});
   const out = await planLabel(cfg, { ...ORDER, rateId: "", rateShipmentId: "" }, FROM);

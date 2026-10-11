@@ -949,6 +949,18 @@ button.mc-stat { font: inherit; color: inherit; }
   margin: 0 0 12px;
 }
 .mc-sale-ask p:last-child { margin-bottom: 0; }
+.mc-label {
+  border: 1px solid var(--bronze);
+  background: #fff;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+}
+.mc-label h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  text-transform: none;
+}
+.mc-label .btn { text-decoration: none; display: inline-block; }
 @media (max-width: 640px) {
   .mc-alert { align-items: flex-start; flex-direction: column; }
   .mc-modal { padding: 0; }
