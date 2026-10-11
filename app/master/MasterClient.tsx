@@ -13,6 +13,7 @@ import {
   maxForKind,
   safeUploadName,
 } from "@/lib/uploadLimits";
+import { categoriesForKind } from "@/lib/kind-categories";
 import { newId, safeSlug } from "@/lib/sanitize";
 import { nextCloneCode, nextProductCode } from "@/lib/sku";
 import { fileUploadKind, firstPhoto, orderedMedia } from "@/lib/video";
@@ -1303,7 +1304,8 @@ function ProductsTab({
   status: string;
   error: string;
 }) {
-  const categories = store.categories || [];
+  const allCategories = store.categories || [];
+  const categories = categoriesForKind(allCategories, store.products, kind);
   const q = query.trim().toLowerCase();
   const listed = store.products.filter((p) => {
     if (p.kind !== kind) return false;
@@ -1315,7 +1317,7 @@ function ProductsTab({
 
   function reorderCats(from: number, to: number) {
     if (from === to || from < 0 || to < 0) return;
-    const next = [...categories];
+    const next = [...allCategories];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
     setStore({ ...store, categories: next.map((c, i) => ({ ...c, sortOrder: i + 1 })) });
@@ -1359,16 +1361,18 @@ function ProductsTab({
         >
           All
         </button>
-        {categories.map((c, i) => (
+        {categories.map((c) => {
+          const index = allCategories.findIndex((item) => item.id === c.id);
+          return (
           <span
             key={c.id}
             className={filterCat === c.name ? "mc-cat-chip on" : "mc-cat-chip"}
             draggable
-            onDragStart={() => setDragCat(i)}
+            onDragStart={() => setDragCat(index)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => {
               if (dragCat == null) return;
-              reorderCats(dragCat, i);
+              reorderCats(dragCat, index);
               setDragCat(null);
             }}
           >
@@ -1384,7 +1388,7 @@ function ProductsTab({
                   `Remove the “${c.name}” category? The products stay. They are not deleted.`,
                 );
                 if (!ok) return;
-                const next = categories.filter((x) => x.id !== c.id);
+                const next = allCategories.filter((x) => x.id !== c.id);
                 setStore({ ...store, categories: next.map((x, n) => ({ ...x, sortOrder: n + 1 })) });
                 if (filterCat === c.name) setFilterCat("all");
               }}
@@ -1392,7 +1396,8 @@ function ProductsTab({
               ×
             </button>
           </span>
-        ))}
+          );
+        })}
         <input
           value={newCat}
           onChange={(e) => setNewCat(e.target.value)}
@@ -1407,7 +1412,7 @@ function ProductsTab({
           onClick={() => {
             const name = newCat.trim();
             if (!name) return;
-            if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+            if (allCategories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
               setNewCat("");
               return;
             }
@@ -1415,9 +1420,9 @@ function ProductsTab({
               id: `cat_${Date.now().toString(36)}`,
               name,
               image: "",
-              sortOrder: categories.length + 1,
+              sortOrder: allCategories.length + 1,
             };
-            setStore({ ...store, categories: [...categories, cat] });
+            setStore({ ...store, categories: [...allCategories, cat] });
             setNewCat("");
             setFilterCat(name);
           }}
@@ -1440,13 +1445,13 @@ function ProductsTab({
             if (!url) return;
             setStore({
               ...store,
-              categories: categories.map((c) => (c.id === id ? { ...c, image: url } : c)),
+              categories: allCategories.map((c) => (c.id === id ? { ...c, image: url } : c)),
             });
           }}
           onClear={(id) => {
             setStore({
               ...store,
-              categories: categories.map((c) => (c.id === id ? { ...c, image: "" } : c)),
+              categories: allCategories.map((c) => (c.id === id ? { ...c, image: "" } : c)),
             });
           }}
         />
