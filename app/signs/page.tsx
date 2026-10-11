@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CatalogShelf } from "@/components/CatalogShelf";
 import { PickupBanner } from "@/components/PickupBanner";
+import { SignDesigns } from "@/components/SignDesigns";
 import { SignsCustom } from "@/components/SignsCustom";
 import { shelfEntries } from "@/lib/families";
 import { readStore, visibleProducts } from "@/lib/store";
@@ -42,6 +43,8 @@ export default async function SignsPage() {
           </div>
         )}
       </section>
+
+      <SignDesigns designs={signs.designs || []} />
 
       {signs.visible ? (
         <SignsCustom

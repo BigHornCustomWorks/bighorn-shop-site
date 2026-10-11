@@ -9,6 +9,7 @@ import {
 } from "@/lib/digital-delivery";
 import { sendDigitalDeliveryEmail, sendOrderEmail } from "@/lib/email";
 import { orderSourceLabel } from "@/lib/order-notice";
+import { signDesignOrderKind } from "@/lib/sign-designs";
 import { fulfillmentFromCart, smsOptInFromCustomFields } from "@/lib/order-history";
 import { formatUsd } from "@/lib/money";
 import { markPaymentQuotePaid } from "@/lib/payment-quote";
@@ -278,7 +279,7 @@ export async function POST(req: Request) {
         shippingLabel,
         shippingLabelCost: formatUsd(shippingCents),
         taxLabel: formatUsd(taxCents),
-        source: orderSourceLabel(meta.kind || ""),
+        source: orderSourceLabel(meta.kind || signDesignOrderKind(itemSlugs)),
       });
 
       if (emailed) {

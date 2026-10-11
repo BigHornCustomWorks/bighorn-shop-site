@@ -21,6 +21,28 @@ export type SignFinish = {
   visible: boolean;
 };
 
+/** One size of a ready-to-cut design. The price is whatever Clint typed. */
+export type SignDesignSize = {
+  id: string;
+  /** Optional name. The shop uses the inches when this is blank. */
+  label: string;
+  widthIn: number;
+  heightIn: number;
+  /**
+   * His price for this finished size. 0 means not for sale.
+   * Checkout reads this from the store. The browser cannot replace it.
+   */
+  priceCents: number;
+};
+
+/** Artwork he already has ready to cut, sold in the sizes he priced. */
+export type SignDesign = {
+  id: string;
+  name: string;
+  image: string;
+  sizes: SignDesignSize[];
+};
+
 /** Shop-wide metal-sign estimator. Rate is set in Master Control; size is entered by the customer. */
 export type MetalSignsConfig = {
   visible: boolean;
@@ -49,6 +71,8 @@ export type MetalSignsConfig = {
   shippingMaxCents: number;
   finishes: SignFinish[];
   media: string[];
+  /** Priced artwork customers can order. Separate from the quote-only sample photos. */
+  designs: SignDesign[];
   pack: SignPackConfig;
 };
 

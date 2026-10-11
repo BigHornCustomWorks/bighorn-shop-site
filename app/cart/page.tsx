@@ -92,6 +92,11 @@ export default function CartPage() {
       .then((res) => res.json())
       .then((json) => {
         if (!live) return;
+        if (typeof json.error === "string" && json.error) {
+          setRateError(json.error);
+          setRates({ mode: "flat", pickup: json.pickup === true, reason: "" });
+          return;
+        }
         const mode = json.mode === "none" || json.mode === "ready" ? json.mode : "flat";
         const reason = typeof json.reason === "string" ? json.reason : "";
         setUnmeasured(nameList(json.unmeasured));
@@ -229,7 +234,7 @@ export default function CartPage() {
                   {"reason" in rates && rates.reason === "missing_dimensions" ? (
                     <p className="note">{missingSizeNote(unmeasured)}</p>
                   ) : null}
-                  {"reason" in rates && rates.mode === "flat" && rates.reason !== "missing_dimensions" ? (
+                  {"reason" in rates && rates.mode === "flat" && rates.reason !== "missing_dimensions" && !rateError ? (
                     <p className="note">{reasonText(rates.reason)}</p>
                   ) : null}
                   <label>

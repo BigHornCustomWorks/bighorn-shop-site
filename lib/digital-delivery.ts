@@ -105,7 +105,10 @@ export function collectDigitalDownloads(slugs: string[], products: DigitalProduc
 
 export function cartHasShippedGoods(slugs: string[], products: { slug: string; kind: string }[]): boolean {
   return slugs.some((slug) => {
-    const kind = products.find((p) => p.slug.toLowerCase() === slug.trim().toLowerCase())?.kind;
+    const key = slug.trim().toLowerCase();
+    // Ready-to-cut designs are metal. They are not catalog products.
+    if (key.startsWith("sign-design-")) return true;
+    const kind = products.find((p) => p.slug.toLowerCase() === key)?.kind;
     return Boolean(kind && kind !== "digital");
   });
 }

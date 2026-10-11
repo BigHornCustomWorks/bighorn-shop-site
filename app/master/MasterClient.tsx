@@ -627,8 +627,8 @@ export function MasterClient() {
             <h2>Signs shop</h2>
             <p className="note">
               Premade pieces (jack-o-lanterns, plaques, yard ornaments) are listed here once and show on /signs.
-              I want this samples are the pictures customers pick for a custom sign. Custom size, rate, and finishes
-              are the other section — not Physical products.
+              I want this samples are the pictures customers pick for a custom sign, and where you set sizes and
+              prices on artwork that is ready to cut. Custom size, rate, and finishes are the other section.
             </p>
           </div>
           <div className="mc-subtabs">
@@ -671,7 +671,7 @@ export function MasterClient() {
               {...productTabProps}
             />
           ) : signsPanel === "samples" ? (
-            <SignSamplesPanel urls={store.metalSigns.media || []} />
+            <SignSamplesPanel store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
           ) : (
             <SignsTab store={store} setStore={setStore} save={save} uploadFile={uploadFile} />
           )}

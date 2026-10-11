@@ -305,7 +305,8 @@ export function SignsTab({
         <h3>I want this pictures</h3>
         <p className="note">
           Every photo here gets an “I want this” button on the live Signs page. The same pictures are listed under I
-          want this samples.
+          want this samples. To sell one at a fixed size and price, open I want this samples and choose Sell this
+          picture.
         </p>
         <MediaField
           urls={signs.media}

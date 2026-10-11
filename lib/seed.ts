@@ -82,6 +82,7 @@ export function defaultMetalSigns(): MetalSignsConfig {
     shippingMaxCents: 0,
     finishes: defaultSignFinishes(),
     media: ["/gallery/gallery-cta-hero.jpg"],
+    designs: [],
     pack: defaultSignPack(),
   };
 }

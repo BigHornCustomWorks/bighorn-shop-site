@@ -17,6 +17,7 @@ export type OrderNotice = {
 export function orderSourceLabel(kind: string): string {
   if (kind === "payment-quote") return "Custom payment link";
   if (kind === "sign-estimate") return "Custom sign checkout";
+  if (kind === "sign-design") return "Sign design";
   return "Shop checkout";
 }
 

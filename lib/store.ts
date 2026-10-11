@@ -21,6 +21,7 @@ import {
 } from "./shipping";
 import { cleanSlugList, honestDigitalNote, httpsFileUrls } from "./digital-delivery";
 import { normalizePaymentQuote } from "./payment-quote";
+import { normalizeSignDesigns } from "./sign-designs";
 import { firstPhoto, splitMedia } from "./video";
 import type {
   FooterLink,
@@ -569,6 +570,7 @@ function normalizeMetalSigns(raw: unknown): MetalSignsConfig {
     shippingMaxCents: asCents(src.shippingMaxCents, 0),
     finishes: finishes.length ? finishes : defaultSignFinishes(),
     media: media.length ? media : base.media,
+    designs: normalizeSignDesigns(src.designs),
     pack: normalizeSignPack(src.pack),
   };
 }

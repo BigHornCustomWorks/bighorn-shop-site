@@ -40,6 +40,7 @@ test("a digital line with links is emailed and a physical cart is not", () => {
   ]);
   assert.equal(cartHasShippedGoods(["hidden-plans"], products), false);
   assert.equal(cartHasShippedGoods(["hidden-plans", "way-covers"], products), true);
+  assert.equal(cartHasShippedGoods(["sign-design-design_abc"], []), true);
 });
 
 test("the delivery email is links, not a price or an attachment", () => {

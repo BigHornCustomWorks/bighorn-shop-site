@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parcelForCheckout, payableQuote } from "@/lib/payment-quote";
-import { resolveCartItems } from "@/lib/cart-items";
+import { resolveCartItems, unavailableDesign } from "@/lib/cart-items";
 import { cleanStr } from "@/lib/sanitize";
 import {
   buildParcel,
@@ -65,6 +65,11 @@ export async function POST(req: Request) {
     });
     if (!quote.ok) return NextResponse.json({ mode: "flat", reason: "no_quote", pickup });
     parcel = signParcel(store.metalSigns, quote.widthIn, quote.heightIn);
+  } else if (unavailableDesign(store, body.items)) {
+    return NextResponse.json(
+      { error: "A sign design in the cart is not for sale. Remove it and choose a listed size." },
+      { status: 400 },
+    );
   } else {
     const items = resolveCartItems(store, body.items);
     if (!items.some((i) => i.product.kind !== "digital")) {

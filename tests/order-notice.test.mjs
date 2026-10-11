@@ -19,6 +19,7 @@ test("a new order notice names the customer, phone, and what they ordered", () =
   };
   assert.equal(orderNoticeSubject(detail), "New order $182.65 — Ada Lovelace");
   assert.equal(orderSourceLabel("sign-estimate"), "Custom sign checkout");
+  assert.equal(orderSourceLabel("sign-design"), "Sign design");
   assert.equal(orderSourceLabel(""), "Shop checkout");
   const text = orderNoticeText(detail);
   assert.match(text, /New paid order/);

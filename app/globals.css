@@ -1270,6 +1270,53 @@ button.mc-stat { font: inherit; color: inherit; }
   background: #1b2830;
 }
 .mc-sign-sample .btn { margin-top: 8px; }
+.mc-sign-sample button.btn { display: inline-block; }
+.mc-design {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.mc-design img {
+  display: block;
+  width: 100%;
+  height: 180px;
+  object-fit: contain;
+  background: #1b2830;
+}
+.mc-design-size {
+  display: grid;
+  grid-template-columns: 1.1fr 0.7fr 0.7fr 0.9fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+.sign-designs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+.sign-design {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--rule);
+  background: #fffdf8;
+  padding: 10px;
+}
+.sign-design img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #1b2830;
+}
+.sign-design h3 { margin: 0; }
+.sign-design .btn { width: 100%; }
+.sign-design .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .mc-quote-photo {
   display: block;
   width: min(320px, 100%);
@@ -1326,6 +1373,12 @@ button.mc-stat { font: inherit; color: inherit; }
 .sign-fulfill .radio { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
 @media (max-width: 900px) {
   .sign-samples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sign-designs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mc-design { grid-template-columns: 1fr; }
+  .mc-design-size { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .sign-designs { grid-template-columns: 1fr; }
 }
 .gallery-cta-media {
   background: var(--weld);
