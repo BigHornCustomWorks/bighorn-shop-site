@@ -1517,7 +1517,7 @@ function PackageFields({
     <>
       <label>
         Item weight, no box ({unit})
-        <span style={{ display: "flex", gap: 6 }}>
+        <span className="mc-weight">
           <input
             type="number"
             min={0}
@@ -1555,7 +1555,7 @@ function PackageFields({
       </label>
       <label>
         Own box size instead (optional) L × W × H in
-        <span style={{ display: "flex", gap: 6 }}>
+        <span className="mc-dims">
           {(["lengthIn", "widthIn", "heightIn"] as const).map((key) => (
             <input
               key={key}
@@ -1622,7 +1622,7 @@ function PresetsEditor({
           </label>
           <label>
             L × W × H (in)
-            <span style={{ display: "flex", gap: 6 }}>
+            <span className="mc-dims">
               {(["lengthIn", "widthIn", "heightIn"] as const).map((key) => (
                 <input
                   key={key}
@@ -2189,30 +2189,33 @@ function VariantRows({ product, onChange }: { product: Product; onChange: (p: Pr
         still buy it. Price 0 uses the product price above. Click Save item after you change rows.
       </p>
       {product.variants.map((v, i) => (
-        <div className="row" key={`${v.id}-${i}`} style={{ alignItems: "end" }}>
+        <div className="mc-variant" key={`${v.id}-${i}`}>
           <label>
             Name
             <input value={v.name} onChange={(e) => patchAt(i, { name: e.target.value })} placeholder="12 in · Painted" />
           </label>
-          <label>
-            Price ({formatUsd(v.priceCents > 0 ? v.priceCents : product.priceCents)})
-            <MoneyInput cents={v.priceCents} onCents={(priceCents) => patchAt(i, { priceCents })} />
-          </label>
-          <label>
-            On hand
-            <input
-              type="number"
-              min={0}
-              value={v.onHand ?? ""}
-              placeholder="blank"
-              onChange={(e) => {
-                const raw = e.target.value;
-                patchAt(i, { onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
-              }}
-            />
-          </label>
+          <div className="mc-variant-meta">
+            <label>
+              Price ({formatUsd(v.priceCents > 0 ? v.priceCents : product.priceCents)})
+              <MoneyInput cents={v.priceCents} onCents={(priceCents) => patchAt(i, { priceCents })} />
+            </label>
+            <label>
+              On hand
+              <input
+                type="number"
+                min={0}
+                value={v.onHand ?? ""}
+                placeholder="blank"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  patchAt(i, { onHand: raw === "" ? null : Math.max(0, Number(raw) || 0) });
+                }}
+              />
+            </label>
+          </div>
           <button
             type="button"
+            className="btn-ghost"
             onClick={() => onChange({ ...product, variants: product.variants.filter((_, idx) => idx !== i) })}
           >
             Remove

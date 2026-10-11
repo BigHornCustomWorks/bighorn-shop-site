@@ -232,14 +232,16 @@ function DesignEditor({
               Label (optional)
               <input value={size.label} onChange={(e) => onSize(size.id, { label: e.target.value })} />
             </label>
-            <label>
-              Width (in)
-              <InchField value={size.widthIn} onChange={(widthIn) => onSize(size.id, { widthIn })} />
-            </label>
-            <label>
-              Height (in)
-              <InchField value={size.heightIn} onChange={(heightIn) => onSize(size.id, { heightIn })} />
-            </label>
+            <div className="mc-design-pair">
+              <label>
+                Width (in)
+                <InchField value={size.widthIn} onChange={(widthIn) => onSize(size.id, { widthIn })} />
+              </label>
+              <label>
+                Height (in)
+                <InchField value={size.heightIn} onChange={(heightIn) => onSize(size.id, { heightIn })} />
+              </label>
+            </div>
             <label>
               Price
               <MoneyInput cents={size.priceCents} onCents={(priceCents) => onSize(size.id, { priceCents })} />

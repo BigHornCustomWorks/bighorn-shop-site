@@ -851,10 +851,12 @@ button.mc-stat { font: inherit; color: inherit; }
   background: rgba(22, 19, 15, 0.55);
 }
 .mc-modal-window {
-  width: min(860px, 100%);
+  width: min(720px, 100%);
+  max-width: 100%;
   max-height: 92vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: #fffdf8;
   border: 1px solid var(--rule);
   box-shadow: var(--shadow);
@@ -870,6 +872,7 @@ button.mc-stat { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--rule);
   background: #fffdf8;
 }
+.mc-modal-bar > div:first-child { min-width: 0; }
 .mc-modal-bar h2 {
   margin: 0;
   font-size: 1.35rem;
@@ -877,12 +880,53 @@ button.mc-stat { font: inherit; color: inherit; }
 }
 .mc-modal-bar p { margin: 4px 0 0; }
 .mc-modal-body.admin-product {
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
   margin: 0;
   border: 0;
   background: transparent;
   padding: 16px;
 }
+.mc-modal-body .row,
+.mc-modal-body .row-3 {
+  grid-template-columns: 1fr;
+}
+.mc-modal-body input,
+.mc-modal-body select,
+.mc-modal-body textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.mc-modal-body .row > *,
+.mc-modal-body .row-3 > * {
+  min-width: 0;
+}
+.mc-dims {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.mc-weight {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: 6px;
+}
+.mc-variant {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+.mc-variant-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
+  gap: 8px;
+  align-items: end;
+}
+.mc-variant .btn-ghost { justify-self: start; }
 .mc-sale {
   border: 1px solid var(--rule);
   background: #fffdf8;
@@ -1252,7 +1296,7 @@ button.mc-stat { font: inherit; color: inherit; }
 .pickup-banner p { margin: 0; }
 .mc-sign-samples {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
   gap: 14px;
   margin-top: 12px;
 }
@@ -1273,25 +1317,41 @@ button.mc-stat { font: inherit; color: inherit; }
 .mc-sign-sample button.btn { display: inline-block; }
 .mc-design {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
   gap: 14px;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
+  min-width: 0;
+  max-width: 100%;
 }
+.mc-design > * { min-width: 0; }
 .mc-design img {
   display: block;
   width: 100%;
-  height: 180px;
+  height: 160px;
   object-fit: contain;
   background: #1b2830;
 }
+.mc-design input { width: 100%; min-width: 0; max-width: 100%; }
 .mc-design-size {
   display: grid;
-  grid-template-columns: 1.1fr 0.7fr 0.7fr 0.9fr auto;
   gap: 8px;
-  align-items: end;
-  margin-top: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+.mc-design-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.mc-sign-sample { min-width: 0; }
+.mc-sign-sample .btn,
+.mc-sign-sample button.btn {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
 }
 .sign-designs {
   display: grid;
@@ -1375,7 +1435,7 @@ button.mc-stat { font: inherit; color: inherit; }
   .sign-samples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sign-designs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mc-design { grid-template-columns: 1fr; }
-  .mc-design-size { grid-template-columns: 1fr 1fr; }
+  .mc-variant-meta { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .sign-designs { grid-template-columns: 1fr; }
