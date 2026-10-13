@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { CartProvider } from "@/components/CartProvider";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header site={site} />
           <main id="main">{children}</main>
           <Footer site={site} uniqueVisitors={uniqueVisitors} />
+          <Analytics />
         </CartProvider>
       </body>
     </html>

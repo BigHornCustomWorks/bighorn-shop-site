@@ -1,9 +1,134 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { ShopStats } from "@/lib/types";
+import type { AnalyticsLine, VercelTraffic } from "@/lib/vercel-analytics";
 import { daysAgo, shopDay, sumDays } from "@/lib/visit-stats";
 
 export function TrafficTab({ stats }: { stats: ShopStats }) {
+  const [days, setDays] = useState<7 | 30>(7);
+  const [report, setReport] = useState<VercelTraffic | null>(null);
+  const [problem, setProblem] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancel = false;
+    setLoading(true);
+    setProblem("");
+    setReport(null);
+    fetch(`/api/master/analytics?days=${days}`)
+      .then(async (res) => {
+        const json = (await res.json().catch(() => ({}))) as VercelTraffic & { error?: string };
+        if (!res.ok) throw new Error(json.error || "Vercel analytics did not answer.");
+        return json;
+      })
+      .then((json) => {
+        if (!cancel) setReport(json);
+      })
+      .catch((err: unknown) => {
+        if (!cancel) {
+          setReport(null);
+          setProblem(err instanceof Error ? err.message : "Vercel analytics did not answer.");
+        }
+      })
+      .finally(() => {
+        if (!cancel) setLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [days]);
+
+  return (
+    <div>
+      <div className="mc-section-head">
+        <p className="section-kicker">Traffic</p>
+        <h2>Who’s visiting</h2>
+        <p className="note">
+          These numbers come from Vercel Web Analytics, the same report as the Vercel dashboard. They count production
+          visits. A person is a visitor. Each page they open is a page view. Dates are in UTC.
+        </p>
+      </div>
+      <div className="mc-range">
+        <button type="button" className={days === 7 ? "btn btn-bronze" : "btn"} onClick={() => setDays(7)}>
+          Last 7 days
+        </button>
+        <button type="button" className={days === 30 ? "btn btn-bronze" : "btn"} onClick={() => setDays(30)}>
+          Last 30 days
+        </button>
+      </div>
+      {loading ? <p className="note">Loading Vercel analytics…</p> : null}
+      {problem ? <p className="err">{problem}</p> : null}
+      {report ? <VercelReport report={report} /> : null}
+      <ShopCounter stats={stats} />
+    </div>
+  );
+}
+
+function VercelReport({ report }: { report: VercelTraffic }) {
+  const empty = report.visitors === 0 && report.pageviews === 0;
+  return (
+    <>
+      <div className="mc-stat-grid">
+        <div className="mc-stat">
+          <p className="mc-stat-label">Visitors</p>
+          <p className="mc-stat-num">{report.visitors.toLocaleString("en-US")}</p>
+          <p className="muted">last {report.days} days</p>
+        </div>
+        <div className="mc-stat">
+          <p className="mc-stat-label">Page views</p>
+          <p className="mc-stat-num">{report.pageviews.toLocaleString("en-US")}</p>
+          <p className="muted">last {report.days} days</p>
+        </div>
+      </div>
+      {empty ? (
+        <p className="note">
+          No Vercel visits in this range yet. New visits show up after someone loads the live site. The older shop
+          counter is further down.
+        </p>
+      ) : null}
+      <LineTable title="By day" rows={report.daily} first="Date" />
+      <div className="mc-analytics-cols">
+        <LineTable title="Where they came from" rows={report.referrers} first="Source" />
+        <LineTable title="Country" rows={report.countries} first="Country" />
+        <LineTable title="Pages" rows={report.pages} first="Page" />
+        <LineTable title="Device" rows={report.devices} first="Device" />
+      </div>
+    </>
+  );
+}
+
+function LineTable({ title, rows, first }: { title: string; rows: AnalyticsLine[]; first: string }) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      {rows.length ? (
+        <table className="mc-traffic-table">
+          <thead>
+            <tr>
+              <th>{first}</th>
+              <th>Visitors</th>
+              <th>Page views</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${title}-${row.label}`}>
+                <td>{row.label}</td>
+                <td>{row.visitors.toLocaleString("en-US")}</td>
+                <td>{row.pageviews.toLocaleString("en-US")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="note">Nothing in this range.</p>
+      )}
+    </div>
+  );
+}
+
+function ShopCounter({ stats }: { stats: ShopStats }) {
   const today = shopDay();
   const days = stats.days || [];
   const todayRow = days.find((d) => d.date === today);
@@ -13,16 +138,11 @@ export function TrafficTab({ stats }: { stats: ShopStats }) {
   const recent = [...days].reverse().slice(0, 30);
 
   return (
-    <div>
-      <div className="mc-section-head">
-        <p className="section-kicker">Traffic</p>
-        <h2>Who’s hitting the shop</h2>
-        <p className="note">
-          Counts people, not Facebook’s own preview bot. Daily unique starts from when this tracker was added — all-time
-          totals go back further. Time zone is Sheridan (America/Denver).
-        </p>
-      </div>
-
+    <div style={{ marginTop: 28 }}>
+      <h3>Shop counter</h3>
+      <p className="note">
+        This is the shop’s own count, kept from before Vercel analytics. It skips Facebook’s preview bot. Sheridan time.
+      </p>
       <div className="mc-stat-grid">
         <div className="mc-stat">
           <p className="mc-stat-label">Today</p>
@@ -45,8 +165,6 @@ export function TrafficTab({ stats }: { stats: ShopStats }) {
           <p className="muted">{(stats.pageViews || 0).toLocaleString("en-US")} page views</p>
         </div>
       </div>
-
-      <h3>Where they came from</h3>
       <div className="mc-stat-grid">
         {(
           [
@@ -64,8 +182,6 @@ export function TrafficTab({ stats }: { stats: ShopStats }) {
           </div>
         ))}
       </div>
-
-      <h3>By day</h3>
       {recent.length ? (
         <table className="mc-traffic-table">
           <thead>
@@ -85,9 +201,7 @@ export function TrafficTab({ stats }: { stats: ShopStats }) {
             ))}
           </tbody>
         </table>
-      ) : (
-        <p className="note">No daily rows yet. Open the public site once, then refresh Master Control.</p>
-      )}
+      ) : null}
     </div>
   );
 }

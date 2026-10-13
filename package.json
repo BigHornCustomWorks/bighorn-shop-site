@@ -6,9 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test tests/shipping.test.mjs tests/order-history.test.mjs tests/service-lead.test.mjs tests/digital-delivery.test.mjs tests/digital-sections.test.mjs tests/download-upload.test.mjs tests/receipt.test.mjs tests/payment-quote.test.mjs tests/order-notice.test.mjs tests/sign-designs.test.mjs tests/sign-category.test.mjs tests/kind-categories.test.mjs"
+    "test": "node --test tests/shipping.test.mjs tests/order-history.test.mjs tests/service-lead.test.mjs tests/digital-delivery.test.mjs tests/digital-sections.test.mjs tests/download-upload.test.mjs tests/receipt.test.mjs tests/payment-quote.test.mjs tests/order-notice.test.mjs tests/sign-designs.test.mjs tests/sign-category.test.mjs tests/kind-categories.test.mjs tests/vercel-analytics.test.mjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^1.1.1",
     "next": "^15.5.4",
     "nodemailer": "^9.0.6",
