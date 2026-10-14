@@ -159,3 +159,22 @@ ${ship}
 <p>— Clint, Big Horn Custom Works</p>
 </div>`;
 }
+
+/** Letter-size copy. Amounts are the same lines as the email. */
+export function receiptSheet(order: ReceiptOrder, opts: { logoUrl: string; company: string }): string {
+  const parts = receiptParts(order);
+  const company = (opts.company || "Big Horn Custom Works").trim() || "Big Horn Custom Works";
+  const logo = opts.logoUrl.trim().startsWith("https://")
+    ? `<img src="${esc(opts.logoUrl.trim())}" alt="" width="160" style="display:block;width:160px;height:auto;margin:0 auto 8px;" />`
+    : "";
+  const money = parts.money
+    .map((row, index) => {
+      const cls = index === parts.money.length - 1 ? ` class="total"` : "";
+      return `<tr${cls}><td>${esc(row.label)}</td><td class="amt">${esc(row.value)}</td></tr>`;
+    })
+    .join("");
+  const how = parts.fulfillment ? `<p>${esc(parts.fulfillment)}</p>` : "";
+  const note = parts.comment ? `<p><strong>Note:</strong><br />${esc(parts.comment).replace(/\n/g, "<br />")}</p>` : "";
+  const ship = parts.address ? `<p><strong>Ship to:</strong><br />${esc(parts.address).replace(/\n/g, "<br />")}</p>` : "";
+  return `<section class="sheet"><div class="shop">${logo}<h1>Receipt</h1><p>${esc(company)}<br />Sheridan, Wyoming</p></div><p>${esc(parts.greeting)}</p><p>Order ${esc(parts.orderId)}<br />Date ${esc(parts.date)}<br />Payment ${esc(parts.payment)}</p><p class="items">${esc(parts.items)}</p>${how}<table>${money}</table>${note}${ship}<p>Thank you for your order.</p></section>`;
+}

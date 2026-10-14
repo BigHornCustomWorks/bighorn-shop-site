@@ -32,6 +32,7 @@ import type {
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
 import { LabelBuy } from "@/components/LabelBuy";
+import { PaperPrint } from "@/components/PaperPrint";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { mergeInboxFromServer, orderFulfillment, orderPhone, orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
@@ -946,7 +947,7 @@ export function MasterClient() {
         <div>
           <p className="note">
             Archive hides an order or message from this inbox. Order history can search it and open it here again so
-            you can buy a label, mark it shipped, or send the receipt.
+            you can buy a label, print the receipt and packing slip, mark it shipped, or email the receipt.
           </p>
           <PaymentQuotesPanel
             quotes={store.paymentQuotes || []}
@@ -2508,6 +2509,7 @@ function OrderRow({
           if (fields.trackingCarrier) setCarrier(fields.trackingCarrier);
         }}
       />
+      <PaperPrint order={order} />
       <p className="muted">
         {order.sessionId.startsWith("cs_test_")
           ? "TEST checkout — no real card was charged. "

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { LabelBuy } from "@/components/LabelBuy";
+import { PaperPrint } from "@/components/PaperPrint";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { digitalSlugsForOrder, downloadStatusLabel } from "@/lib/digital-delivery";
 import { formatUsd } from "@/lib/money";
@@ -450,6 +451,7 @@ function HistoryRow({
         <p style={{ whiteSpace: "pre-wrap" }}>{order.items}</p>
       </div>
       <LabelBuy order={order} onBought={(fields) => onReviewed(fields)} />
+      <PaperPrint order={order} />
       <p className="muted">
         Order {order.id}
         {order.receiptEmailedAt ? ` · receipt emailed ${orderWhen(order.receiptEmailedAt)}` : " · no shop receipt emailed yet"}
