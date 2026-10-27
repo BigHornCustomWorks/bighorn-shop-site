@@ -395,6 +395,7 @@ export async function sendPaymentQuoteEmail(detail: {
   detail: string;
   amountLabel: string;
   url: string;
+  fulfillment?: "ship" | "pickup";
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!cleanStr(detail.to)) return { ok: false, error: "Enter the customer's email." };
   if (!cleanStr(detail.url)) return { ok: false, error: "This quote has no payment link." };

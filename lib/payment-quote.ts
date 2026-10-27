@@ -122,6 +122,7 @@ export function paymentLinkEmailText(opts: {
   detail: string;
   amountLabel: string;
   url: string;
+  fulfillment?: "ship" | "pickup";
 }): string {
   const who = opts.name.trim();
   const lines = [
@@ -135,7 +136,9 @@ export function paymentLinkEmailText(opts: {
   lines.push(
     "",
     `Quote: ${opts.amountLabel}`,
-    "Shipping is added when you pay. You can have it shipped, or pick it up in Sheridan, Wyoming.",
+    opts.fulfillment === "pickup"
+      ? "This order is local pickup in Sheridan, Wyoming. Shipping is $0."
+      : "Shipping is added when you pay. You can have it shipped, or pick it up in Sheridan, Wyoming.",
     "Sales tax is added when it applies.",
     "",
     `Pay here: ${opts.url}`,
@@ -187,6 +190,7 @@ export function paymentQuoteDraftError(input: {
   lengthIn: number;
   widthIn: number;
   heightIn: number;
+  fulfillment?: unknown;
 }): string {
   if (!EMAIL.test(input.email.trim())) return "Enter the customer's email.";
   if (!input.title.trim()) return "Enter what they are paying for.";
@@ -196,6 +200,7 @@ export function paymentQuoteDraftError(input: {
     }
     return "Enter a price greater than $0.";
   }
+  if (input.fulfillment === "pickup") return "";
   if (!measurePositive(input.weightOz, 2400)) {
     return "Enter the packed weight, box included, up to 150 lb.";
   }
@@ -235,13 +240,13 @@ export function normalizePaymentQuote(raw: unknown): PaymentQuote | null {
   const token = plain(src.token, 200);
   const id = plain(src.id, 80);
   const amountCents = quoteAmountCents(src.amountCents);
-  const weightOz = measurePositive(src.weightOz, 2400);
-  const lengthIn = measurePositive(src.lengthIn, 108);
-  const widthIn = measurePositive(src.widthIn, 108);
-  const heightIn = measurePositive(src.heightIn, 108);
-  if (!id || !token || !EMAIL.test(email) || !title || !amountCents || !weightOz || !lengthIn || !widthIn || !heightIn) {
-    return null;
-  }
+  const fulfillment: "ship" | "pickup" = src.fulfillment === "pickup" ? "pickup" : "ship";
+  const weightOz = fulfillment === "pickup" ? 0 : measurePositive(src.weightOz, 2400);
+  const lengthIn = fulfillment === "pickup" ? 0 : measurePositive(src.lengthIn, 108);
+  const widthIn = fulfillment === "pickup" ? 0 : measurePositive(src.widthIn, 108);
+  const heightIn = fulfillment === "pickup" ? 0 : measurePositive(src.heightIn, 108);
+  if (!id || !token || !EMAIL.test(email) || !title || !amountCents) return null;
+  if (fulfillment !== "pickup" && (!weightOz || !lengthIn || !widthIn || !heightIn)) return null;
   const status: PaymentQuote["status"] = src.status === "paid" || src.status === "void" ? src.status : "open";
   return {
     id,
@@ -251,6 +256,7 @@ export function normalizePaymentQuote(raw: unknown): PaymentQuote | null {
     title,
     detail: plainMultiline(src.detail, 2000),
     amountCents,
+    fulfillment,
     weightOz,
     lengthIn,
     widthIn,
@@ -289,6 +295,12 @@ export function mergePaymentQuotes(incoming: unknown, current: PaymentQuote[]): 
       merged.push({ ...server, status: "void" });
       continue;
     }
+    const fulfillment: "ship" | "pickup" =
+      src.fulfillment === "pickup" || src.fulfillment === "ship"
+        ? src.fulfillment
+        : server.fulfillment === "pickup"
+          ? "pickup"
+          : "ship";
     const next = normalizePaymentQuote({
       ...server,
       name: src.name,
@@ -296,10 +308,11 @@ export function mergePaymentQuotes(incoming: unknown, current: PaymentQuote[]): 
       title: src.title,
       detail: src.detail,
       amountCents: quoteAmountCents(src.amountCents) || server.amountCents,
-      weightOz: measurePositive(src.weightOz, 2400) || server.weightOz,
-      lengthIn: measurePositive(src.lengthIn, 108) || server.lengthIn,
-      widthIn: measurePositive(src.widthIn, 108) || server.widthIn,
-      heightIn: measurePositive(src.heightIn, 108) || server.heightIn,
+      fulfillment,
+      weightOz: fulfillment === "pickup" ? 0 : measurePositive(src.weightOz, 2400) || server.weightOz,
+      lengthIn: fulfillment === "pickup" ? 0 : measurePositive(src.lengthIn, 108) || server.lengthIn,
+      widthIn: fulfillment === "pickup" ? 0 : measurePositive(src.widthIn, 108) || server.widthIn,
+      heightIn: fulfillment === "pickup" ? 0 : measurePositive(src.heightIn, 108) || server.heightIn,
       id: server.id,
       token: server.token,
       status: "open",

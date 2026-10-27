@@ -68,11 +68,16 @@ export async function POST(req: Request) {
       const found = payableQuote(store.paymentQuotes || [], body.paymentQuote.id, body.paymentQuote.token);
       if (!found.ok) return NextResponse.json({ error: found.error }, { status: found.status });
       const quote = found.quote;
-      const parcel = parcelForCheckout(quote, body.paymentQuote);
+      const lockedPickup = quote.fulfillment === "pickup";
+      const howQuote = lockedPickup ? checkoutFulfillment("pickup", store.site.pickupEnabled !== false) : how;
+      if (!howQuote) {
+        return NextResponse.json({ error: "Local pickup is not offered." }, { status: 400 });
+      }
+      const parcel = lockedPickup ? null : parcelForCheckout(quote, body.paymentQuote);
       const live =
-        how === "ship" ? await lookupLiveRate(store, body, parcel) : { rate: null, invalid: false };
+        howQuote === "ship" ? await lookupLiveRate(store, body, parcel) : { rate: null, invalid: false };
       if (live.invalid) return rateChanged();
-      if (how === "ship" && !live.rate && !store.site.shippingOptions.length) {
+      if (howQuote === "ship" && !live.rate && !store.site.shippingOptions.length) {
         return NextResponse.json(
           { error: "Shipping rates are not available right now. Pick up in Sheridan, or try the address again." },
           { status: 400 },
@@ -81,8 +86,8 @@ export async function POST(req: Request) {
       const session = await createPaymentQuoteCheckoutSession(
         store,
         quote,
-        how,
-        how === "ship" ? live.rate : null,
+        howQuote,
+        howQuote === "ship" ? live.rate : null,
       );
       return NextResponse.json({ url: session.url });
     }

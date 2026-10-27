@@ -170,7 +170,13 @@ export type PaymentQuote = {
   title: string;
   detail: string;
   amountCents: number;
-  /** Packed weight in ounces, box included. */
+  /**
+   * ship: customer picks a live rate or Sheridan pickup.
+   * pickup: Clint already locked this link to free Sheridan pickup.
+   * Missing on older links, which stay shippable.
+   */
+  fulfillment?: "ship" | "pickup";
+  /** Packed weight in ounces, box included. 0 when fulfillment is pickup. */
   weightOz: number;
   lengthIn: number;
   widthIn: number;

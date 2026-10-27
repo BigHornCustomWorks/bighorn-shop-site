@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanStr } from "@/lib/sanitize";
-import { readStore, writeStore } from "@/lib/store";
+import { readStore } from "@/lib/store";
 import { bumpVisit, classifySource, shopDay } from "@/lib/visit-stats";
 
 export const runtime = "nodejs";
@@ -37,7 +37,9 @@ export async function POST(req: Request) {
     uniqueToday: !seenToday,
     source,
   });
-  await writeStore(store);
+  // A page view used to upload the whole catalog. That is an advanced Blob
+  // operation, and the Hobby cap paused the store so payment links could not save.
+  // Vercel Analytics keeps the durable visitor counts. This bump stays in memory.
 
   const res = NextResponse.json({
     ok: true,

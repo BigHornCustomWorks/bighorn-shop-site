@@ -33,6 +33,7 @@ export function PayQuote({
   detail,
   amountCents,
   pickupEnabled,
+  lockedPickup = false,
 }: {
   id: string;
   token: string;
@@ -40,8 +41,10 @@ export function PayQuote({
   detail: string;
   amountCents: number;
   pickupEnabled: boolean;
+  /** Clint already set this link to free Sheridan pickup. */
+  lockedPickup?: boolean;
 }) {
-  const [how, setHow] = useState<"ship" | "pickup">("ship");
+  const [how, setHow] = useState<"ship" | "pickup">(lockedPickup ? "pickup" : "ship");
   const [addr, setAddr] = useState({ street1: "", city: "", state: "", zip: "" });
   const [rates, setRates] = useState<RatesState>({ mode: "idle" });
   const [picked, setPicked] = useState("");
@@ -51,6 +54,7 @@ export function PayQuote({
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (lockedPickup) return;
     let live = true;
     fetch("/api/shipping/rates", {
       method: "POST",
@@ -76,7 +80,7 @@ export function PayQuote({
     return () => {
       live = false;
     };
-  }, [id, token, pickupEnabled]);
+  }, [id, token, pickupEnabled, lockedPickup]);
 
   async function getRates() {
     if (!addr.zip.trim()) {
@@ -118,8 +122,8 @@ export function PayQuote({
     }
   }
 
-  const pickupOn = rates.mode !== "idle" && rates.pickup && pickupEnabled;
-  const shipChosen = !pickupOn || how === "ship";
+  const pickupOn = lockedPickup || (rates.mode !== "idle" && rates.pickup && pickupEnabled);
+  const shipChosen = !lockedPickup && (!pickupOn || how === "ship");
   const needsRate = shipChosen && (rates.mode === "ready" || rates.mode === "idle" || (rates.mode === "live" && !picked));
   const chosen = rates.mode === "live" && shipChosen ? rates.rates.find((rate) => rate.id === picked) : undefined;
 
@@ -160,12 +164,17 @@ export function PayQuote({
       <h1>{title}</h1>
       {detail ? <p style={{ whiteSpace: "pre-wrap" }}>{detail}</p> : null}
       <p className="price">{formatUsd(amountCents)}</p>
-      <p className="note">This price is the quote. Shipping and sales tax are added when you pay.</p>
+      <p className="note">
+        {lockedPickup
+          ? "This price is the quote. Pickup in Sheridan, Wyoming is free. Sales tax is added when it applies."
+          : "This price is the quote. Shipping and sales tax are added when you pay."}
+      </p>
 
       <section className="ship-card" aria-label="Shipping">
         <h2>Shipping</h2>
-        {rates.mode === "idle" ? <p className="note">Checking shipping…</p> : null}
-        {rates.mode !== "idle" ? (
+        {lockedPickup ? <p className="note">Local pickup in Sheridan, Wyoming. Shipping is $0.</p> : null}
+        {!lockedPickup && rates.mode === "idle" ? <p className="note">Checking shipping…</p> : null}
+        {!lockedPickup && rates.mode !== "idle" ? (
           <fieldset className="sign-fulfill">
             <legend>How do you want it?</legend>
             <label className="radio">

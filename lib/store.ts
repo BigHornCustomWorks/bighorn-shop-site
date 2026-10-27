@@ -68,7 +68,7 @@ function blobPath(): string {
   return "bhcw/store-" + tag + ".json";
 }
 
-type Cache = { data: ShopStore; at: number };
+type Cache = { data: ShopStore; at: number; uploadedAt?: string };
 const g = globalThis as typeof globalThis & { __bhcwCache?: Cache };
 
 /**
@@ -626,29 +626,53 @@ async function writeLocal(store: ShopStore): Promise<void> {
   await writeFile(LOCAL_PATH, JSON.stringify(store, null, 2), "utf8");
 }
 
-async function readBlob(): Promise<ShopStore | null> {
-  if (!blobConfigured()) return null;
-  try {
-    const { list } = await import("@vercel/blob");
-    // Current name first, then the old predictable one, so a store written
-    // before this change still loads and gets migrated on the next save.
-    const candidates = [blobPath(), LEGACY_BLOB_PATH];
-    for (const pathname of candidates) {
-      const listed = await list({ prefix: pathname });
-      const hit = listed.blobs.find((b) => b.pathname === pathname);
-      if (!hit?.url) continue;
-      const res = await fetch(hit.url, { cache: "no-store" });
-      if (!res.ok) continue;
-      return normalizeStore(await res.json());
-    }
-    return null;
-  } catch {
-    return null;
-  }
+function blobStamp(value: unknown): string {
+  if (value instanceof Date) return value.toISOString();
+  return cleanStr(value);
 }
 
-async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string }> {
-  if (!blobConfigured()) return { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
+/** Metadata lookup. Listing the store is an advanced Blob operation, so avoid it. */
+async function readBlobAt(pathname: string): Promise<{ store: ShopStore; uploadedAt: string } | null> {
+  const { head } = await import("@vercel/blob");
+  let meta: { url?: string; uploadedAt?: unknown } | null = null;
+  try {
+    meta = await head(pathname);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (/suspended/i.test(message)) throw err;
+    const { list } = await import("@vercel/blob");
+    const listed = await list({ prefix: pathname });
+    const hit = listed.blobs.find((blob) => blob.pathname === pathname);
+    meta = hit ? { url: hit.url, uploadedAt: hit.uploadedAt } : null;
+  }
+  if (!meta?.url) return null;
+  const uploadedAt = blobStamp(meta.uploadedAt);
+  const cached = g.__bhcwCache;
+  if (cached && uploadedAt && cached.uploadedAt === uploadedAt) {
+    return { store: cached.data, uploadedAt };
+  }
+  const res = await fetch(meta.url, { cache: "no-store" });
+  if (!res.ok) return null;
+  return { store: normalizeStore(await res.json()), uploadedAt };
+}
+
+async function readBlob(): Promise<{ store: ShopStore; uploadedAt: string } | null> {
+  if (!blobConfigured()) return null;
+  // Current name first, then the old predictable one, so a store written
+  // before this change still loads and gets migrated on the next save.
+  for (const pathname of [blobPath(), LEGACY_BLOB_PATH]) {
+    try {
+      const hit = await readBlobAt(pathname);
+      if (hit) return hit;
+    } catch {
+      /* try the other name */
+    }
+  }
+  return null;
+}
+
+async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string; uploadedAt: string }> {
+  if (!blobConfigured()) return { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set.", uploadedAt: "" };
   try {
     const { put } = await import("@vercel/blob");
     const safe = {
@@ -676,13 +700,13 @@ async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string
         /* it usually just does not exist */
       }
     }
-    return { ok: true, error: "" };
+    return { ok: true, error: "", uploadedAt: "" };
   } catch (err) {
     // Swallowing this made a broken Blob store look identical to a missing
     // one. The reason matters: bad token, wrong store, rejected option.
     const error = err instanceof Error ? err.message : "Blob write failed.";
     console.error("blob write failed:", error);
-    return { ok: false, error };
+    return { ok: false, error, uploadedAt: "" };
   }
 }
 
@@ -701,13 +725,13 @@ export async function blobDiagnostics(): Promise<{
     return { tokenPresent, readOk: false, found: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
   }
   try {
-    const { list } = await import("@vercel/blob");
+    const { head } = await import("@vercel/blob");
     const pathname = blobPath();
-    const listed = await list({ prefix: pathname });
+    const meta = await head(pathname);
     return {
       tokenPresent,
       readOk: true,
-      found: listed.blobs.some((b) => b.pathname === pathname),
+      found: Boolean(meta?.url),
       error: "",
     };
   } catch (err) {
@@ -724,14 +748,15 @@ export async function readStore(): Promise<ShopStore> {
   const cached = g.__bhcwCache;
   if (cached && Date.now() - cached.at < 4000) return cached.data;
 
-  const fromBlob = await readBlob();
+  const hit = await readBlob();
+  const fromBlob = hit?.store ?? null;
   const fromLocal = fromBlob ? null : await readLocal();
   const data = fromBlob || fromLocal || seedStore();
   const healedGallery = healSampleGallery(data.gallery || []);
   const needsHeal =
     JSON.stringify(healedGallery) !== JSON.stringify(data.gallery || []);
   const finalStore = needsHeal ? { ...data, gallery: healedGallery } : data;
-  g.__bhcwCache = { data: finalStore, at: Date.now() };
+  g.__bhcwCache = { data: finalStore, at: Date.now(), uploadedAt: hit?.uploadedAt || "" };
   if (needsHeal && blobConfigured()) {
     // Fire-and-forget durable repair so the next cold start already has 10 samples.
     void writeStore(finalStore);
@@ -743,7 +768,7 @@ export async function writeStore(
   next: ShopStore,
 ): Promise<{ ok: boolean; persisted: string; error: string }> {
   const store = normalizeStore({ ...next, updatedAt: new Date().toISOString() });
-  g.__bhcwCache = { data: store, at: Date.now() };
+  g.__bhcwCache = { data: store, at: Date.now(), uploadedAt: "" };
 
   const blob = await writeBlob(store);
   if (blob.ok) return { ok: true, persisted: "blob", error: "" };

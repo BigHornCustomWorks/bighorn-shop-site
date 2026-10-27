@@ -51,6 +51,7 @@ export default async function PayQuotePage({
       detail={quote.detail}
       amountCents={quote.amountCents}
       pickupEnabled={store.site.pickupEnabled !== false}
+      lockedPickup={quote.fulfillment === "pickup"}
     />
   );
 }

@@ -166,6 +166,52 @@ test("the email states the quote and that shipping is added at payment", () => {
   assert.equal(text.includes("$1.00"), false);
 });
 
+test("a Sheridan pickup quote does not need a box", () => {
+  assert.equal(
+    paymentQuoteDraftError({
+      email: "ada@example.com",
+      title: "Family sign",
+      amountCents: 13500,
+      weightOz: 0,
+      lengthIn: 0,
+      widthIn: 0,
+      heightIn: 0,
+      fulfillment: "pickup",
+    }),
+    "",
+  );
+  const quote = normalizePaymentQuote({
+    id: "pay_pickup",
+    token: "tok_abcdefghijklmnopqrstuvwxyz12",
+    email: "ada@example.com",
+    title: "Family sign",
+    amountCents: 13500,
+    weightOz: 0,
+    lengthIn: 0,
+    widthIn: 0,
+    heightIn: 0,
+    fulfillment: "pickup",
+  });
+  assert.equal(quote && quote.fulfillment, "pickup");
+  assert.equal(quote && quote.weightOz, 0);
+  assert.equal(quote && quote.lengthIn, 0);
+  const text = paymentLinkEmailText({
+    name: "Ada",
+    title: "Family sign",
+    detail: "",
+    amountLabel: "$135.00",
+    url: "https://bighorncustomworks.com/pay/pay_pickup?t=tok",
+    fulfillment: "pickup",
+  });
+  assert.match(text, /local pickup in Sheridan, Wyoming/);
+  assert.match(text, /Shipping is \$0/);
+  assert.equal(text.includes("Shipping is added when you pay"), false);
+  const kept = mergePaymentQuotes([{ ...quote, fulfillment: "pickup", weightOz: 0 }], [quote]);
+  assert.equal(kept[0].fulfillment, "pickup");
+  assert.equal(kept[0].weightOz, 0);
+  assert.equal(kept[0].lengthIn, 0);
+});
+
 test("a quote without a price or a box is rejected", () => {
   assert.match(paymentQuoteDraftError({
     email: "ada@example.com",

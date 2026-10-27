@@ -58,6 +58,9 @@ export async function POST(req: Request) {
   if (body.paymentQuote) {
     const found = payableQuote(store.paymentQuotes || [], body.paymentQuote.id, body.paymentQuote.token);
     if (!found.ok) return NextResponse.json({ error: found.error }, { status: found.status });
+    if (found.quote.fulfillment === "pickup") {
+      return NextResponse.json({ mode: "pickup", pickup: true, reason: "" });
+    }
     parcel = parcelForCheckout(found.quote, body.paymentQuote);
   } else if (body.sign) {
     const quote = estimateSign(store.metalSigns, body.sign.widthIn, body.sign.heightIn, {

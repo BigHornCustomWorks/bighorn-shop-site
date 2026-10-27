@@ -48,6 +48,7 @@ export function PaymentQuotesPanel({
   const [lengthIn, setLengthIn] = useState("");
   const [widthIn, setWidthIn] = useState("");
   const [heightIn, setHeightIn] = useState("");
+  const [how, setHow] = useState<"ship" | "pickup">("ship");
   const [busy, setBusy] = useState(false);
   const [archiveId, setArchiveId] = useState("");
   const [note, setNote] = useState("");
@@ -82,10 +83,11 @@ export function PaymentQuotesPanel({
         title,
         detail,
         amountCents,
-        weightOz,
-        lengthIn: Number(lengthIn),
-        widthIn: Number(widthIn),
-        heightIn: Number(heightIn),
+        fulfillment: how,
+        weightOz: how === "pickup" ? 0 : weightOz,
+        lengthIn: how === "pickup" ? 0 : Number(lengthIn),
+        widthIn: how === "pickup" ? 0 : Number(widthIn),
+        heightIn: how === "pickup" ? 0 : Number(heightIn),
       });
       if (json.quote) remember(json.quote);
       setName("");
@@ -97,8 +99,13 @@ export function PaymentQuotesPanel({
       setLengthIn("");
       setWidthIn("");
       setHeightIn("");
+      setHow("ship");
       if (json.emailed) {
-        setNote("Email sent. They pay the quote plus shipping on the link.");
+        setNote(
+          how === "pickup"
+            ? "Email sent. They pay the quote and pick it up in Sheridan. Shipping is $0."
+            : "Email sent. They pay the quote plus shipping on the link.",
+        );
       } else {
         setNoteBad(true);
         setNote(json.error || "The link is saved. Use Copy link and send it yourself.");
@@ -178,9 +185,9 @@ export function PaymentQuotesPanel({
     <div>
       <h2>Send a payment link</h2>
       <p className="note">
-        You set the price and the packed box. They get an email link, pick live shipping or free Sheridan pickup, and
-        pay that price plus shipping in Stripe. Sales tax is added when it applies. Nothing is charged until they pay.
-        The price cap is $50,000. The box can be up to 150 lb and 108 inches on a side.
+        {how === "pickup"
+          ? "You set the price. They get an email link and pay that price. Shipping is $0 for pickup in Sheridan, Wyoming. Sales tax is added when it applies. Nothing is charged until they pay. The price cap is $50,000."
+          : "You set the price and the packed box. They get an email link, pick live shipping or free Sheridan pickup, and pay that price plus shipping in Stripe. Sales tax is added when it applies. Nothing is charged until they pay. The price cap is $50,000. The box can be up to 150 lb and 108 inches on a side."}
       </p>
       <div className="form" style={{ marginBottom: 18 }}>
         <label>
@@ -203,6 +210,19 @@ export function PaymentQuotesPanel({
           Price
           <MoneyInput cents={amountCents} onCents={setAmountCents} />
         </label>
+        <fieldset className="sign-fulfill">
+          <legend>How will they get it?</legend>
+          <label className="radio">
+            <input type="radio" name="quote-how" checked={how === "ship"} onChange={() => setHow("ship")} />
+            Ship it
+          </label>
+          <label className="radio">
+            <input type="radio" name="quote-how" checked={how === "pickup"} onChange={() => setHow("pickup")} />
+            Local pickup — Sheridan
+          </label>
+        </fieldset>
+        {how === "ship" ? (
+        <>
         <label>
           Packed weight, box included ({unit})
           <span style={{ display: "flex", gap: 6 }}>
@@ -233,8 +253,12 @@ export function PaymentQuotesPanel({
             <input type="number" min={0} step="0.1" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} />
           </label>
         </div>
+        </>
+        ) : (
+          <p className="note">No box is needed. They pick this up in Sheridan and shipping stays $0.</p>
+        )}
         <button className="btn btn-bronze" type="button" onClick={send} disabled={busy}>
-          {busy ? "Working…" : "Email payment link"}
+          {busy ? "Working…" : how === "pickup" ? "Email pickup link" : "Email payment link"}
         </button>
       </div>
       {note ? <p className={noteBad ? "err" : "ok"}>{note}</p> : null}
@@ -253,7 +277,10 @@ export function PaymentQuotesPanel({
             </p>
             {quote.detail ? <p style={{ whiteSpace: "pre-wrap" }}>{quote.detail}</p> : null}
             <p className="muted">
-              {quote.lengthIn} × {quote.widthIn} × {quote.heightIn} in · {weightLabel(quote.weightOz)} ·{" "}
+              {quote.fulfillment === "pickup"
+                ? "Local pickup — Sheridan"
+                : `${quote.lengthIn} × ${quote.widthIn} × ${quote.heightIn} in · ${weightLabel(quote.weightOz)}`}
+              {" · "}
               {orderWhen(quote.createdAt)} · {statusLabel(quote)}
             </p>
             <button type="button" onClick={() => copyLink(quote)} disabled={busy}>

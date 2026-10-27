@@ -20,6 +20,13 @@ function linkFor(quote: PaymentQuote): string {
   return paymentLinkUrl(paymentLinkOrigin(), quote.id, quote.token);
 }
 
+function saveFailed(error: string, fallback: string): string {
+  if (/suspended/i.test(error)) {
+    return "The shop's file storage is paused because the Hobby Blob limit was used up. Nothing was saved and nothing was emailed. Upgrade the Vercel team to Pro, or wait 30 days, then try again.";
+  }
+  return fallback;
+}
+
 async function emailQuote(quote: PaymentQuote): Promise<{ ok: true } | { ok: false; error: string }> {
   return sendPaymentQuoteEmail({
     to: quote.email,
@@ -28,6 +35,7 @@ async function emailQuote(quote: PaymentQuote): Promise<{ ok: true } | { ok: fal
     detail: quote.detail,
     amountLabel: formatUsd(quote.amountCents),
     url: linkFor(quote),
+    fulfillment: quote.fulfillment === "pickup" ? "pickup" : "ship",
   });
 }
 
@@ -65,7 +73,9 @@ async function updateExisting(store: ShopStore, body: { id?: unknown; void?: unk
     }
     quote.status = "void";
     const saved = await writeStore(store);
-    if (!saved.ok) return NextResponse.json({ error: "Could not save the cancel." }, { status: 500 });
+    if (!saved.ok) {
+      return NextResponse.json({ error: saveFailed(saved.error, "Could not save the cancel.") }, { status: 500 });
+    }
     return NextResponse.json({ ok: true, quote });
   }
 
@@ -91,6 +101,7 @@ async function updateExisting(store: ShopStore, body: { id?: unknown; void?: unk
 }
 
 async function createQuote(store: ShopStore, body: Record<string, unknown>) {
+  const fulfillment = body.fulfillment === "pickup" ? "pickup" : "ship";
   const draft = {
     email: cleanStr(body.email).slice(0, 200),
     title: cleanStr(body.title).slice(0, 200),
@@ -99,6 +110,7 @@ async function createQuote(store: ShopStore, body: Record<string, unknown>) {
     lengthIn: Number(body.lengthIn),
     widthIn: Number(body.widthIn),
     heightIn: Number(body.heightIn),
+    fulfillment,
   };
   const problem = paymentQuoteDraftError(draft);
   if (problem) return NextResponse.json({ error: problem }, { status: 400 });
@@ -115,6 +127,7 @@ async function createQuote(store: ShopStore, body: Record<string, unknown>) {
     lengthIn: draft.lengthIn,
     widthIn: draft.widthIn,
     heightIn: draft.heightIn,
+    fulfillment,
     status: "open",
     createdAt: new Date().toISOString(),
     emailedAt: "",
@@ -126,7 +139,10 @@ async function createQuote(store: ShopStore, body: Record<string, unknown>) {
   store.paymentQuotes = [quote, ...(store.paymentQuotes || [])].slice(0, 200);
   const saved = await writeStore(store);
   if (!saved.ok) {
-    return NextResponse.json({ error: "Could not save the quote. Nothing was emailed." }, { status: 500 });
+    return NextResponse.json(
+      { error: saveFailed(saved.error, "Could not save the quote. Nothing was emailed.") },
+      { status: 500 },
+    );
   }
 
   const sent = await emailQuote(quote);
