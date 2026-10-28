@@ -8,9 +8,20 @@ export const runtime = "nodejs";
 async function maybeUpload(file: File | null): Promise<string> {
   if (!file || !file.size) return "";
   if (file.size > 8_000_000) return "";
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "photo.jpg";
+  try {
+    const { r2Configured, r2PutBytes, mediaObjectKey } = await import("@/lib/r2");
+    if (r2Configured()) {
+      const key = mediaObjectKey("quotes", safe);
+      const buf = Buffer.from(await file.arrayBuffer());
+      const put = await r2PutBytes(key, buf, file.type || "application/octet-stream");
+      if (put.ok) return safeUrl(put.url);
+    }
+  } catch {
+    /* try Blob */
+  }
   try {
     const { put } = await import("@vercel/blob");
-    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "photo.jpg";
     const blob = await put(`bhcw/quotes/${Date.now()}-${safe}`, file, {
       access: "public",
       addRandomSuffix: true,
