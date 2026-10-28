@@ -32,7 +32,6 @@ import type {
 import { GalleryTab } from "@/components/GalleryTab";
 import { OrderHistoryTab } from "@/components/OrderHistoryTab";
 import { LabelBuy } from "@/components/LabelBuy";
-import { PaperPrint } from "@/components/PaperPrint";
 import { ReceiptComposer } from "@/components/ReceiptComposer";
 import { mergeInboxFromServer, orderFulfillment, orderPhone, orderWhen } from "@/lib/order-history";
 import { MediaField } from "@/components/MediaField";
@@ -171,9 +170,9 @@ export function MasterClient() {
           const b = json.blob;
           setBlobNote(
             b.error
-              ? "Blob check failed: " + b.error
+              ? "Storage check failed: " + b.error
               : b.readOk
-                ? "Blob reachable" + (b.found ? ", store file found." : ", no store file yet.")
+                ? "Storage reachable" + (b.found ? ", store file found." : ", no store file yet.")
                 : "",
           );
         }
@@ -337,7 +336,35 @@ export function MasterClient() {
     const fallbackName = kind === "video" ? "clip.mp4" : kind === "download" ? "file.zip" : "photo.jpg";
     const folder = kind === "download" ? "downloads" : kind + "s";
     const pathname = "bhcw/" + folder + "/" + safeUploadName(file.name, fallbackName);
-    const contentType = kind === "download" ? downloadContentType(file.name) : file.type || undefined;
+    const contentType =
+      kind === "download" ? downloadContentType(file.name) : file.type || "application/octet-stream";
+
+    // Prefer Cloudflare R2 presigned PUT when the API offers it.
+    try {
+      const pre = await fetch("/api/blob-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "presign",
+          kind,
+          filename: file.name || fallbackName,
+          contentType,
+          size: file.size,
+        }),
+      });
+      const pj = await pre.json().catch(() => ({}));
+      if (pre.ok && pj.uploadUrl && pj.publicUrl) {
+        const put = await fetch(pj.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: file,
+        });
+        if (put.ok) return pj.publicUrl as string;
+      }
+    } catch {
+      /* try Blob next */
+    }
+
     try {
       const { upload } = await import("@vercel/blob/client");
       const blob = await upload(pathname, file, {
@@ -662,7 +689,7 @@ export function MasterClient() {
                 setOpenId(null);
               }}
             >
-              Custom size &amp; rate
+              Custom size & rate
             </button>
           </div>
           {signsPanel === "premade" ? (
@@ -947,7 +974,7 @@ export function MasterClient() {
         <div>
           <p className="note">
             Archive hides an order or message from this inbox. Order history can search it and open it here again so
-            you can buy a label, print the receipt and packing slip, mark it shipped, or email the receipt.
+            you can buy a label, mark it shipped, or send the receipt.
           </p>
           <PaymentQuotesPanel
             quotes={store.paymentQuotes || []}
@@ -2509,7 +2536,6 @@ function OrderRow({
           if (fields.trackingCarrier) setCarrier(fields.trackingCarrier);
         }}
       />
-      <PaperPrint order={order} />
       <p className="muted">
         {order.sessionId.startsWith("cs_test_")
           ? "TEST checkout — no real card was charged. "
