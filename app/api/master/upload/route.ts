@@ -74,9 +74,24 @@ export async function POST(req: Request) {
     kind === "video" ? "clip.mp4" : kind === "download" ? "file.zip" : "photo.jpg",
   )}`;
 
+  const folder = kind === "download" ? "downloads" : `${kind}s`;
+  try {
+    const { r2Configured, r2PutBytes, mediaObjectKey } = await import("@/lib/r2");
+    if (r2Configured()) {
+      const key = mediaObjectKey(folder, filename);
+      const buf = Buffer.from(await file.arrayBuffer());
+      const put = await r2PutBytes(key, buf, file.type || "application/octet-stream");
+      if (put.ok) {
+        const url = safeUrl(put.url);
+        if (url) return NextResponse.json({ url });
+      }
+    }
+  } catch {
+    /* try Blob next */
+  }
+
   try {
     const { put } = await import("@vercel/blob");
-    const folder = kind === "download" ? "downloads" : `${kind}s`;
     const blob = await put(`bhcw/${folder}/${filename}`, file, {
       access: "public",
       addRandomSuffix: true,
