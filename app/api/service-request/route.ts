@@ -23,6 +23,16 @@ function fileName(name: string): string {
 
 async function storePhoto(file: File, bytes: Buffer): Promise<string> {
   try {
+    const { r2Configured, r2PutBytes, mediaObjectKey } = await import("@/lib/r2");
+    if (r2Configured()) {
+      const key = mediaObjectKey("services", fileName(file.name));
+      const put = await r2PutBytes(key, bytes, file.type || "application/octet-stream");
+      if (put.ok) return safeUrl(put.url);
+    }
+  } catch {
+    /* try Blob */
+  }
+  try {
     const { put } = await import("@vercel/blob");
     const blob = await put(`bhcw/services/${Date.now()}-${fileName(file.name)}`, bytes, {
       access: "public",
