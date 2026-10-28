@@ -68,7 +68,7 @@ function blobPath(): string {
   return "bhcw/store-" + tag + ".json";
 }
 
-type Cache = { data: ShopStore; at: number; uploadedAt?: string };
+type Cache = { data: ShopStore; at: number };
 const g = globalThis as typeof globalThis & { __bhcwCache?: Cache };
 
 /**
@@ -80,8 +80,19 @@ function blobConfigured(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+function r2Ready(): boolean {
+  // Lazy import avoided: env-only check mirrors lib/r2.ts r2Configured().
+  return Boolean(
+    process.env.R2_ACCOUNT_ID &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY &&
+      process.env.R2_BUCKET &&
+      process.env.R2_PUBLIC_BASE_URL,
+  );
+}
+
 export function storageIsDurable(): boolean {
-  return blobConfigured() || !process.env.VERCEL;
+  return r2Ready() || blobConfigured() || !process.env.VERCEL;
 }
 
 function normalizeVariant(raw: unknown, i: number): ProductVariant {
@@ -626,53 +637,63 @@ async function writeLocal(store: ShopStore): Promise<void> {
   await writeFile(LOCAL_PATH, JSON.stringify(store, null, 2), "utf8");
 }
 
-function blobStamp(value: unknown): string {
-  if (value instanceof Date) return value.toISOString();
-  return cleanStr(value);
-}
-
-/** Metadata lookup. Listing the store is an advanced Blob operation, so avoid it. */
-async function readBlobAt(pathname: string): Promise<{ store: ShopStore; uploadedAt: string } | null> {
-  const { head } = await import("@vercel/blob");
-  let meta: { url?: string; uploadedAt?: unknown } | null = null;
+async function readR2(): Promise<ShopStore | null> {
+  if (!r2Ready()) return null;
   try {
-    meta = await head(pathname);
+    const { r2GetText, storeObjectKey } = await import("./r2");
+    const key = storeObjectKey(cleanStr(process.env.MASTER_SESSION_SECRET));
+    const text = (await r2GetText(key)) || (await r2GetText(LEGACY_BLOB_PATH));
+    if (!text) return null;
+    return normalizeStore(JSON.parse(text));
   } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (/suspended/i.test(message)) throw err;
-    const { list } = await import("@vercel/blob");
-    const listed = await list({ prefix: pathname });
-    const hit = listed.blobs.find((blob) => blob.pathname === pathname);
-    meta = hit ? { url: hit.url, uploadedAt: hit.uploadedAt } : null;
+    console.error("r2 store read failed:", err);
+    return null;
   }
-  if (!meta?.url) return null;
-  const uploadedAt = blobStamp(meta.uploadedAt);
-  const cached = g.__bhcwCache;
-  if (cached && uploadedAt && cached.uploadedAt === uploadedAt) {
-    return { store: cached.data, uploadedAt };
-  }
-  const res = await fetch(meta.url, { cache: "no-store" });
-  if (!res.ok) return null;
-  return { store: normalizeStore(await res.json()), uploadedAt };
 }
 
-async function readBlob(): Promise<{ store: ShopStore; uploadedAt: string } | null> {
-  if (!blobConfigured()) return null;
-  // Current name first, then the old predictable one, so a store written
-  // before this change still loads and gets migrated on the next save.
-  for (const pathname of [blobPath(), LEGACY_BLOB_PATH]) {
-    try {
-      const hit = await readBlobAt(pathname);
-      if (hit) return hit;
-    } catch {
-      /* try the other name */
+async function writeR2(store: ShopStore): Promise<{ ok: boolean; error: string }> {
+  if (!r2Ready()) return { ok: false, error: "R2 is not configured." };
+  try {
+    const { r2PutText, r2Delete, storeObjectKey } = await import("./r2");
+    const safe = {
+      ...store,
+      settings: { ...store.settings, stripeSecretKey: "" },
+    };
+    const key = storeObjectKey(cleanStr(process.env.MASTER_SESSION_SECRET));
+    const put = await r2PutText(key, JSON.stringify(safe), "application/json");
+    if (!put.ok) return put;
+    if (key !== LEGACY_BLOB_PATH) {
+      await r2Delete(LEGACY_BLOB_PATH);
     }
+    return { ok: true, error: "" };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "R2 write failed.";
+    console.error("r2 store write failed:", error);
+    return { ok: false, error };
   }
-  return null;
 }
 
-async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string; uploadedAt: string }> {
-  if (!blobConfigured()) return { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set.", uploadedAt: "" };
+async function readBlob(): Promise<ShopStore | null> {
+  if (!blobConfigured()) return null;
+  try {
+    const { list } = await import("@vercel/blob");
+    const candidates = [blobPath(), LEGACY_BLOB_PATH];
+    for (const pathname of candidates) {
+      const listed = await list({ prefix: pathname });
+      const hit = listed.blobs.find((b) => b.pathname === pathname);
+      if (!hit?.url) continue;
+      const res = await fetch(hit.url, { cache: "no-store" });
+      if (!res.ok) continue;
+      return normalizeStore(await res.json());
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string }> {
+  if (!blobConfigured()) return { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
   try {
     const { put } = await import("@vercel/blob");
     const safe = {
@@ -687,11 +708,6 @@ async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string
       contentType: "application/json",
       cacheControlMaxAge: 60,
     });
-    // Once the data is safely at the unguessable name, remove the old copy so
-    // customer records stop sitting at a URL anyone could guess.
-    // Attempted on every save rather than once per process: a once-only flag
-    // silently skips the cleanup if the legacy file shows up later, and admin
-    // saves are rare enough that the extra call costs nothing.
     if (pathname !== LEGACY_BLOB_PATH) {
       try {
         const { del } = await import("@vercel/blob");
@@ -700,39 +716,60 @@ async function writeBlob(store: ShopStore): Promise<{ ok: boolean; error: string
         /* it usually just does not exist */
       }
     }
-    return { ok: true, error: "", uploadedAt: "" };
+    return { ok: true, error: "" };
   } catch (err) {
-    // Swallowing this made a broken Blob store look identical to a missing
-    // one. The reason matters: bad token, wrong store, rejected option.
     const error = err instanceof Error ? err.message : "Blob write failed.";
     console.error("blob write failed:", error);
-    return { ok: false, error, uploadedAt: "" };
+    return { ok: false, error };
   }
 }
 
 /**
- * Read-only probe so Master Control can say whether the token actually works,
- * rather than only reporting whether it exists.
+ * Read-only probe so Master Control can say whether durable storage works.
  */
 export async function blobDiagnostics(): Promise<{
   tokenPresent: boolean;
   readOk: boolean;
   found: boolean;
   error: string;
+  backend: string;
 }> {
+  if (r2Ready()) {
+    try {
+      const { r2HeadExists, storeObjectKey } = await import("./r2");
+      const key = storeObjectKey(cleanStr(process.env.MASTER_SESSION_SECRET));
+      const found = (await r2HeadExists(key)) || (await r2HeadExists(LEGACY_BLOB_PATH));
+      return { tokenPresent: true, readOk: true, found, error: "", backend: "r2" };
+    } catch (err) {
+      return {
+        tokenPresent: true,
+        readOk: false,
+        found: false,
+        error: err instanceof Error ? err.message : "R2 check failed.",
+        backend: "r2",
+      };
+    }
+  }
   const tokenPresent = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
   if (!tokenPresent) {
-    return { tokenPresent, readOk: false, found: false, error: "BLOB_READ_WRITE_TOKEN is not set." };
+    return {
+      tokenPresent,
+      readOk: false,
+      found: false,
+      error: "Set R2_* env (preferred) or BLOB_READ_WRITE_TOKEN.",
+      backend: "none",
+    };
   }
   try {
-    const { head } = await import("@vercel/blob");
+    const { list } = await import("@vercel/blob");
     const pathname = blobPath();
-    const meta = await head(pathname);
+    const listed = await list({ prefix: pathname });
     return {
       tokenPresent,
       readOk: true,
-      found: Boolean(meta?.url),
+      found: listed.blobs.some((b) => b.pathname === pathname),
       error: "",
+      backend: "blob",
     };
   } catch (err) {
     return {
@@ -740,6 +777,7 @@ export async function blobDiagnostics(): Promise<{
       readOk: false,
       found: false,
       error: err instanceof Error ? err.message : "Blob list failed.",
+      backend: "blob",
     };
   }
 }
@@ -748,17 +786,16 @@ export async function readStore(): Promise<ShopStore> {
   const cached = g.__bhcwCache;
   if (cached && Date.now() - cached.at < 4000) return cached.data;
 
-  const hit = await readBlob();
-  const fromBlob = hit?.store ?? null;
-  const fromLocal = fromBlob ? null : await readLocal();
-  const data = fromBlob || fromLocal || seedStore();
+  const fromR2 = await readR2();
+  const fromBlob = fromR2 ? null : await readBlob();
+  const fromLocal = fromR2 || fromBlob ? null : await readLocal();
+  const data = fromR2 || fromBlob || fromLocal || seedStore();
   const healedGallery = healSampleGallery(data.gallery || []);
   const needsHeal =
     JSON.stringify(healedGallery) !== JSON.stringify(data.gallery || []);
   const finalStore = needsHeal ? { ...data, gallery: healedGallery } : data;
-  g.__bhcwCache = { data: finalStore, at: Date.now(), uploadedAt: hit?.uploadedAt || "" };
-  if (needsHeal && blobConfigured()) {
-    // Fire-and-forget durable repair so the next cold start already has 10 samples.
+  g.__bhcwCache = { data: finalStore, at: Date.now() };
+  if (needsHeal && storageIsDurable()) {
     void writeStore(finalStore);
   }
   return finalStore;
@@ -768,18 +805,26 @@ export async function writeStore(
   next: ShopStore,
 ): Promise<{ ok: boolean; persisted: string; error: string }> {
   const store = normalizeStore({ ...next, updatedAt: new Date().toISOString() });
-  g.__bhcwCache = { data: store, at: Date.now(), uploadedAt: "" };
+  g.__bhcwCache = { data: store, at: Date.now() };
+
+  if (r2Ready()) {
+    const r2 = await writeR2(store);
+    if (r2.ok) return { ok: true, persisted: "r2", error: "" };
+    console.error("store write R2 failed:", r2.error);
+    // Fall through to Blob only if still configured (migration window).
+  }
 
   const blob = await writeBlob(store);
   if (blob.ok) return { ok: true, persisted: "blob", error: "" };
 
   try {
     await writeLocal(store);
-    // On Vercel this file is ephemeral. Report it as a failure so callers
-    // surface it, rather than pretending the write stuck.
     if (process.env.VERCEL) {
-      console.error("store write is NOT durable:", blob.error);
-      return { ok: false, persisted: "ephemeral", error: blob.error };
+      const err = r2Ready()
+        ? "R2 write failed and Blob unavailable."
+        : blob.error;
+      console.error("store write is NOT durable:", err);
+      return { ok: false, persisted: "ephemeral", error: err };
     }
     return { ok: true, persisted: "file", error: "" };
   } catch {
@@ -787,7 +832,6 @@ export async function writeStore(
   }
 }
 
-/** Public pages must not receive the purchased file links. */
 export function withoutDownloadUrls(product: Product): Product {
   if (!product.digitalFileUrls?.length) return product;
   return { ...product, digitalFileUrls: [] };
@@ -944,8 +988,10 @@ export function stripeKeyMode(store: ShopStore): "test" | "live" | "" {
 }
 
 export function persistenceLabel(): string {
+  if (r2Ready()) return "Cloudflare R2 (durable)";
   if (process.env.BLOB_READ_WRITE_TOKEN) return "Vercel Blob (durable)";
-  if (process.env.VERCEL)
-    return "NOT DURABLE â€” set BLOB_READ_WRITE_TOKEN (connect a Vercel Blob store) or orders and edits are lost";
+  if (process.env.VERCEL) {
+    return "NOT DURABLE — set R2_* env (or BLOB_READ_WRITE_TOKEN) or orders and edits are lost";
+  }
   return "Local data/store.json";
 }
