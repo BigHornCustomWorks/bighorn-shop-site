@@ -69,7 +69,7 @@ function blobPath(): string {
 }
 
 type Cache = { data: ShopStore; at: number };
-const g = globalThis as typeof globalThis & { __bhcwCache?: Cache };
+const g = globalThis as typeof globalThis & { __bhcwCache?: Cache; __bhcwReadError?: string };
 
 /**
  * Vercel Blob needs a real token. Being on Vercel is not enough: without the
@@ -637,17 +637,24 @@ async function writeLocal(store: ShopStore): Promise<void> {
   await writeFile(LOCAL_PATH, JSON.stringify(store, null, 2), "utf8");
 }
 
-async function readR2(): Promise<ShopStore | null> {
-  if (!r2Ready()) return null;
+/**
+ * A durable read either finds the store, finds nothing (a genuinely new
+ * bucket), or fails. "Failed" must never be treated as "nothing": that is how
+ * an outage or a paused Blob store turns into a storefront with no products.
+ */
+type DurableRead = { store: ShopStore | null; error: string };
+
+async function readR2(): Promise<DurableRead> {
+  if (!r2Ready()) return { store: null, error: "" };
   try {
-    const { r2GetText, storeObjectKey } = await import("./r2");
+    const { r2GetTextStrict, storeObjectKey } = await import("./r2");
     const key = storeObjectKey(cleanStr(process.env.MASTER_SESSION_SECRET));
-    const text = (await r2GetText(key)) || (await r2GetText(LEGACY_BLOB_PATH));
-    if (!text) return null;
-    return normalizeStore(JSON.parse(text));
+    const text = (await r2GetTextStrict(key)) || (await r2GetTextStrict(LEGACY_BLOB_PATH));
+    if (!text) return { store: null, error: "" };
+    return { store: normalizeStore(JSON.parse(text)), error: "" };
   } catch (err) {
     console.error("r2 store read failed:", err);
-    return null;
+    return { store: null, error: err instanceof Error ? err.message : "R2 read failed." };
   }
 }
 
@@ -673,8 +680,8 @@ async function writeR2(store: ShopStore): Promise<{ ok: boolean; error: string }
   }
 }
 
-async function readBlob(): Promise<ShopStore | null> {
-  if (!blobConfigured()) return null;
+async function readBlob(): Promise<DurableRead> {
+  if (!blobConfigured()) return { store: null, error: "" };
   try {
     const { list } = await import("@vercel/blob");
     const candidates = [blobPath(), LEGACY_BLOB_PATH];
@@ -683,12 +690,13 @@ async function readBlob(): Promise<ShopStore | null> {
       const hit = listed.blobs.find((b) => b.pathname === pathname);
       if (!hit?.url) continue;
       const res = await fetch(hit.url, { cache: "no-store" });
-      if (!res.ok) continue;
-      return normalizeStore(await res.json());
+      if (!res.ok) throw new Error(`Blob fetch returned HTTP ${res.status}.`);
+      return { store: normalizeStore(await res.json()), error: "" };
     }
-    return null;
-  } catch {
-    return null;
+    return { store: null, error: "" };
+  } catch (err) {
+    console.error("blob store read failed:", err);
+    return { store: null, error: err instanceof Error ? err.message : "Blob read failed." };
   }
 }
 
@@ -782,20 +790,39 @@ export async function blobDiagnostics(): Promise<{
   }
 }
 
+/** Why the last read fell back to default copy, or "" when storage read fine. */
+export function storeReadError(): string {
+  return g.__bhcwReadError || "";
+}
+
 export async function readStore(): Promise<ShopStore> {
   const cached = g.__bhcwCache;
   if (cached && Date.now() - cached.at < 4000) return cached.data;
 
-  const fromR2 = await readR2();
-  const fromBlob = fromR2 ? null : await readBlob();
-  const fromLocal = fromR2 || fromBlob ? null : await readLocal();
-  const data = fromR2 || fromBlob || fromLocal || seedStore();
+  const r2 = await readR2();
+  const blob = r2.store ? { store: null, error: "" } : await readBlob();
+  const durable = r2.store || blob.store;
+  // Durable storage is set up but could not be read: show the fallback so the
+  // storefront still loads, but remember it so nothing writes it back over the
+  // real store (products, sign categories, orders) once storage recovers.
+  const readError = durable ? "" : r2.error || blob.error;
+  g.__bhcwReadError = readError;
+  const fromLocal = durable ? null : await readLocal();
+  const data = durable || fromLocal || seedStore();
+
+  // Moving to R2: the bucket is empty but Blob still has the real store, so
+  // copy it across once instead of starting R2 from the seed.
+  if (!r2.store && !r2.error && r2Ready() && blob.store) {
+    const copied = await writeR2(blob.store);
+    if (!copied.ok) console.error("copy store from Blob to R2 failed:", copied.error);
+  }
+
   const healedGallery = healSampleGallery(data.gallery || []);
   const needsHeal =
     JSON.stringify(healedGallery) !== JSON.stringify(data.gallery || []);
   const finalStore = needsHeal ? { ...data, gallery: healedGallery } : data;
   g.__bhcwCache = { data: finalStore, at: Date.now() };
-  if (needsHeal && storageIsDurable()) {
+  if (needsHeal && durable && storageIsDurable()) {
     void writeStore(finalStore);
   }
   return finalStore;
@@ -804,6 +831,14 @@ export async function readStore(): Promise<ShopStore> {
 export async function writeStore(
   next: ShopStore,
 ): Promise<{ ok: boolean; persisted: string; error: string }> {
+  if (g.__bhcwReadError) {
+    const error =
+      "Saved data could not be loaded (" +
+      g.__bhcwReadError +
+      "), so this change was not saved to avoid overwriting your products and orders. Check the storage connection and try again.";
+    console.error("store write refused:", error);
+    return { ok: false, persisted: "refused", error };
+  }
   const store = normalizeStore({ ...next, updatedAt: new Date().toISOString() });
   g.__bhcwCache = { data: store, at: Date.now() };
 
