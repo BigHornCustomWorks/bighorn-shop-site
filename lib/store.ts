@@ -797,7 +797,7 @@ export function storeReadError(): string {
 
 export async function readStore(): Promise<ShopStore> {
   const cached = g.__bhcwCache;
-  if (cached && Date.now() - cached.at < 4000) return cached.data;
+  if (cached && Date.now() - cached.at < 60000) return cached.data;
 
   const r2 = await readR2();
   const blob = r2.store ? { store: null, error: "" } : await readBlob();
