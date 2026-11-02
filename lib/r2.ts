@@ -63,6 +63,25 @@ export async function r2GetText(key: string): Promise<string | null> {
   }
 }
 
+/**
+ * Like r2GetText, but tells "the object is not there" (null) apart from
+ * "R2 could not be reached" (throws), so callers never mistake an outage for
+ * an empty bucket.
+ */
+export async function r2GetTextStrict(key: string): Promise<string | null> {
+  if (!r2Configured()) return null;
+  const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = await s3();
+  try {
+    const out = await client.send(new GetObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key }));
+    return out.Body ? await out.Body.transformToString() : null;
+  } catch (err: unknown) {
+    const name = err && typeof err === "object" && "name" in err ? String((err as { name: string }).name) : "";
+    if (name === "NoSuchKey" || name === "NotFound") return null;
+    throw err;
+  }
+}
+
 export async function r2PutText(
   key: string,
   text: string,

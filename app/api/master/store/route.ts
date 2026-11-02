@@ -6,6 +6,7 @@ import {
   publicStore,
   readStore,
   storageIsDurable,
+  storeReadError,
   stripeKeyMode,
   writeStore,
 } from "@/lib/store";
@@ -87,6 +88,7 @@ export async function GET() {
     persistence: persistenceLabel(),
     storageDurable: storageIsDurable(),
     blob: await blobDiagnostics(),
+    storeReadError: storeReadError(),
     stripeKeyMode: stripeKeyMode(store),
     envStripe: Boolean(process.env.STRIPE_SECRET_KEY),
     envResend: Boolean(process.env.RESEND_API_KEY),

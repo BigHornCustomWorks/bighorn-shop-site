@@ -169,7 +169,11 @@ export function MasterClient() {
         if (json.blob) {
           const b = json.blob;
           setBlobNote(
-            b.error
+            json.storeReadError
+              ? "Saved products and orders could not be loaded (" +
+                  json.storeReadError +
+                  "). You are seeing default copy, and saving is blocked so it cannot overwrite them."
+              : b.error
               ? "Storage check failed: " + b.error
               : b.readOk
                 ? "Storage reachable" + (b.found ? ", store file found." : ", no store file yet.")
