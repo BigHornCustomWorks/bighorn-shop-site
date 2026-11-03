@@ -13,7 +13,7 @@ import {
   zip5,
   type Parcel,
 } from "@/lib/shipping";
-import { estimateSign } from "@/lib/sign-price";
+import { asInch, estimateSign, signShippingCents } from "@/lib/sign-price";
 import { readStore } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -22,7 +22,9 @@ export const runtime = "nodejs";
  * Live USPS/UPS rates for the cart or a custom sign, via Shippo.
  *
  * Body: { items: [...] } for the cart, { sign: { widthIn, heightIn } } for the
- * sign estimator, or { paymentQuote: { id, token } } for a quote Clint sent.
+ * sign estimator, { signShip: { widthIn, heightIn } } for the sign shipping
+ * calculator (any made sign, no price or size limits from the estimator), or
+ * { paymentQuote: { id, token } } for a quote Clint sent.
  * A payment quote uses the box saved with that quote. Plus an optional
  * { address: { zip, street1?, city?, state? } }.
  *
@@ -36,6 +38,8 @@ export const runtime = "nodejs";
  *   mode "ready" — live rates available, send an address
  *   mode "live"  — here are the rates
  */
+
+const SIGN_SHIP_MAX_IN = 120;
 
 // Light per-instance throttle: each lookup creates a Shippo shipment.
 const hits = new Map<string, number[]>();
@@ -55,7 +59,28 @@ export async function POST(req: Request) {
 
   let parcel: Parcel | null;
   let unmeasured: string[] = [];
-  if (body.paymentQuote) {
+  // Sign shipping calculator: also answers with the packed box and a flat
+  // fallback so the customer always sees a number, live rates or not.
+  let extra: Record<string, unknown> = {};
+  if (body.signShip) {
+    const w = asInch(body.signShip.widthIn);
+    const h = asInch(body.signShip.heightIn);
+    if (!(w >= 1 && h >= 1 && w <= SIGN_SHIP_MAX_IN && h <= SIGN_SHIP_MAX_IN)) {
+      return NextResponse.json(
+        { error: `Enter a width and height between 1 and ${SIGN_SHIP_MAX_IN} inches.` },
+        { status: 400 },
+      );
+    }
+    parcel = signParcel(store.metalSigns, w, h);
+    const sized = signShippingCents(store.metalSigns, w, h);
+    const flat = store.site.shippingOptions || [];
+    extra = {
+      parcel,
+      fallback: sized > 0
+        ? [{ label: "Standard shipping", amountCents: sized, minDays: 0, maxDays: 0 }]
+        : flat.map((o) => ({ label: o.label, amountCents: o.amountCents, minDays: o.minDays, maxDays: o.maxDays })),
+    };
+  } else if (body.paymentQuote) {
     const found = payableQuote(store.paymentQuotes || [], body.paymentQuote.id, body.paymentQuote.token);
     if (!found.ok) return NextResponse.json({ error: found.error }, { status: found.status });
     if (found.quote.fulfillment === "pickup") {
@@ -83,12 +108,12 @@ export async function POST(req: Request) {
   }
 
   const cfg = shippoConfig();
-  if (!cfg) return NextResponse.json({ mode: "flat", reason: "not_configured", pickup });
+  if (!cfg) return NextResponse.json({ mode: "flat", reason: "not_configured", pickup, ...extra });
   const from = shipFromAddress(store.settings);
-  if (!from) return NextResponse.json({ mode: "flat", reason: "no_ship_from", pickup });
-  if (!parcel) return NextResponse.json({ mode: "flat", reason: "missing_dimensions", pickup, unmeasured });
+  if (!from) return NextResponse.json({ mode: "flat", reason: "no_ship_from", pickup, ...extra });
+  if (!parcel) return NextResponse.json({ mode: "flat", reason: "missing_dimensions", pickup, unmeasured, ...extra });
 
-  if (!body.address) return NextResponse.json({ mode: "ready", pickup });
+  if (!body.address) return NextResponse.json({ mode: "ready", pickup, ...extra });
 
   const to = normalizeShipAddress(body.address);
   if (!zip5(to.zip)) {
@@ -99,15 +124,16 @@ export async function POST(req: Request) {
 
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "local";
   if (throttled(ip)) {
-    return NextResponse.json({ mode: "flat", reason: "busy", pickup });
+    return NextResponse.json({ mode: "flat", reason: "busy", pickup, ...extra });
   }
 
   try {
     const quote = await quoteRates(cfg, from.address, to, parcel);
     if (!quote.shipmentId || !quote.rates.length) {
-      return NextResponse.json({ mode: "flat", reason: "no_rates", pickup });
+      return NextResponse.json({ mode: "flat", reason: "no_rates", pickup, ...extra });
     }
     return NextResponse.json({
+      ...extra,
       mode: "live",
       pickup,
       shipmentId: quote.shipmentId,
@@ -122,6 +148,6 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("live rates failed:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ mode: "flat", reason: "api_error", pickup });
+    return NextResponse.json({ mode: "flat", reason: "api_error", pickup, ...extra });
   }
 }

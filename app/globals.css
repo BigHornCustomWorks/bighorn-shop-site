@@ -1276,6 +1276,7 @@ button.mc-stat { font: inherit; color: inherit; }
   color: #111;
   border-color: var(--spark);
 }
+.btn-spark:hover { background: var(--bronze-2); border-color: var(--bronze-2); color: #111; }
 .btn-outline-ink {
   border: 1px solid #111;
   background: #fff;
@@ -1590,4 +1591,33 @@ button.mc-stat { font: inherit; color: inherit; }
 }
 @media (max-width: 560px) {
   .gallery-grid { grid-template-columns: 1fr; }
+}
+
+/* Sign shipping calculator (/signs) */
+.ship-calc {
+  padding: 20px;
+  border: 2px solid var(--bronze);
+  background: #fff;
+}
+.ship-calc-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.ship-calc-result { margin-top: 16px; max-width: 560px; }
+.ship-calc-rates {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.ship-calc-rates li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.ship-calc-rates li:last-child { border-bottom: 0; }
+@media (max-width: 640px) {
+  .ship-calc-fields { grid-template-columns: 1fr; }
 }

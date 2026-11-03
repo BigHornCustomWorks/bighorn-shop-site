@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PickupBanner } from "@/components/PickupBanner";
 import { SignDesigns } from "@/components/SignDesigns";
+import { SignShippingCalculator } from "@/components/SignShippingCalculator";
 import { SignsCustom } from "@/components/SignsCustom";
 import { readStore, signCategoryDoors } from "@/lib/store";
 
@@ -25,6 +26,11 @@ export default async function SignsPage() {
       <p className="lede">{signs.lede}</p>
       <PickupBanner enabled={pickupOn} label={store.site.pickupLabel} />
       {signs.note ? <p className="note">{signs.note}</p> : null}
+      <p>
+        <a className="btn btn-ghost" href="#shipping-calculator">
+          Sign shipping calculator ↓
+        </a>
+      </p>
 
       <section style={{ marginTop: 28 }}>
         <p className="section-kicker">Cut to order</p>
@@ -55,6 +61,11 @@ export default async function SignsPage() {
           </div>
         )}
       </section>
+
+      <SignShippingCalculator
+        pickupEnabled={pickupOn}
+        pickupLabel={store.site.pickupLabel || "Local pickup — Sheridan, WY"}
+      />
 
       <SignDesigns designs={signs.designs || []} />
 

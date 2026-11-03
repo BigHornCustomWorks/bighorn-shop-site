@@ -33,6 +33,11 @@ export default async function SignCategoryPage({
         finish listed.
       </p>
       <PickupBanner enabled={pickupOn} label={store.site.pickupLabel} />
+      <p>
+        <Link className="btn btn-ghost" href="/signs#shipping-calculator">
+          Estimate shipping for a sign →
+        </Link>
+      </p>
       <CatalogShelf entries={shelfEntries(group.products)} />
     </div>
   );
