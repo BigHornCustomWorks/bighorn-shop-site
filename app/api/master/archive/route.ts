@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const id = cleanStr(body.id).slice(0, 80);
   if (!id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const archivedAt = body.archived === true ? new Date().toISOString() : "";
   const updated = applyStamp(store, body.kind, id, archivedAt);
   if (!updated) return NextResponse.json({ error: "That was not found." }, { status: 404 });

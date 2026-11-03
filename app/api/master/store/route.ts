@@ -75,7 +75,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   if (!(await isMaster())) return NextResponse.json({ error: "auth" }, { status: 401 });
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   return NextResponse.json({
     store: {
       ...store,
@@ -104,7 +104,7 @@ export async function PUT(req: Request) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Bad JSON." }, { status: 400 });
   }
-  const current = await readStore();
+  const current = await readStore({ fresh: true });
   const incoming = body.store && typeof body.store === "object" ? body.store : body;
   const nextKey =
     incoming.settings && typeof incoming.settings.stripeSecretKey === "string"

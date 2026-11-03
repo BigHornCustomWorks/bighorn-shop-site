@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const business = brand === "repair" ? "Repair Status" : "Big Horn Custom Works";
   if (!orderId) return NextResponse.json({ error: "Pick an order first." }, { status: 400 });
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const order = store.orders.find((row) => row.id === orderId);
   if (!order) return NextResponse.json({ error: "That order is not in the list." }, { status: 404 });
 

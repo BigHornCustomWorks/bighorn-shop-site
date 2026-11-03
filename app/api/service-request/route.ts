@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       photoUrls,
     };
 
-    const store = await readStore();
+    const store = await readStore({ fresh: true });
     quote.emailed = await sendShopMail({
       to: store.site.contactEmail,
       replyTo: email,

@@ -795,9 +795,16 @@ export function storeReadError(): string {
   return g.__bhcwReadError || "";
 }
 
-export async function readStore(): Promise<ShopStore> {
+/**
+ * Page views may use a copy up to 60 s old to save storage reads. Anything
+ * that reads in order to write (orders, quotes, Master Control saves) must pass
+ * { fresh: true }: Vercel runs several instances, and a stale copy written back
+ * would erase whatever another instance saved in the meantime, such as a new
+ * order arriving while Master Control is saving.
+ */
+export async function readStore(opts: { fresh?: boolean } = {}): Promise<ShopStore> {
   const cached = g.__bhcwCache;
-  if (cached && Date.now() - cached.at < 60000) return cached.data;
+  if (!opts.fresh && cached && Date.now() - cached.at < 60000) return cached.data;
 
   const r2 = await readR2();
   const blob = r2.store ? { store: null, error: "" } : await readBlob();

@@ -37,7 +37,7 @@ function labelFields(label: LabelResult): Partial<ShopOrder> {
 
 /** Re-read the store right before writing so we only touch this one order. */
 async function patchOrder(orderId: string, fields: Partial<ShopOrder>) {
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const order = store.orders.find((o) => o.id === orderId);
   if (!order) return { ok: false, order: null };
   Object.assign(order, fields);
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "SHIPPO_API_KEY is not set, so labels cannot be bought here." }, { status: 400 });
   }
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const from = shipFromAddress(store.settings);
   if (!from) {
     return NextResponse.json({ error: "Add the ship-from address in Settings first." }, { status: 400 });

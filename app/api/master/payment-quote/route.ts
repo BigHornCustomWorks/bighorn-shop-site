@@ -40,7 +40,7 @@ async function emailQuote(quote: PaymentQuote): Promise<{ ok: true } | { ok: fal
 }
 
 async function saveEmailed(id: string): Promise<PaymentQuote | null> {
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const row = (store.paymentQuotes || []).find((quote) => quote.id === id);
   if (!row) return null;
   row.emailedAt = new Date().toISOString();
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Bad JSON." }, { status: 400 });
   }
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   if (body.void === true || body.resend === true) {
     return updateExisting(store, body);
   }
