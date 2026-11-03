@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       sampleUrl,
     };
 
-    const store = await readStore();
+    const store = await readStore({ fresh: true });
     const emailed = await sendQuoteEmail(quote, store.site.contactEmail);
     quote.emailed = emailed;
 

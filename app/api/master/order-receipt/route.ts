@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   const orderId = cleanStr(new URL(req.url).searchParams.get("orderId"));
   if (!orderId) return NextResponse.json({ error: "Pick an order first." }, { status: 400 });
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const order = store.orders.find((row) => row.id === orderId);
   if (!order) return NextResponse.json({ error: "That order is not in the list." }, { status: 404 });
   if (!order.email.trim()) {
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   const orderId = cleanStr(body.orderId);
   if (!orderId) return NextResponse.json({ error: "Pick an order first." }, { status: 400 });
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const order = store.orders.find((row) => row.id === orderId);
   if (!order) return NextResponse.json({ error: "That order is not in the list." }, { status: 404 });
   if (!order.email.trim()) {

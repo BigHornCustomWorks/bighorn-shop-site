@@ -35,7 +35,7 @@ async function deliverDigitalDownload(opts: {
   hold?: boolean;
 }) {
   if (!opts.downloads.length) return;
-  const claimed = await readStore();
+  const claimed = await readStore({ fresh: true });
   const row = claimed.orders.find((o) => o.id === opts.orderId);
   if (!row || row.digitalEmailed) return;
   if (!opts.hold) {
@@ -60,7 +60,7 @@ async function deliverDigitalDownload(opts: {
     console.error("digital delivery", err instanceof Error ? err.message : err);
   }
 
-  const after = await readStore();
+  const after = await readStore({ fresh: true });
   const saved = after.orders.find((o) => o.id === opts.orderId);
   if (!saved) return;
   saved.digitalEmailed = ok;
@@ -76,7 +76,7 @@ function addressLines(addr?: Stripe.Address | null): string {
 }
 
 export async function POST(req: Request) {
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const stripe = stripeClient(store);
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!stripe || !secret) return NextResponse.json({ received: true });
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       // order row FIRST so a retry sees it and stops, instead of sending a
       // second copy of the same order to the shop inbox. A missed download
       // email can still go out once; a finished one is not sent again.
-      const latest = await readStore();
+      const latest = await readStore({ fresh: true });
       const stockNote = meta.items || "";
       const itemSlugs = stockNote
         .split(",")
@@ -283,7 +283,7 @@ export async function POST(req: Request) {
       });
 
       if (emailed) {
-        const after = await readStore();
+        const after = await readStore({ fresh: true });
         const row = after.orders.find((o) => o.id === orderId);
         if (row && !row.emailed) {
           row.emailed = true;

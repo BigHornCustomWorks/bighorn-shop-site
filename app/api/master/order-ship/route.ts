@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Pick an order and enter a tracking number." }, { status: 400 });
   }
 
-  const store = await readStore();
+  const store = await readStore({ fresh: true });
   const order = store.orders.find((o) => o.id === orderId);
   if (!order) return NextResponse.json({ error: "That order is not in the list." }, { status: 404 });
 
