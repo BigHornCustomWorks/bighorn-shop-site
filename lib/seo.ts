@@ -142,9 +142,10 @@ export function localBusinessJsonLd(site: { companyName: string; legalName: stri
       name: "Sheridan",
       containedInPlace: { "@type": "State", name: "Wyoming" },
     },
+    // Home-based shop: no street address on purpose (service-area business).
+    // The pickup address is sent to customers after they book or pay.
     address: {
       "@type": "PostalAddress",
-      streetAddress: "1205 Lilac Ct",
       addressLocality: "Sheridan",
       addressRegion: "WY",
       postalCode: "82801",
