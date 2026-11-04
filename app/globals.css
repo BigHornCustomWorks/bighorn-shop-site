@@ -1621,3 +1621,35 @@ button.mc-stat { font: inherit; color: inherit; }
 @media (max-width: 640px) {
   .ship-calc-fields { grid-template-columns: 1fr; }
 }
+
+/* Services submenu in the header nav */
+.nav-group { position: relative; display: inline-flex; }
+.nav-sub {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: -12px;
+  z-index: 20;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  min-width: 190px;
+  background: #fffdf8;
+  border: 1px solid var(--rule);
+}
+.nav-sub::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
+.nav-group:hover .nav-sub,
+.nav-group:focus-within .nav-sub { display: flex; }
+@media (max-width: 860px) {
+  .nav-group { display: flex; flex-direction: column; gap: 8px; }
+  .nav-sub {
+    display: flex;
+    position: static;
+    margin: 0;
+    padding: 0 0 0 12px;
+    min-width: 0;
+    background: none;
+    border: 0;
+  }
+}

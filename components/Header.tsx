@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "./CartProvider";
+import { SERVICE_PAGES } from "@/lib/seo";
 import type { SiteCopy } from "@/lib/types";
 
 export function Header({ site }: { site: SiteCopy }) {
@@ -13,7 +14,7 @@ export function Header({ site }: { site: SiteCopy }) {
     <header className="site-header">
       <div className="header-inner">
         <Link href="/" className="brand" onClick={() => setOpen(false)}>
-          <img src={site.logoUrl || "/logo.png"} alt="" width={64} height={64} />
+          <img src={site.logoUrl || "/logo.png"} alt={`${site.companyName} logo`} width={64} height={64} />
           <span>
             <span className="brand-name">{site.companyName}</span>
             <span className="brand-sub">{site.location}</span>
@@ -26,7 +27,16 @@ export function Header({ site }: { site: SiteCopy }) {
           <Link href="/signs">Signs</Link>
           <Link href="/physical">Physical</Link>
           <Link href="/digital">Digital</Link>
-          <Link href="/services">Services</Link>
+          <span className="nav-group">
+            <Link href="/services">Services</Link>
+            <span className="nav-sub">
+              {SERVICE_PAGES.map((s) => (
+                <Link key={s.slug} href={`/services/${s.slug}`}>
+                  {s.nav}
+                </Link>
+              ))}
+            </span>
+          </span>
           <Link href="/gallery">Gallery</Link>
           <Link href="/custom">Custom</Link>
           <Link href="/about">About</Link>

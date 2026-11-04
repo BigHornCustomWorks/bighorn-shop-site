@@ -1,9 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PickupBanner } from "@/components/PickupBanner";
 import { SignDesigns } from "@/components/SignDesigns";
 import { SignShippingCalculator } from "@/components/SignShippingCalculator";
 import { SignsCustom } from "@/components/SignsCustom";
+import { pageMeta } from "@/lib/seo";
 import { readStore, signCategoryDoors } from "@/lib/store";
+
+export async function generateMetadata(): Promise<Metadata> {
+  let image: string | undefined;
+  try {
+    const store = await readStore();
+    image = (store.metalSigns.media || []).find((src) => src && !/\.(mp4|webm|mov)(\?|$)/i.test(src));
+  } catch {
+    /* default image */
+  }
+  return pageMeta({
+    title: "Custom Metal Signs in Sheridan, WY | Big Horn Custom Works",
+    description:
+      "Shop custom CNC plasma-cut metal signs cut to order in Sheridan, WY. Pick a design, size and finish, then ship it or pick it up free at the shop.",
+    path: "/signs",
+    image: image || "/gallery/gallery-cta-hero.jpg",
+    imageAlt: "CNC plasma-cut metal signs from Big Horn Custom Works",
+  });
+}
 
 export default async function SignsPage() {
   const store = await readStore();
@@ -43,7 +63,7 @@ export default async function SignsPage() {
           <div className="cat-doors">
             {doors.map((d) => (
               <Link key={d.slug} className="cat-door" href={`/signs/${d.slug}`}>
-                <img className="bg" src={d.photo} alt="" />
+                <img className="bg" src={d.photo} alt={`${d.name} metal signs`} />
                 <div className="shade" />
                 <div className="content">
                   <span className="badge">

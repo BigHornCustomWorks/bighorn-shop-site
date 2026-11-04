@@ -4,25 +4,26 @@ import { CartProvider } from "@/components/CartProvider";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { VisitBeacon } from "@/components/VisitBeacon";
+import { pageMeta, SITE_URL } from "@/lib/seo";
 import { readStore } from "@/lib/store";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const store = await readStore();
-    return {
-      title: {
-        default: `${store.site.companyName} · Sheridan, WY`,
-        template: `%s · ${store.site.companyName}`,
-      },
-      description: `${store.site.taglineLine1} ${store.site.taglineLine2} ${store.site.taglineLine3}`,
-    };
-  } catch {
-    return { title: "Big Horn Custom Works" };
-  }
-}
+// Site-wide defaults. Every public page sets its own title, description,
+// canonical, Open Graph and Twitter tags through pageMeta() in lib/seo.ts.
+export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
+  ...pageMeta({
+    title: "Custom Metal Fabrication & Repair in Sheridan, WY | Big Horn Custom Works",
+    description:
+      "Custom metal fabrication, welding, repair, plasma-cut signs, 3D printing and mill & lathe parts from Big Horn Custom Works in Sheridan, WY.",
+    path: "/",
+  }),
+  // The layout must not hand its canonical to child pages that forget one.
+  alternates: undefined,
+  title: { default: "Big Horn Custom Works · Sheridan, WY", template: "%s | Big Horn Custom Works" },
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let site;

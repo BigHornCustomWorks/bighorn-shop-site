@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { physicalCategoryDoors, readStore } from "@/lib/store";
 import { isVideoSrc } from "@/lib/video";
+import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
+
+export const metadata: Metadata = pageMeta({
+  title: "Mill Parts & Fab Goods, Sheridan, WY | Big Horn Custom Works",
+  description:
+    "Mill accessories, way covers, T-slot covers, 3D-printed parts and other shop-made goods from Big Horn Custom Works in Sheridan, WY. Ships or local pickup.",
+  path: "/physical",
+});
 
 export default async function PhysicalPage() {
   const store = await readStore();
@@ -16,7 +25,7 @@ export default async function PhysicalPage() {
         </Link>
       </p>
       <p className="section-kicker">Physical products</p>
-      <h1>Pick a line</h1>
+      <h1>Parts &amp; fab goods from Sheridan, Wyoming</h1>
       <p className="lede">
         Mill accessories, dogs, and other shop goods are in their own rooms — not one mixed pile. Metal signs live on
         the Signs page.
@@ -26,7 +35,7 @@ export default async function PhysicalPage() {
         <div className="cat-doors">
           {doors.map((d) => (
             <Link key={d.slug} className="cat-door" href={`/physical/${d.slug}`}>
-              <img className="bg" src={d.photo} alt="" />
+              <img className="bg" src={d.photo} alt={`${d.name} from Big Horn Custom Works`} />
               <div className="shade" />
               <div className="content">
                 <span className="badge">
@@ -44,7 +53,7 @@ export default async function PhysicalPage() {
 
       <Link className="gallery-cta signs-cta physical-signs-cta" href="/signs">
         <div className="gallery-cta-media">
-          <img src={signPhoto} alt="" />
+          <img src={signPhoto} alt="CNC plasma-cut metal signs" />
         </div>
         <div className="gallery-cta-panel">
           <span className="badge">Metal signs</span>
