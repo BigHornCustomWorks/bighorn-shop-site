@@ -136,7 +136,7 @@ export function localBusinessJsonLd(site: { companyName: string; legalName: stri
     image: absoluteUrl(DEFAULT_OG_IMAGE),
     email: site.contactEmail || undefined,
     description:
-      "Custom metal fabrication, welding, repair, CNC plasma-cut signs, 3D printing, and mill and lathe parts in Sheridan, Wyoming.",
+      "Custom metal fabrication, welding, repair, CNC plasma-cut signs, 3D printing, and mill and lathe parts in Sheridan, Wyoming. Visits by appointment only.",
     areaServed: {
       "@type": "City",
       name: "Sheridan",
@@ -151,14 +151,8 @@ export function localBusinessJsonLd(site: { companyName: string; legalName: stri
       addressCountry: "US",
     },
     telephone: "+1-307-223-7181",
-    openingHoursSpecification: [
-      {
-        "@type": "OpeningHoursSpecification",
-        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        opens: "10:00",
-        closes: "17:00",
-      },
-    ],
+    // No openingHoursSpecification on purpose: the shop is at Clint's home and
+    // visits are by appointment only, so no walk-in hours are published.
     sameAs: site.linkedinUrl ? [site.linkedinUrl] : undefined,
     hasOfferCatalog: {
       "@type": "OfferCatalog",
