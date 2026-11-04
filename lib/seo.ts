@@ -142,17 +142,15 @@ export function localBusinessJsonLd(site: { companyName: string; legalName: stri
       name: "Sheridan",
       containedInPlace: { "@type": "State", name: "Wyoming" },
     },
-    // TODO(Clint): add the real shop address before launch, then uncomment.
-    // address: {
-    //   "@type": "PostalAddress",
-    //   streetAddress: "TODO street address",
-    //   addressLocality: "Sheridan",
-    //   addressRegion: "WY",
-    //   postalCode: "TODO ZIP",
-    //   addressCountry: "US",
-    // },
-    // TODO(Clint): add the real shop phone number, then uncomment.
-    // telephone: "TODO +1-307-XXX-XXXX",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "1205 Lilac Ct",
+      addressLocality: "Sheridan",
+      addressRegion: "WY",
+      postalCode: "82801",
+      addressCountry: "US",
+    },
+    telephone: "+1-307-223-7181",
     // TODO(Clint): add real opening hours, then uncomment.
     // openingHoursSpecification: [
     //   { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "TODO", closes: "TODO" },
