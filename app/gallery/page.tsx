@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { readStore } from "@/lib/store";
+import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
+
+export const metadata: Metadata = pageMeta({
+  title: "Metal Sign Gallery, Sheridan, WY | Big Horn Custom Works",
+  description:
+    "Photos of custom CNC plasma-cut metal signs on homes, ranches and businesses, built by Big Horn Custom Works in Sheridan, WY. Request a quote for yours.",
+  path: "/gallery",
+});
 
 export default async function GalleryPage() {
   const store = await readStore();
@@ -9,7 +18,7 @@ export default async function GalleryPage() {
     <div className="wrap gallery-page">
       <p className="back-row"><Link className="back-link" href="/">Home</Link></p>
       <p className="section-kicker">Photo gallery</p>
-      <h1>Work in the wild</h1>
+      <h1>Metal sign gallery: work in the wild</h1>
       <p className="lede">CNC signs on homes and businesses. Not a catalog.</p>
       {sections.map((section) => (
         <section key={section.id} className="gallery-section">

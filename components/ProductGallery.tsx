@@ -31,7 +31,7 @@ export function ProductGallery({
   return (
     <div className="gallery">
       {slide?.type === "photo" ? (
-        <img src={slide.src} alt={name} />
+        <img src={slide.src} alt={slides.length > 1 ? `${name} — photo ${current + 1}` : name} />
       ) : slide?.type === "video" && slide.media.kind === "file" ? (
         <video src={slide.media.embedUrl} controls playsInline poster={firstPhoto({ media }) || undefined}>
           Demo video
@@ -63,7 +63,7 @@ export function ProductGallery({
               aria-label={item.type === "video" ? `Video ${i + 1}` : `Photo ${i + 1}`}
             >
               {item.type === "photo" ? (
-                <img src={item.src} alt="" />
+                <img src={item.src} alt={`${name} — photo ${i + 1}`} />
               ) : (
                 <span className="thumb-video">▶</span>
               )}

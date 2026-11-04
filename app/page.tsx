@@ -1,8 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HeroMedia } from "@/components/HeroMedia";
 import { readStore } from "@/lib/store";
 import { repairStatusPublicUrl, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
 import { safeUrl } from "@/lib/sanitize";
+import { jsonLd, localBusinessJsonLd, pageMeta } from "@/lib/seo";
+
+export const metadata: Metadata = pageMeta({
+  title: "Custom Metal Fabrication & Repair in Sheridan, WY | Big Horn Custom Works",
+  description:
+    "Custom metal fabrication, welding and repair in Sheridan, WY — plasma-cut signs, 3D printing, and mill & lathe parts built by Big Horn Custom Works.",
+  path: "/",
+});
 
 export default async function HomePage() {
   const store = await readStore();
@@ -18,6 +27,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(localBusinessJsonLd(site)) }} />
       <HeroMedia photo={site.heroUrl || "/hero.jpg"} video={site.heroVideoUrl || ""} />
       <div className="tagline-bar">
         <p className="tagline-line">
@@ -30,6 +40,7 @@ export default async function HomePage() {
       <div className="wrap">
         <div className="intro">
           <p className="section-kicker">Who we are</p>
+          <h1>Custom fabrication, welding &amp; repair in Sheridan, Wyoming</h1>
           <p className="lede">
             Clint Stussi’s Sheridan shop — custom design, fabrication, and the software local businesses need on the
             floor.
@@ -62,7 +73,7 @@ export default async function HomePage() {
               <p className="gate-title-sub">Software and file downloads</p>
             </div>
             <Link className="gate digital" href="/digital">
-              <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="" />
+              <img className="bg gate-logo-bg" src="/products/repair-status-thumb-dark.png" alt="Repair Status shop software" />
               <div className="shade" />
               <div className="content">
                 <span className="badge">Digital</span>
@@ -80,7 +91,7 @@ export default async function HomePage() {
               <p className="gate-title-sub">Mill accessories &amp; fab goods</p>
             </div>
             <Link className="gate" href="/physical">
-              <img className="bg" src={physicalPhoto} alt="" />
+              <img className="bg" src={physicalPhoto} alt="Mill accessories and fabricated parts made in Sheridan, Wyoming" />
               <div className="shade" />
               <div className="content">
                 <span className="badge">Shop floor</span>

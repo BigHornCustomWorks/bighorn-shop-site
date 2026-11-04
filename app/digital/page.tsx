@@ -3,6 +3,15 @@ import { ProductCard } from "@/components/ProductCard";
 import { digitalSection } from "@/lib/digital-sections";
 import { readStore, visibleProducts } from "@/lib/store";
 import type { Product } from "@/lib/types";
+import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
+
+export const metadata: Metadata = pageMeta({
+  title: "Software & STL Files, Sheridan, WY | Big Horn Custom Works",
+  description:
+    "Shop software and downloadable STL and design files from Big Horn Custom Works in Sheridan, WY. Files are emailed after payment — nothing ships.",
+  path: "/digital",
+});
 
 function DigitalGroup({
   kicker,
@@ -51,7 +60,7 @@ export default async function DigitalPage() {
         </Link>
       </p>
       <p className="section-kicker">Digital products</p>
-      <h1>Software and files</h1>
+      <h1>Shop software and STL files</h1>
       <p className="lede">
         Programs are in one section. STL files and other downloads are in the other. Repair Status is not sold in this
         shop.

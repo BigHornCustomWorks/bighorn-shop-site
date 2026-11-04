@@ -1,9 +1,40 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BuyBox } from "@/components/BuyBox";
 import { ProductGallery } from "@/components/ProductGallery";
 import { isRepairStatusProduct, REPAIR_STATUS_INFO_URL } from "@/lib/repair-status";
+import { clip, pageMeta, withBrand } from "@/lib/seo";
 import { categorySlug, productBySlug, readStore } from "@/lib/store";
+import { firstPhoto } from "@/lib/video";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const store = await readStore();
+    const product = productBySlug(store, slug);
+    if (product) {
+      const kind = product.kind === "sign" ? "metal sign" : product.kind === "digital" ? "digital download" : "part";
+      const tail = ` A ${kind} from Big Horn Custom Works in Sheridan, WY.`;
+      const body = clip(product.description, Math.max(60, 158 - tail.length));
+      return pageMeta({
+        title: withBrand(`${product.name}, Sheridan, WY`),
+        description: body ? `${body}${tail}` : `${product.name}.${tail}`,
+        // Canonical uses the product's real slug, so odd-cased or aliased URLs collapse to one.
+        path: `/shop/${product.slug}`,
+        image: firstPhoto(product) || undefined,
+        imageAlt: product.name,
+      });
+    }
+  } catch {
+    /* fall through */
+  }
+  return pageMeta({
+    title: "Shop | Big Horn Custom Works, Sheridan, WY",
+    description: "Parts, metal signs and files from Big Horn Custom Works in Sheridan, WY.",
+    path: `/shop/${slug}`,
+  });
+}
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ServiceRequestForm } from "@/components/ServiceRequestForm";
 import { readStore } from "@/lib/store";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Services" };
+export const metadata: Metadata = pageMeta({
+  title: "Fabrication Services, Sheridan, WY | Big Horn Custom Works",
+  description:
+    "Custom fabrication, welding, repair, replacement parts, plasma-cut signs, 3D printing and mill & lathe work in Sheridan, WY from Big Horn Custom Works.",
+  path: "/services",
+});
 
 export default async function ServicesPage() {
   const store = await readStore();

@@ -15,7 +15,7 @@ export function ProductCard({ product, showOptions = false }: { product: Product
   const card = (
     <>
       <div className="product-card-media">
-        <img src={photo} alt="" />
+        <img src={photo} alt={product.name} />
         {(product.videos || []).length ? <span className="badge-media">Video</span> : null}
         {/coming soon/i.test(product.priceLabel || "") ? <span className="badge-media">Coming soon</span> : null}
       </div>

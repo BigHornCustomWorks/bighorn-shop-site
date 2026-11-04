@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 const KEY = "bhcw-hero-played";
+const HERO_ALT = "Big Horn Custom Works logo drawn in CAD and cut in steel, with a welder throwing sparks in the Sheridan, Wyoming shop";
 
 export function HeroMedia({ photo, video }: { photo: string; video: string }) {
   const still = photo || "/hero.jpg";
@@ -44,9 +45,10 @@ export function HeroMedia({ photo, video }: { photo: string; video: string }) {
           playsInline
           onEnded={done}
           onError={done}
+          aria-label={HERO_ALT}
         />
       ) : (
-        <img className="hero-photo" src={still} alt="" />
+        <img className="hero-photo" src={still} alt={HERO_ALT} />
       )}
     </section>
   );
