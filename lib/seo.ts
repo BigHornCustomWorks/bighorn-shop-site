@@ -151,10 +151,14 @@ export function localBusinessJsonLd(site: { companyName: string; legalName: stri
       addressCountry: "US",
     },
     telephone: "+1-307-223-7181",
-    // TODO(Clint): add real opening hours, then uncomment.
-    // openingHoursSpecification: [
-    //   { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "TODO", closes: "TODO" },
-    // ],
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "10:00",
+        closes: "17:00",
+      },
+    ],
     sameAs: site.linkedinUrl ? [site.linkedinUrl] : undefined,
     hasOfferCatalog: {
       "@type": "OfferCatalog",
