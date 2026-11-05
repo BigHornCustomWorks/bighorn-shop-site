@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 
 /**
- * Public origin used for canonical links, Open Graph URLs, robots.txt and
- * sitemap.xml. Set NEXT_PUBLIC_SITE_URL to the live domain once it is
- * attached; until then it falls back to bighorncustomworks.com so canonicals
- * never point at a Vercel preview URL by accident.
+ * Public origin for every SEO URL: canonical links, Open Graph URLs, JSON-LD,
+ * robots.txt and sitemap.xml. Pinned on purpose. NEXT_PUBLIC_SITE_URL is set
+ * to a vercel.app address in the Vercel project and is still used for Stripe
+ * and email links, but search engines must only ever see the real domain.
  */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://bighorncustomworks.com")
-  .trim()
-  .replace(/\/$/, "");
+export const SITE_URL = "https://bighorncustomworks.com";
 
 export const BRAND = "Big Horn Custom Works";
 export const DEFAULT_OG_IMAGE = "/hero.jpg";
